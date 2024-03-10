@@ -1,0 +1,521 @@
+<!-- follow up promtps:
+how can we add a progress bar for calories
+how can we allow editing the serving sizes of the food items when pressed
+how can we allow deleting food items when pressed
+how can we add check boxes
+how can we save the database to local storage
+how can we make newly added fooditems appear on top
+how can we add a service worker
+how can we add spacing between suggestions
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<style>
+		:root {
+			--background: #111;
+			--text: #fff;
+			--button: #333;
+			--input: #555;
+		}
+		
+		body, button, input {
+			font-size: 24px; /* Set your desired font size here */
+			margin: 1%;
+			padding: 2%;
+			color: var(--text);
+			background-color: var(--background);
+		}
+			
+		.container {
+			border: 1px solid #543;
+		}
+		
+		.btn {
+			background-color: var(--button);
+			color: white;
+		}
+		
+		#scrollableWindow {
+			border: 5px solid #543;
+			overflow-y: auto; /* Enable vertical scrolling */
+		}
+		#scrollableWindow > div {
+			padding: 10px 0; /* Adjust the padding as needed */
+		}
+
+		
+		.grams {
+			width: 20%;
+		}
+		
+		.food {
+			width: 40%;
+		}
+		
+	.macro-container {
+		width: 60%;
+		}
+	.calorie-container {
+		}
+		
+	.small-text {
+	color: grey;
+    font-size: 0.6em; /* Adjust the size as needed */
+}
+
+	
+	.progress-bar {
+		  width: 100%;
+		  background-color: rgba(255, 255, 255, 0.2);
+		  overflow: hidden;
+		  float: center;
+		}
+
+	.progress {
+		  float: center;
+		  height: 50%;
+		  text-align: left;
+		  color: var(--text);
+		  background-color: #00bb00;
+		  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2) inset;
+		}
+
+
+	</style>
+</head>
+
+
+<body>
+    <div class="container">
+		<input type="file" id="csvFile" accept=".csv">
+
+	<div class="top container" style="display: flex;">
+		<div class="nutrition-progress-container container" style"flex: 2;">
+		  <div class="progress-bar">
+			<div class="progress" style="width: 30%;" data-goal="protein">Protein</div>
+		  </div>
+		  <div class="progress-bar">
+			<div class="progress" style="width: 50%;" data-goal="carbs">Carbohydrates</div>
+		  </div>
+		  <div class="progress-bar">
+			<div class="progress" style="width: 70%;" data-goal="fat">Fat</div>
+		  </div>
+		</div>
+		
+		<div class="calorie-container container" style="flex: 1;">
+		</div>
+		
+	</div>
+
+		<div>
+        <input type="text" class="food" placeholder="Food name...">
+		<input class="grams" type="text" placeholder="Grams">
+        <button class="btn" id="addBtn">Add</button>
+		</div>
+		<div id="autocompleteList"></div> <!-- This will be our autocomplete list -->
+        <div id="scrollableWindow">
+            <!-- Content goes here -->
+        </div>
+
+        <button class="btn">Set Times</button>
+        <button class="btn">Create Recipie</button>
+		<button class="btn" id="clearLocalStorage">Clear Local Storage</button>
+		<button class="btn" id="downloadCSV">Download Food Data</button>
+    </div>
+
+    <script>
+	
+	var scrollableWindow = document.getElementById('scrollableWindow');
+	var buttonHeight = document.getElementsByClassName('btn')[0].clientHeight * 4; // Height of two buttons
+	var viewportHeight = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
+	
+	scrollableWindow.style.height = (viewportHeight - buttonHeight - 48) + 'px';
+	
+	var foodInput = document.querySelector('.food');
+	var autocompleteList = document.getElementById('autocompleteList');
+	var foodList = []//['Apple', 'Banana', 'Bagel', 'Boiled egg', 'Cherry']; // Your predefined list of foods
+
+	// Add event listener to the input field
+	foodInput.addEventListener('input', function() {
+	  var userInput = this.value;
+	  
+	  if (userInput) {
+		// Filter foodList based on user's input and update autocomplete list
+		var filteredFoods = foodList.filter(function(food) {
+		  return food.toLowerCase().startsWith(userInput.toLowerCase());
+		});
+		
+		// Clear any existing items in the autocomplete list
+		while (autocompleteList.firstChild) {
+		  autocompleteList.removeChild(autocompleteList.firstChild);
+		}
+		
+		// Add new items to the autocomplete list for each matching food
+		filteredFoods.forEach(function(food) {
+		  var listItem = document.createElement('div');
+		  listItem.textContent = food;
+		  listItem.addEventListener('click', function() {
+			foodInput.value = this.textContent; // Set the input field's value to the clicked item's text
+			autocompleteList.innerHTML = ''; // Clear the autocomplete list
+		  });
+		  
+		  autocompleteList.appendChild(listItem);
+		});
+	  } else {
+		// If user has cleared input, clear the autocomplete list
+		autocompleteList.innerHTML = '';
+	  }
+	});
+		
+
+
+
+    // Function to handle file upload
+    function handleFileUpload(evt) {
+        const file = evt.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const csvData = e.target.result;
+            parseAndStoreCSV(csvData);
+        };
+        reader.readAsText(file);
+    }
+
+    // Function to parse and store CSV data in IndexedDB
+	function parseAndStoreCSV(csvData) {
+		const lines = csvData.split('\n');
+		const dbName = 'csvDB';
+		const storeName = 'csvStore';
+		alert('starting to delete old indexedDB')
+		// Delete the existing database if it exists
+		indexedDB.deleteDatabase(dbName).onsuccess = function() {
+			//
+			console.log("old indexedDB deleted")
+			alert('old indexedDB deleted');
+
+		
+			// Now open the database with version 1
+			const dbRequest = indexedDB.open(dbName, 1);
+			alert('new indexedDB made');
+			dbRequest.onupgradeneeded = function(event) {
+				const db = event.target.result;
+				// Create the object store
+				db.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
+			};
+			alert('upgrade checked')
+			dbRequest.onsuccess = function(event) {
+				const db = event.target.result;
+				alert('event target result')
+				const transaction = db.transaction([storeName], 'readwrite');
+				alert('transaction = db.transaction done')
+				const store = transaction.objectStore(storeName);
+				alert('store = transaction.objectStore(storeName)')
+				lines.forEach(function(line, index) {
+					const columns = line.split(',');
+					store.put({id: index, data: columns});
+					console.log('new line added')
+				});
+
+				transaction.oncomplete = function() {
+					db.close();
+					alert('CSV data stored in IndexedDB');
+				};
+			};
+		};
+	}
+
+
+
+    // Add event listener to the file input
+    document.getElementById('csvFile').addEventListener('change', handleFileUpload);
+
+// Define a headers dictionary
+const headers = {
+    name: 0,
+    foodGroup: 1,
+    calories: 2,
+    fat: 3,
+    protein: 4,
+    carbohydrate: 5,
+    sugars: 6,
+    fiber: 7,
+    netCarbs: 8,
+    servingWeight1: 9,
+    servingDescription1: 10
+};
+
+
+// Event listener for the "Add" button
+document.getElementById('addBtn').addEventListener('click', function() {
+    var foodName = document.querySelector('.food').value;
+    var grams = document.querySelector('.grams').value;
+
+    // Fetch or calculate the nutritional information
+    getNutritionalInfo(foodName, grams).then(function(nutritionalInfo) {
+        // Construct the JSON object
+        var foodItem = {
+            name: foodName,
+            grams: grams,
+            calories: nutritionalInfo.calories,
+            fat: nutritionalInfo.fat,
+            protein: nutritionalInfo.protein,
+            carbs: nutritionalInfo.carbs,
+            timeAdded: new Date().toISOString() // Assuming you want to store the current timestamp
+        };
+
+        // Convert the food item to a JSON string
+        var foodItemJson = JSON.stringify(foodItem);
+
+        // Get today's date in YYYY-MM-DD format
+        var today = new Date().toISOString().split('T')[0];
+
+        // Check if there's already data for today
+        var existingData = localStorage.getItem(today);
+        if (existingData) {
+            // If data exists, append the new item
+            var updatedData = JSON.parse(existingData);
+            updatedData.push(foodItem);
+            localStorage.setItem(today, JSON.stringify(updatedData));
+        } else {
+            // If no data exists for today, create a new array with the item
+            localStorage.setItem(today, JSON.stringify([foodItem]));
+        }
+        console.log('Food item added to localStorage');
+        console.log(foodItem);
+		// After adding the item to localStorage, fetch and display the updated list
+		var today = new Date().toISOString().split('T')[0];
+		var foodItems = JSON.parse(localStorage.getItem(today)) || [];
+		displayFoodItems(foodItems);
+    });
+	
+
+});
+
+
+// Function to initialize foodList from the database
+function initializeFoodList() {
+    const dbName = 'csvDB';
+    const storeName = 'csvStore';
+    const foodList = [];
+
+    const dbRequest = indexedDB.open(dbName, 1);
+
+    dbRequest.onsuccess = function(event) {
+        const db = event.target.result;
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.openCursor();
+
+        request.onsuccess = function(event) {
+            const cursor = event.target.result;
+            if (cursor) {
+                // Assuming the 'name' is the first element in the 'data' array
+                foodList.push(cursor.value.data[headers.name]);
+                cursor.continue();
+            } else {
+                // All records have been processed
+                // Now you can use foodList for autocomplete
+                setupAutocomplete(foodList);
+            }
+        };
+    };
+}
+
+// Function to set up autocomplete using the foodList
+function setupAutocomplete(foodList) {
+    var foodInput = document.querySelector('.food');
+    var autocompleteList = document.getElementById('autocompleteList');
+    var gramsInput = document.querySelector('.grams'); // Assuming this is the correct selector for the grams input field
+
+    foodInput.addEventListener('input', function() {
+        var userInput = this.value;
+
+        if (userInput) {
+            var filteredFoods = foodList.filter(function(food) {
+                return food.toLowerCase().startsWith(userInput.toLowerCase());
+            });
+
+            while (autocompleteList.firstChild) {
+                autocompleteList.removeChild(autocompleteList.firstChild);
+            }
+
+            filteredFoods.forEach(function(food) {
+                var listItem = document.createElement('div');
+                listItem.textContent = food;
+                listItem.addEventListener('click', function() {
+                    foodInput.value = this.textContent;
+                    autocompleteList.innerHTML = '';
+					
+					// Replace 'servingWeight1' with the key of the header you want to fetch
+					fetchValueForKey(this.textContent, 'servingWeight1', function(value) {
+							gramsInput.value = value; // Set the grams input field's value to the fetched value
+						});
+					});
+
+                autocompleteList.appendChild(listItem);
+            });
+        } else {
+            autocompleteList.innerHTML = '';
+        }
+    });
+}
+
+
+// Function to fetch a specific value for a given food item based on the header key
+function fetchValueForKey(foodName, headerKey, callback) {
+    const dbName = 'csvDB';
+    const storeName = 'csvStore';
+
+    const dbRequest = indexedDB.open(dbName, 1);
+
+    dbRequest.onsuccess = function(event) {
+        const db = event.target.result;
+        const transaction = db.transaction([storeName], 'readonly');
+        const store = transaction.objectStore(storeName);
+        const request = store.openCursor();
+
+        request.onsuccess = function(event) {
+            const cursor = event.target.result;
+            if (cursor) {
+                // Assuming the 'name' is the first element in the 'data' array
+                if (cursor.value.data[headers.name] === foodName) {
+                    // Found the food item, fetch the value for the specified header key
+                    const value = cursor.value.data[headers[headerKey]];
+                    callback(value);
+                    return;
+                }
+                cursor.continue();
+            }
+        };
+    };
+}
+
+function getNutritionalInfo(foodName, grams) {
+    // Placeholder for the nutritionalInfo object that will be populated
+    var nutritionalInfo = {
+        calories: 0,
+        fat: 0,
+        protein: 0,
+        carbs: 0
+    };
+
+    // Function to handle the callback from fetchValueForKey
+    function handleFetchedValue(headerKey, value) {
+        // Calculate the nutritional value based on grams
+        var calculatedValue = Math.round((grams / 100) * value);
+        // Update the nutritionalInfo object
+        switch (headerKey) {
+            case 'calories':
+                nutritionalInfo.calories = calculatedValue;
+                break;
+            case 'fat':
+                nutritionalInfo.fat = calculatedValue;
+                break;
+            case 'protein':
+                nutritionalInfo.protein = calculatedValue;
+                break;
+            case 'carbohydrate':
+                nutritionalInfo.carbs = calculatedValue;
+                break;
+            default:
+                console.error('Invalid header key:', headerKey);
+        }
+    }
+
+    // Create an array of Promises for each fetch operation
+    var fetchPromises = ['calories', 'fat', 'protein', 'carbohydrate'].map(function(headerKey) {
+        return new Promise(function(resolve, reject) {
+            fetchValueForKey(foodName, headerKey, function(value) {
+                handleFetchedValue(headerKey, value);
+                resolve();
+            });
+        });
+    });
+
+    // Return a Promise that resolves with the nutritionalInfo object once all fetch operations have completed
+    return Promise.all(fetchPromises).then(function() {
+        return nutritionalInfo;
+    });
+}
+
+
+// Select the "Clear Local Storage" button by its ID
+var clearLocalStorageButton = document.getElementById('clearLocalStorage');
+
+// Add an event listener to the button
+clearLocalStorageButton.addEventListener('click', function() {
+    // Clear the local storage
+    localStorage.clear();
+
+    // Optionally, provide feedback to the user
+    alert('Local Storage has been cleared.');
+
+    // Optionally, clear the displayed list in the scrollableWindow
+    document.getElementById('scrollableWindow').innerHTML = '';
+});
+
+
+// Call initializeFoodList to populate foodList from the database
+initializeFoodList();
+
+// Function to handle the "Download Food Data" button click
+function downloadFoodData() {
+	// Fetch the CSV file
+	fetch('assets/FoodData.csv')
+		.then(response => response.blob()) // Convert the response to a Blob
+		.then(blob => {
+			// Create a URL for the Blob
+			const url = URL.createObjectURL(blob);
+			// Create a download link
+			const link = document.createElement('a');
+			link.href = url;
+			link.download = 'FoodData.csv'; // Set the desired filename
+			// Append the link to the body (optional)
+			document.body.appendChild(link);
+			// Trigger the download
+			link.click();
+			// Remove the link from the body
+			document.body.removeChild(link);
+		})
+		.catch(error => console.error('Error downloading the file:', error));
+}
+
+// Add an event listener to the "Download Food Data" button
+document.getElementById('downloadCSV').addEventListener('click', downloadFoodData);
+
+
+
+function displayFoodItems(foodItems) {
+    var scrollableWindow = document.getElementById('scrollableWindow');
+    // Clear any existing content
+    scrollableWindow.innerHTML = '';
+
+    // Iterate over the food items and create list items
+    foodItems.forEach(function(item) {
+        var listItem = document.createElement('div');
+        // Use <br> for line breaks and wrap grams and calories in <span> for styling
+        listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protien ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
+        scrollableWindow.appendChild(listItem);
+    });
+}
+
+
+//You should place the document.addEventListener('DOMContentLoaded', function() { ... }) 
+//block at the end of your <script> tag, right before the closing script tag.
+// This ensures that the entire DOM is fully loaded before your JavaScript code attempts
+// to access or modify any DOM elements. 
+document.addEventListener('DOMContentLoaded', function() {
+    var today = new Date().toISOString().split('T')[0];
+    var foodItems = JSON.parse(localStorage.getItem(today)) || [];
+    displayFoodItems(foodItems);
+});
+
+
+		
+		
+    </script>
+</body>
+</html>

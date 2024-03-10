@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<style>
+		:root {
+			--background: #111;
+			--text: #fff;
+			--button: #333;
+			--input: #555;
+		}
+		
+		body, button, input {
+			font-size: 24px;
+			margin: 3%;
+			padding: 3%;
+			color: var(--text);
+			background-color: var(--background);
+		}
+			
+		.container {
+			border: 1px solid #543;
+		}
+		
+		.btn {
+			background-color: var(--button);
+			color: white;
+		}
+		
+		#scrollableWindow {
+			border: 5px solid #543;
+		}
+
+		
+		 /* Add this style */
+        .center-text {
+            text-align: center;
+        }
+	</style>
+	</style>
+</head>
+<body>
+    <div class="container">
+        <h1>RADIANT</h1>
+        <p class="center-text" id="date"></p>
+        <button class="btn">Nutrition 🍎</button>
+        <button class="btn">Exercise 🏋️‍♀️</button>
+        <button class="btn">Sleep 💤</button>
+        <button class="btn">Profile 👤</button>
+    </div>
+
+    <script>
+        var dateElement = document.getElementById('date');
+        var today = new Date();
+        dateElement.textContent = today.toDateString();
+		
+		
+		var nutritionButton = document.querySelector('.btn');
+		nutritionButton.addEventListener('click', function() {
+			window.location.href = 'nutrition.html'; // navigates to the 'nutrition.html' page
+		});
+
+		
+		function getVerseOfTheDay() {
+			const now = new Date();
+			const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+			return Math.floor((now - startOfToday) / (1000 * 60 * 60 * 24)) % bibleVerses.length;
+		}
+
+		const bibleVerses = [
+			'Romans 9:16-21',
+			'Isaiah 40:31',
+			'Psalm 18:34',
+			'Isaiah 40:30',
+			'Joshua 1:9',
+			'Philippians 4:11–13',
+			'2 Corinthians 12:9–10',
+			'Isaiah 40:29–31',
+			'Nehemiah 8:10',
+			'Proverbs 24:5',
+			'Ecclesiastes 9:11',
+			'Proverbs 21:31',
+			'Proverbs 17:1',
+			'Ecclesiastes 4:6',
+			'Psalm 127:2',
+			'Matthew 6:25',
+			'Nehemiah 2:18',
+			'1 Corinthians 6:19',
+			/* Additional verses go here */
+		];
+
+		let currentIndex = parseInt(localStorage.getItem("verse_of_the_day")) || getVerseOfTheDay();
+		localStorage.setItem("verse_of_the_day", currentIndex);
+
+		var dateElement = document.getElementById('date');
+		dateElement.textContent = bibleVerses[currentIndex];
+
+		var nutritionButton = document.querySelector('.btn');
+		nutritionButton.addEventListener('click', function () {
+			window.location.href = 'nutrition.html'; // navigates to the 'nutrition.html' page
+		});
+		
+    </script>
+</body>
+</html>
