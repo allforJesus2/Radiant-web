@@ -190,71 +190,64 @@ how can we add spacing between suggestions
         };
         reader.readAsText(file);
     }
-// Function to parse and store CSV data in IndexedDB
-function parseAndStoreCSV(csvData) {
-    console.log('parseAndStoreCSV called'); // Log to confirm function call
-    const lines = csvData.split('\n');
-    const dbName = 'csvDB';
-    const storeName = 'csvStore';
 
-    // Attempt to delete the existing database if it exists
-    // This step is commented out in your original code, but it's useful for debugging
-    // indexedDB.deleteDatabase(dbName).onsuccess = function() {
-    //     console.log("Old indexedDB deleted");
-    // };
+    // Function to parse and store CSV data in IndexedDB
+	function parseAndStoreCSV(csvData) {
+		const lines = csvData.split('\n');
+		const dbName = 'csvDB';
+		const storeName = 'csvStore';
+		//alert('starting to delete old indexedDB')
+		// Delete the existing database if it exists
+		//indexedDB.deleteDatabase(dbName).onsuccess = function() {
+			//
+			//console.log("old indexedDB deleted")
+			//alert('old indexedDB deleted');
 
-    // Open the database with version 1
-    const dbRequest = indexedDB.open(dbName, 1);
-    console.log('Database request made'); // Log to confirm database request
+		
+			// Now open the database with version 1
+			const dbRequest = indexedDB.open(dbName, 1);
+			alert('new indexedDB made');
+			dbRequest.onupgradeneeded = function(event) {
+				const db = event.target.result;
+				// Create the object store
+				db.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
+			};
+			alert('upgrade checked')
+			dbRequest.onsuccess = function(event) {
+				const db = event.target.result;
+				alert('event target result')
+				const transaction = db.transaction([storeName], 'readwrite');
+				alert('transaction = db.transaction done')
+				const store = transaction.objectStore(storeName);
+				alert('store = transaction.objectStore(storeName)')
+				lines.forEach(function(line, index) {
+					const columns = line.split(',');
+					store.put({id: index, data: columns});
+					console.log('new line added')
+				});
 
-    dbRequest.onupgradeneeded = function(event) {
-        console.log('onupgradeneeded triggered'); // Log to confirm upgrade needed
-        const db = event.target.result;
-        console.log('Database object:', db); // Log the database object
+				transaction.oncomplete = function() {
+					db.close();
+					alert('CSV data stored in IndexedDB');
+					initializeFoodList();
+				};
+				
+				// Add an onerror event listener to the transaction
+				transaction.onerror = function(event) {
+					// Log the error to the console
+					console.error('Transaction failed:', event.target.error);
+					// Optionally, alert the user about the error
+					alert('An error occurred while storing the CSV data in IndexedDB.');
+				};
+				
+			};
+		//};
+	}
 
-        // Create the object store
-        db.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
-        console.log('Object store created'); // Log to confirm object store creation
-    };
 
-    dbRequest.onsuccess = function(event) {
-        console.log('Database request successful'); // Log to confirm success
-        const db = event.target.result;
-        console.log('Database object:', db); // Log the database object
 
-        const transaction = db.transaction([storeName], 'readwrite');
-        console.log('Transaction started'); // Log to confirm transaction start
-
-        const store = transaction.objectStore(storeName);
-        console.log('Object store accessed'); // Log to confirm object store access
-
-        lines.forEach(function(line, index) {
-            const columns = line.split(',');
-            console.log('Storing line:', index, columns); // Log each line being stored
-            store.put({id: index, data: columns});
-        });
-
-        transaction.oncomplete = function() {
-            console.log('Transaction complete'); // Log to confirm transaction completion
-            db.close();
-            console.log('Database closed'); // Log to confirm database closure
-            alert('CSV data stored in IndexedDB');
-            initializeFoodList(); // Assuming this function is defined elsewhere
-        };
-
-        // Add an onerror event listener to the transaction
-        transaction.onerror = function(event) {
-            console.error('Transaction failed:', event.target.error); // Log the error
-            alert('An error occurred while storing the CSV data in IndexedDB.');
-        };
-    };
-
-    dbRequest.onerror = function(event) {
-        console.error('Database request failed:', event.target.error); // Log the error
-        alert('An error occurred while opening the IndexedDB.');
-    };
-}
-   document.getElementById('csvFile').addEventListener('change', handleFileUpload);
+    // Add event listener to the file input
+    document.getElementById('csvFile').addEventListener('change', handleFileUpload);
 
 // Define a headers dictionary
 const headers = {
@@ -324,21 +317,14 @@ document.getElementById('addBtn').addEventListener('click', function() {
         }
     });
 });
+
+// Function to initialize foodList from the database
 function initializeFoodList() {
     const dbName = 'csvDB';
     const storeName = 'csvStore';
     const foodList = [];
-	//db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
 
     const dbRequest = indexedDB.open(dbName, 1);
-
-    dbRequest.onupgradeneeded = function(event) {
-        const db = event.target.result;
-        if (!db.objectStoreNames.contains(storeName)) {
-            // Create the object store if it doesn't exist
-            db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
-        }
-    };
 
     dbRequest.onsuccess = function(event) {
         const db = event.target.result;
@@ -360,7 +346,6 @@ function initializeFoodList() {
         };
     };
 }
-
 
 // Function to set up autocomplete using the foodList
 function setupAutocomplete(foodList) {
