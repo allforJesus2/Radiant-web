@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Macros</title>
+
+</head>
+<body>
+    <h1>Set Your Daily Macros</h1>
+    <p>Total daily calories: <span id="dailyCalories">2000</span> calories</p>
+<p>Protein: <input type="range" min="0" max="100" value="0" id="proteinSlider" oninput="updateMacros()"><span id="proteinValue">0</span>g</p>
+<p>Carbs: <input type="range" min="0" max="100" value="0" id="carbsSlider" oninput="updateMacros()"><span id="carbsValue">0</span>g</p>
+<p>Fat: <input type="range" min="0" max="100" value="0" id="fatSlider" oninput="updateMacros()"><span id="fatValue">0</span>g</p>
+
+    <p>Total calories: <span id="totalCalories">0</span> calories</p>
+<button id="saveMacrosBtn">Save Macros</button>
+<button class="btn" onclick="window.location.href='set_time.html'">Set Daily Food Log Reset Time</button>
+
+
+
+
+<script>
+    // Retrieve profileStatistics from local storage
+    const profileStatistics = JSON.parse(localStorage.getItem('profileStatistics'));
+    let dailyCalories = 2000; // Default value in case profileStatistics is not found
+    let proteinMax, carbsMax, fatMax;
+
+    // Load saved macros from local storage
+    const savedMacros = JSON.parse(localStorage.getItem('macros'));
+
+    if (profileStatistics) {
+        // Extract daily caloric expenditure
+        dailyCalories = profileStatistics["Daily Caloric Expenditure"];
+
+        // Update the daily calories display
+        document.getElementById('dailyCalories').textContent = dailyCalories;
+
+        // Update the sliders' maximum values based on daily calories
+        proteinMax = dailyCalories;
+        carbsMax = dailyCalories;
+        fatMax = dailyCalories;
+
+        document.getElementById('proteinSlider').max = proteinMax;
+        document.getElementById('carbsSlider').max = carbsMax;
+        document.getElementById('fatSlider').max = fatMax;
+    } else {
+        console.error('profileStatistics not found in local storage');
+    }
+
+    // Set slider values based on saved macros
+    if (savedMacros) {
+        document.getElementById('proteinSlider').value = savedMacros.protein * 4;
+        document.getElementById('carbsSlider').value = savedMacros.carbs * 4;
+        document.getElementById('fatSlider').value = savedMacros.fat * 8;
+		
+		        // Update the span text to reflect the saved macros
+        document.getElementById('proteinValue').textContent = Math.round(savedMacros.protein) + "g";
+        document.getElementById('carbsValue').textContent = Math.round(savedMacros.carbs) + "g";
+        document.getElementById('fatValue').textContent = Math.round(savedMacros.fat) + "g";
+		
+		
+    }
+
+
+
+    function updateMacros() {
+        const proteinSlider = document.getElementById('proteinSlider');
+        const carbsSlider = document.getElementById('carbsSlider');
+        const fatSlider = document.getElementById('fatSlider');
+        const totalCaloriesSpan = document.getElementById('totalCalories');
+
+        // Calculate the actual grams for protein and carbs
+        const proteinValue = proteinSlider.value / 4;
+        const carbsValue = carbsSlider.value / 4;
+        const fatValue = fatSlider.value / 8;
+
+        // Update the text content of the <span> elements with the current values in grams
+        document.getElementById('proteinValue').textContent = Math.round(proteinValue) + "g";
+        document.getElementById('carbsValue').textContent = Math.round(carbsValue) + "g";
+        document.getElementById('fatValue').textContent = Math.round(fatValue) + "g";
+
+        // Calculate total calories
+        const totalCalories = parseInt(proteinValue * 4) + parseInt(carbsValue * 4) + parseInt(fatValue * 8);
+        totalCaloriesSpan.textContent = totalCalories + " calories";
+
+        // Adjust sliders to prevent exceeding daily calories
+        if (totalCalories > dailyCalories) {
+            const excess = totalCalories - dailyCalories;
+            if (proteinValue > excess / 4) {
+                // If protein is contributing to the excess, adjust carbs or fat
+                if (carbsValue > 0) {
+                    // Adjust carbs down
+                    carbsSlider.value = Math.max(0, Math.round((carbsValue - excess / 4) * 4));
+                } else {
+                    // If carbs is zero, adjust fat down
+                    fatSlider.value = Math.max(0, Math.round((fatValue - excess / 8) * 8));
+                }
+            }
+            updateMacros(); // Recursively adjust until within limits
+        }
+    }
+
+
+
+
+
+    function saveMacros() {
+        const proteinSlider = document.getElementById('proteinSlider');
+        const carbsSlider = document.getElementById('carbsSlider');
+        const fatSlider = document.getElementById('fatSlider');
+
+		// Round the values to the nearest whole number
+		const macros = {
+			protein: Math.round(proteinSlider.value / 4),
+			carbs: Math.round(carbsSlider.value / 4),
+			fat: Math.round(fatSlider.value / 8)
+		};
+
+        localStorage.setItem('macros', JSON.stringify(macros));
+        alert('Macros saved!');
+    }
+    document.getElementById('saveMacrosBtn').addEventListener('click', saveMacros);
+</script>
+
+
+
+
+
+
+</body>
+</html>

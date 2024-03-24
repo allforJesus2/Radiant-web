@@ -1,0 +1,49 @@
+
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Debug Page</title>
+	    <link rel="stylesheet" href="dark-theme.css">
+
+</head>
+<body>
+    <h1>Local Storage Contents:</h1>
+    <pre id="local-storage"></pre>
+
+    <h1>IndexedDB Stores:</h1>
+    <pre id="indexeddb-stores"></pre>
+
+    <script>
+        // Display local storage contents
+        const localStorageContents = JSON.stringify(localStorage, null, 2);
+        document.getElementById('local-storage').textContent = localStorageContents;
+
+        // Check for IndexedDB
+        if ('indexedDB' in window) {
+            const request = indexedDB.open('myDatabase');
+
+            request.onsuccess = (event) => {
+                const db = event.target.result;
+                const storeNames = db.objectStoreNames;
+                const storeInfo = [];
+
+                for (let i = 0; i < storeNames.length; i++) {
+                    const storeName = storeNames[i];
+                    const store = db.transaction(storeName).objectStore(storeName);
+                    storeInfo.push({ name: storeName, length: store.count() });
+                }
+
+                const indexedDBInfo = JSON.stringify(storeInfo, null, 2);
+                document.getElementById('indexeddb-stores').textContent = indexedDBInfo;
+            };
+
+            request.onerror = (event) => {
+                console.error('Error opening IndexedDB:', event.target.error);
+            };
+        } else {
+            document.getElementById('indexeddb-stores').textContent = 'IndexedDB is not supported in this browser.';
+        }
+    </script>
+</body>
+</html>

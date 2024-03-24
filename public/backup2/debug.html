@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug LocalStorage</title>
+</head>
+<body>
+    <h1>LocalStorage Contents:</h1>
+    <pre id="localStorageContents"></pre>
+
+    <script>
+        // Function to display localStorage contents
+        function displayLocalStorageContents() {
+            const localStorageContents = document.getElementById('localStorageContents');
+            let output = '';
+
+            // Iterate over all keys in localStorage
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                output += `${key}: ${value}\n`;
+            }
+
+            // Display the contents in the pre element
+            localStorageContents.textContent = output;
+        }
+
+        // Call the function to display the contents
+        displayLocalStorageContents();
+    </script>
+</body>
+</html>

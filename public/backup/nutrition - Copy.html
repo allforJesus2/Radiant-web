@@ -13,14 +13,142 @@ how can we add spacing between suggestions
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="dark-theme.css">
+	<style>
+		:root {
+			--background: #000;
+			--text: #fff;
+			--button: #333;
+			--input: #555;
+		}
+		
+
+		body, button, input {
+			font-size: 20px; /* Set your desired font size here */
+			color: var(--text);
+			background-color: var(--background);
+		}
+		
+		button 
+			{
+			margin: 1%
+			}
+			
+		.container {
+			width: 100%;
+		}
+		
+		.btn {
+			background-color: var(--button);
+			color: white;
+		}
+		
+		#scrollableWindow {
+			overflow-y: auto; /* Enable vertical scrolling */
+		}
+		
+		#scrollableWindow > div {
+			padding: 10px 0; /* Adjust the padding as needed */
+		}
+
+		
+		.grams {
+			width: 20%;
+		}
+		
+		.food {
+			width: 50%;
+		}
+		
+		
+	.small-text {
+	color: grey;
+    font-size: 0.6em; /* Adjust the size as needed */
+}
+
+	
+.nutrition-progress-container {
+    display: flex;
+    flex-direction: column; /* Stack the progress bars vertically */
+    flex-wrap: nowrap; /* Prevent wrapping to a new line */
+    width: 100%;
+    height: 130px; /* Fixed height in pixels */
+}
+
+
+.progress-bar {
+    float: center;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+
+    margin: 6px 0px; /* Reduced margin */
+    border-radius: 10px; /* Round the corners */
+}
+
+.progress {
+    float: center;
+    text-align: left;
+	font-size: 12px;
+	height: 5px;
+	margin: 7px; /* Reduced margin */
+
+    color: var(--text);
+    background-color: #55cc00;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2) inset;
+    border-radius: 20px; /* Ensure the progress bar itself also has rounded corners */
+}
+
+.progress-container {
+    display: flex;
+	
+    width: 100%; /* Ensure it takes the full width of the progress bar */
+}
+
+
+
+#autocompleteList > div {
+    border-bottom: 1px solid #222; /* Adjust the color and thickness as needed */
+
+    margin-bottom: 10px; /* Adjust the margin as needed */
+}
+.list-item {
+    position: relative; /* This makes the list item a positioning context for absolutely positioned children */
+}
+
+.delete-btn {
+    position: absolute;
+    right: 10px; /* Adjust as needed */
+    top: 50%;
+    transform: translateY(-50%); /* Center the button vertically */
+}
+
+.progress-bar-container {
+    position: relative;
+    width: 100%;
+}
+
+.emoji {
+	font-size: 12px;
+    position: absolute;
+    transform: translateY(-20%); /* Center the emoji vertically */
+
+}
+.fraction {
+	font-size: 12px;
+    position: relative;
+
+
+}
+
+        #dateHeader {
+            text-align: right;
+        }
+
+	</style>
 
 
 <body>
-
- <header id="dateHeader">
- 
- </header>
+ <header id="dateHeader"></header>
  
  
  
@@ -81,32 +209,25 @@ how can we add spacing between suggestions
         </div>
 
         <div id="scrollableWindow">
-
-
             <!-- Content goes here -->
         </div>
-		
+		<label>Select Database File</label>
+		<input type="file" id="csvFile" accept=".csv"></input>
 
 
-		<button id="fetchCSVBtn">Fetch and Store CSV Data</button>
-		<button class="btn" onclick="window.location.href='set_time.html'">Log Reset Time</button>
+		<button class="btn" id="setTimes">Set Times</button>
 		<button class="btn" id="createRecipe">Create Recipe</button>
 		<button class="btn" id="clearLocalStorage">Clear Local Storage</button>
+		<button class="btn" id="downloadCSV">Download Food Data</button>
 		<button class="btn" onclick="window.location.href='profile.html'">Profile</button>
-
-		<!-- <button class="btn" onclick="window.location.href='calculate_bmr.html'">Set BMR</button>
-		
-		
-		<button class="btn" id="viewFoodData">View Food Data</button>-->
+		<button class="btn" onclick="window.location.href='calculate_bmr.html'">Set BMR</button>
 		<button class="btn" onclick="window.location.href='set_macros.html'">Macros</button>
 		<button class="btn" onclick="window.location.href='set_activity_level.html'">Activity Level</button>
+		<button class="btn" id="viewFoodData">View Food Data</button>
 		<button class="btn" id="nutrientAnalysis">Nutrient Analysis</button>
 		<button class="btn" onclick="window.location.href='debug.html'">Debug</button>
-		<button id="deleteDBButton">Delete 'csvDB' IndexedDB</button>
 
-		<button class="btn" id="downloadCSV">Download Food Data</button>
-		<label>Select Database File</label>		
-		<input type="file" id="csvFile" accept=".csv"></input>
+
 
     </div>
 
@@ -115,6 +236,7 @@ how can we add spacing between suggestions
     <script>
 	
 	
+	var today;
 	
 	var scrollableWindow = document.getElementById('scrollableWindow');
 	var buttonHeight = document.getElementsByClassName('btn')[0].clientHeight * 4; // Height of two buttons
@@ -125,41 +247,6 @@ how can we add spacing between suggestions
 	var foodInput = document.querySelector('.food');
 	var autocompleteList = document.getElementById('autocompleteList');
 	var foodList = []//['Apple', 'Banana', 'Bagel', 'Boiled egg', 'Cherry']; // Your predefined list of foods
-
-
-
-	document.getElementById('fetchCSVBtn').addEventListener('click', function() {
-		fetch('assets/FoodData.csv')
-			.then(response => response.text())
-			.then(csvData => {
-				// Process and store the CSV data
-				parseAndStoreCSV(csvData);
-			})
-			.catch(error => console.error('Error fetching CSV:', error));
-	});
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    const deleteDBButton = document.getElementById('deleteDBButton');
-
-    deleteDBButton.addEventListener('click', function() {
-        const dbName = 'csvDB';
-        const request = indexedDB.deleteDatabase(dbName);
-
-        request.onsuccess = function() {
-            alert('Database deleted successfully');
-        };
-
-        request.onerror = function(event) {
-            console.error('Error deleting database:', event.target.error);
-        };
-
-        request.onblocked = function() {
-            alert('Database is blocked. Please close all connections to the database.');
-        };
-    });
-});
-
 
 	// Add event listener to the input field
 	foodInput.addEventListener('input', function() {
@@ -208,7 +295,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 // Function to parse and store CSV data in IndexedDB
 function parseAndStoreCSV(csvData) {
-	alert('parse and StoreCSV called');
     console.log('parseAndStoreCSV called'); // Log to confirm function call
     const lines = csvData.split('\n');
     const dbName = 'csvDB';
@@ -290,9 +376,11 @@ const headers = {
 
 
 
+
 document.getElementById('addBtn').addEventListener('click', function() {
     var foodName = document.querySelector('.food').value;
     var grams = parseFloat(document.querySelector('.grams').value);
+
     // Check if both fields are not empty
     if (!foodName || !grams) {
         alert('Please enter both food name and grams.');
@@ -318,37 +406,41 @@ document.getElementById('addBtn').addEventListener('click', function() {
         // Check if there's already data for today
         var existingData = JSON.parse(localStorage.getItem(today)) || [];
 
-        // Find the most recent addition of the same food item within the last hour
-        var mostRecentIndex = existingData.reduce(function(mostRecentIndex, item, index) {
-            if (item.name === foodName) {
-                var lastAddedTime = new Date(item.timeAdded);
-                var currentTime = new Date();
-                var timeDifference = currentTime - lastAddedTime;
-                var oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+        // Check if a duplicate item exists
+        var duplicateIndex = existingData.findIndex(function(item) {
+            return item.name === foodName;
+        });
 
-                if (timeDifference <= oneHour) {
-                    // This item is within the last hour, so it's the most recent
-                    return index;
-                }
-            }
-            return mostRecentIndex;
-        }, -1);
+        if (duplicateIndex !== -1) {
+            // Check if the last addition was within 1 hour
+            var lastAddedTime = new Date(existingData[duplicateIndex].timeAdded);
+            var currentTime = new Date();
+            var timeDifference = currentTime - lastAddedTime;
+            var oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
 
-        if (mostRecentIndex !== -1) {
-            // Update the existing item
-            var updatedItem = existingData[mostRecentIndex];
-            updatedItem.grams += grams;
-            getNutritionalInfo(foodName, updatedItem.grams).then(function(updatedNutrition) {
-                updatedItem.calories = updatedNutrition.calories;
-                updatedItem.fat = updatedNutrition.fat;
-                updatedItem.protein = updatedNutrition.protein;
-                updatedItem.carbs = updatedNutrition.carbs;
+            if (timeDifference <= oneHour) {
+                // Update the existing item
+                var updatedItem = existingData[duplicateIndex];
+                updatedItem.grams += grams;
+                getNutritionalInfo(foodName, updatedItem.grams).then(function(updatedNutrition) {
+                    updatedItem.calories = updatedNutrition.calories;
+                    updatedItem.fat = updatedNutrition.fat;
+                    updatedItem.protein = updatedNutrition.protein;
+                    updatedItem.carbs = updatedNutrition.carbs;
+                    localStorage.setItem(today, JSON.stringify(existingData));
+                    console.log('Existing food item updated');
+                    displayFoodItems(existingData);
+                });
+            } else {
+                // Add the new item as it's been more than 1 hour since the last addition
+                existingData.push(foodItem);
                 localStorage.setItem(today, JSON.stringify(existingData));
-                console.log('Existing food item updated');
+                console.log('New food item added to localStorage');
+                console.log(foodItem);
                 displayFoodItems(existingData);
-            });
+            }
         } else {
-            // Add the new item as it's the first addition for this food name today or more than 1 hour since the last addition
+            // Add the new item as it's the first addition for this food name today
             existingData.push(foodItem);
             localStorage.setItem(today, JSON.stringify(existingData));
             console.log('Food item added to localStorage');
@@ -363,6 +455,8 @@ document.getElementById('addBtn').addEventListener('click', function() {
     var totals = calculateTotals();
     updateProgressBars(totals);
 });
+
+
 
 
 
@@ -590,7 +684,7 @@ function downloadFoodData() {
 document.getElementById('downloadCSV').addEventListener('click', downloadFoodData);
 
 function calculateTotals() {
-    //var today = new Date().toISOString().split('T')[0];
+    var today = new Date().toISOString().split('T')[0];
     var foodItems = JSON.parse(localStorage.getItem(today)) || [];
     var totalProtein = 0;
     var totalCarbs = 0;
@@ -628,7 +722,7 @@ function updateProgressBars(totals) {
 
     // Update daily calorie goal if profileStatistics is found
     if (profileStatistics) {
-        dailyCalorieGoal = profileStatistics["dailyCaloricExpenditure"]+profileStatistics["BMR"];
+        dailyCalorieGoal = profileStatistics["Daily Caloric Expenditure"];
     }
 
     // Calculate percentages for nutrients
@@ -690,7 +784,7 @@ function displayFoodItems(foodItems) {
             // Remove the item from the foodItems array
             foodItems.splice(index, 1);
             // Update localStorage
-            //var today = new Date().toISOString().split('T')[0];
+            var today = new Date().toISOString().split('T')[0];
             localStorage.setItem(today, JSON.stringify(foodItems));
             // Update the display
             displayFoodItems(foodItems);
@@ -733,7 +827,6 @@ function checkTime() {
     if (!userTime) return true; // If there's no time set, yes
 
     var now = new Date();
-	console.log('the time now is ',now);
     var currentHour = now.getHours();
     var currentMinute = now.getMinutes();
 
@@ -751,17 +844,12 @@ function checkTime() {
 
 		
 		
-var today;
+
 document.addEventListener('DOMContentLoaded', function() {
 	//this should be the only place today is defined.
 	//we need to pass this to the functions that use it
-	if (typeof today !== 'undefined') {
-		if (checkTime()) {
-			today = new Date().toISOString().split('T')[0];
-			}
-	}
-	else {
-		today = new Date().toISOString().split('T')[0];
+	if (checkTime()) {
+		var today = new Date().toISOString().split('T')[0];
 		}
 	
 	console.log(today)
@@ -774,14 +862,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Set the header's text content to the formatted date
     dateHeader.textContent = today;
-	    // Create a home button
-    const homeButton = document.createElement('a');
-    homeButton.href = 'index.html';
-    homeButton.textContent = 'Home';
-    homeButton.style.marginLeft = '10px'; // Optional: Add some margin for spacing
-
-    // Append the home button to the dateHeader
-    dateHeader.appendChild(homeButton);
+	
 
 
 

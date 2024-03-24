@@ -49,7 +49,7 @@
 		
         <button class="btn">Nutrition 🍎</button>
         <button class="btn">Exercise 🏋️‍♀️</button>
-        <button class="btn" onclick="window.location.href='sleep.html'">Sleep 💤</button>
+        <button class="btn">Sleep 💤</button>
         <button class="btn" onclick="window.location.href='profile.html'">Profile 👤</button>
     </div>
 
@@ -65,7 +65,12 @@
 			window.location.href = 'nutrition.html'; // navigates to the 'nutrition.html' page
 		});
 
-
+		
+		function getVerseOfTheDay() {
+			const now = new Date();
+			const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+			return Math.floor((now - startOfToday) / (1000 * 60 * 60 * 24)) % bibleVerses.length;
+		}
 
 		const bibleVerses = [
 			'Romans 9:16-21',
@@ -89,7 +94,7 @@
 			/* Additional verses go here */
 		];
 
-		let currentIndex = Math.floor(Math.random() * bibleVerses.length);
+		let currentIndex = getVerseOfTheDay();
 
 		var verseElement = document.getElementById('verse');
 		verseElement.textContent = bibleVerses[currentIndex];
@@ -98,25 +103,6 @@
 		nutritionButton.addEventListener('click', function () {
 			window.location.href = 'nutrition.html'; // navigates to the 'nutrition.html' page
 		});
-		
-		
-if ('serviceWorker' in navigator) {
- window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
-      // Registration was successful
-      console.log('ServiceWorker registration successful with scope: ', registration.scope);
-	  //alert('ServiceWorker registration successful with scope: ', registration.scope);
-    }, function(err) {
-      // registration failed :(
-      console.log('ServiceWorker registration failed: ', err);
-	  alert('ServiceWorker registration failed: ', err);
-    });
- });
-} else {console.log('sw not in navigator');
-alert('sw not in navigator');}
-
-		
-		
 		
     </script>
 </body>

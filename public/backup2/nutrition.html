@@ -13,14 +13,142 @@ how can we add spacing between suggestions
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="dark-theme.css">
+	<style>
+		:root {
+			--background: #000;
+			--text: #fff;
+			--button: #333;
+			--input: #555;
+		}
+		
+
+		body, button, input {
+			font-size: 20px; /* Set your desired font size here */
+			color: var(--text);
+			background-color: var(--background);
+		}
+		
+		button 
+			{
+			margin: 1%
+			}
+			
+		.container {
+			width: 100%;
+		}
+		
+		.btn {
+			background-color: var(--button);
+			color: white;
+		}
+		
+		#scrollableWindow {
+			overflow-y: auto; /* Enable vertical scrolling */
+		}
+		
+		#scrollableWindow > div {
+			padding: 10px 0; /* Adjust the padding as needed */
+		}
+
+		
+		.grams {
+			width: 20%;
+		}
+		
+		.food {
+			width: 50%;
+		}
+		
+		
+	.small-text {
+	color: grey;
+    font-size: 0.6em; /* Adjust the size as needed */
+}
+
+	
+.nutrition-progress-container {
+    display: flex;
+    flex-direction: column; /* Stack the progress bars vertically */
+    flex-wrap: nowrap; /* Prevent wrapping to a new line */
+    width: 100%;
+    height: 130px; /* Fixed height in pixels */
+}
+
+
+.progress-bar {
+    float: center;
+    width: 100%;
+    background-color: rgba(255, 255, 255, 0.2);
+    overflow: hidden;
+
+    margin: 6px 0px; /* Reduced margin */
+    border-radius: 10px; /* Round the corners */
+}
+
+.progress {
+    float: center;
+    text-align: left;
+	font-size: 12px;
+	height: 5px;
+	margin: 7px; /* Reduced margin */
+
+    color: var(--text);
+    background-color: #55cc00;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2) inset;
+    border-radius: 20px; /* Ensure the progress bar itself also has rounded corners */
+}
+
+.progress-container {
+    display: flex;
+	
+    width: 100%; /* Ensure it takes the full width of the progress bar */
+}
+
+
+
+#autocompleteList > div {
+    border-bottom: 1px solid #222; /* Adjust the color and thickness as needed */
+
+    margin-bottom: 10px; /* Adjust the margin as needed */
+}
+.list-item {
+    position: relative; /* This makes the list item a positioning context for absolutely positioned children */
+}
+
+.delete-btn {
+    position: absolute;
+    right: 10px; /* Adjust as needed */
+    top: 50%;
+    transform: translateY(-50%); /* Center the button vertically */
+}
+
+.progress-bar-container {
+    position: relative;
+    width: 100%;
+}
+
+.emoji {
+	font-size: 12px;
+    position: absolute;
+    transform: translateY(-20%); /* Center the emoji vertically */
+
+}
+.fraction {
+	font-size: 12px;
+    position: relative;
+
+
+}
+
+        #dateHeader {
+            text-align: right;
+        }
+
+	</style>
 
 
 <body>
-
- <header id="dateHeader">
- 
- </header>
+ <header id="dateHeader"></header>
  
  
  
@@ -81,32 +209,25 @@ how can we add spacing between suggestions
         </div>
 
         <div id="scrollableWindow">
-
-
             <!-- Content goes here -->
         </div>
-		
+		<label>Select Database File</label>
+		<input type="file" id="csvFile" accept=".csv"></input>
 
 
-		<button id="fetchCSVBtn">Fetch and Store CSV Data</button>
 		<button class="btn" onclick="window.location.href='set_time.html'">Log Reset Time</button>
 		<button class="btn" id="createRecipe">Create Recipe</button>
 		<button class="btn" id="clearLocalStorage">Clear Local Storage</button>
+		<button class="btn" id="downloadCSV">Download Food Data</button>
 		<button class="btn" onclick="window.location.href='profile.html'">Profile</button>
-
-		<!-- <button class="btn" onclick="window.location.href='calculate_bmr.html'">Set BMR</button>
-		
-		
-		<button class="btn" id="viewFoodData">View Food Data</button>-->
+		<button class="btn" onclick="window.location.href='calculate_bmr.html'">Set BMR</button>
 		<button class="btn" onclick="window.location.href='set_macros.html'">Macros</button>
 		<button class="btn" onclick="window.location.href='set_activity_level.html'">Activity Level</button>
+		<button class="btn" id="viewFoodData">View Food Data</button>
 		<button class="btn" id="nutrientAnalysis">Nutrient Analysis</button>
 		<button class="btn" onclick="window.location.href='debug.html'">Debug</button>
-		<button id="deleteDBButton">Delete 'csvDB' IndexedDB</button>
 
-		<button class="btn" id="downloadCSV">Download Food Data</button>
-		<label>Select Database File</label>		
-		<input type="file" id="csvFile" accept=".csv"></input>
+
 
     </div>
 
@@ -125,41 +246,6 @@ how can we add spacing between suggestions
 	var foodInput = document.querySelector('.food');
 	var autocompleteList = document.getElementById('autocompleteList');
 	var foodList = []//['Apple', 'Banana', 'Bagel', 'Boiled egg', 'Cherry']; // Your predefined list of foods
-
-
-
-	document.getElementById('fetchCSVBtn').addEventListener('click', function() {
-		fetch('assets/FoodData.csv')
-			.then(response => response.text())
-			.then(csvData => {
-				// Process and store the CSV data
-				parseAndStoreCSV(csvData);
-			})
-			.catch(error => console.error('Error fetching CSV:', error));
-	});
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    const deleteDBButton = document.getElementById('deleteDBButton');
-
-    deleteDBButton.addEventListener('click', function() {
-        const dbName = 'csvDB';
-        const request = indexedDB.deleteDatabase(dbName);
-
-        request.onsuccess = function() {
-            alert('Database deleted successfully');
-        };
-
-        request.onerror = function(event) {
-            console.error('Error deleting database:', event.target.error);
-        };
-
-        request.onblocked = function() {
-            alert('Database is blocked. Please close all connections to the database.');
-        };
-    });
-});
-
 
 	// Add event listener to the input field
 	foodInput.addEventListener('input', function() {
@@ -208,7 +294,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 // Function to parse and store CSV data in IndexedDB
 function parseAndStoreCSV(csvData) {
-	alert('parse and StoreCSV called');
     console.log('parseAndStoreCSV called'); // Log to confirm function call
     const lines = csvData.split('\n');
     const dbName = 'csvDB';
@@ -628,7 +713,7 @@ function updateProgressBars(totals) {
 
     // Update daily calorie goal if profileStatistics is found
     if (profileStatistics) {
-        dailyCalorieGoal = profileStatistics["dailyCaloricExpenditure"]+profileStatistics["BMR"];
+        dailyCalorieGoal = profileStatistics["Daily Caloric Expenditure"];
     }
 
     // Calculate percentages for nutrients
@@ -733,7 +818,6 @@ function checkTime() {
     if (!userTime) return true; // If there's no time set, yes
 
     var now = new Date();
-	console.log('the time now is ',now);
     var currentHour = now.getHours();
     var currentMinute = now.getMinutes();
 
@@ -774,14 +858,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Set the header's text content to the formatted date
     dateHeader.textContent = today;
-	    // Create a home button
-    const homeButton = document.createElement('a');
-    homeButton.href = 'index.html';
-    homeButton.textContent = 'Home';
-    homeButton.style.marginLeft = '10px'; // Optional: Add some margin for spacing
-
-    // Append the home button to the dateHeader
-    dateHeader.appendChild(homeButton);
+	
 
 
 

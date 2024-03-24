@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BMR Calculator</title>
+    <link rel="stylesheet" href="dark-theme.css">
+
+</head>
+<body>
+    <h1>BMR Calculator</h1>
+	
+<div id="bmrResults">
+    <p><label><input type="radio" name="bmr" value="harrisBenedict"> Harris-Benedict BMR: <span id="harrisBenedict"></span> kcal/day</label></p>
+    <p><label><input type="radio" name="bmr" value="mifflinStJeor"> Mifflin-St Jeor BMR: <span id="mifflinStJeor"></span> kcal/day</label></p>
+    <p><label><input type="radio" name="bmr" value="katchMcArdle"> Katch-McArdle BMR: <span id="katchMcArdle"></span> kcal/day</label></p>
+	<button class="btn" onclick="window.location.href='set_activity_level.html'">Activity Level</button>
+
+</div>
+
+
+
+
+<script>
+    // Function to calculate BMR using different equations
+    function calculateBMR(gender, age, height, weight, bodyFatPercent) {
+        // Harris-Benedict Equation
+        let harrisBenedict;
+        if (gender === "Male") {
+            harrisBenedict = Math.floor(88.362 + (13.397 * weight) + (4.799 * height) - (5.677 * age));
+        } else {
+            harrisBenedict = Math.floor(447.593 + (9.247 * weight) + (3.098 * height) - (4.330 * age));
+        }
+
+        // Mifflin-St Jeor Equation
+        let mifflinStJeor = Math.floor((10 * weight) + (6.25 * height) - (5 * age) + (gender === "Male" ? 5 : -161));
+
+        // Katch-McArdle Equation with body fat adjustment
+        let katchMcArdle = Math.floor(370 + (21.6 * weight) * (1 - (bodyFatPercent / 100)));
+
+        return {
+            harrisBenedict,
+            mifflinStJeor,
+            katchMcArdle
+        };
+    }
+
+
+    // Function to save the selected BMR
+    function saveSelectedBMR(selectedBMR) {
+        const bmrResults = calculateBMR(profileStatistics.gender, profileStatistics.age, profileStatistics.height, profileStatistics.weight, profileStatistics.bodyFatPercent);
+        if (selectedBMR === 'harrisBenedict') {
+            profileStatistics.BMR = bmrResults.harrisBenedict;
+        } else if (selectedBMR === 'mifflinStJeor') {
+            profileStatistics.BMR = bmrResults.mifflinStJeor;
+        } else if (selectedBMR === 'katchMcArdle') {
+            profileStatistics.BMR = bmrResults.katchMcArdle;
+        }
+        profileStatistics.selectedBMR = selectedBMR;
+        localStorage.setItem('profileStatistics', JSON.stringify(profileStatistics));
+        //alert('Selected BMR saved as daily caloric expenditure successfully.');
+    }
+
+
+    // Retrieve profile statistics from local storage
+    profileStatistics = JSON.parse(localStorage.getItem('profileStatistics')) || {};
+	//console.log(profileStatistics);
+    // Check if profileStatistics is missing or incomplete
+    if (!profileStatistics.gender || !profileStatistics.age || !profileStatistics.height || !profileStatistics.weight || !profileStatistics.bodyFatPercent) {
+        // Display a message if data is missing or incomplete
+        document.getElementById('bmrResults').innerHTML = '<p>Profile statistics are missing or incomplete. Please provide complete information.</p>';
+    } else {
+        // Calculate BMR
+        const bmrResults = calculateBMR(profileStatistics.gender, profileStatistics.age, profileStatistics.height, profileStatistics.weight, profileStatistics.bodyFatPercent);
+
+        // Display BMR results
+        document.getElementById('harrisBenedict').textContent = bmrResults.harrisBenedict;
+        document.getElementById('mifflinStJeor').textContent = bmrResults.mifflinStJeor;
+        document.getElementById('katchMcArdle').textContent = bmrResults.katchMcArdle;
+
+        // Check for a saved BMR selection and set the corresponding radio button as checked
+        if (profileStatistics.selectedBMR) {
+            const selectedBMRInput = document.querySelector(`input[name="bmr"][value="${profileStatistics.selectedBMR}"]`);
+            if (selectedBMRInput) {
+                selectedBMRInput.checked = true;
+            }
+        }
+
+
+		
+		        // Add event listeners to each radio button to save the selected BMR automatically
+        document.querySelectorAll('input[name="bmr"]').forEach(function(radio) {
+            radio.addEventListener('change', function() {
+                if (this.checked) {
+                    saveSelectedBMR(this.value);
+                }
+            });
+        });
+		
+		
+    }
+</script>
+
+
+
+
+
+
+</body>
+</html>

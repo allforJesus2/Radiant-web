@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Activity Level</title>
+</head>
+<body>
+    <h1>Set Activity Level</h1>
+    <button id="addActivity">Add Activity</button>
+    <div id="activityList"></div>
+    <button id="saveActivityLevels">Save Activity Levels</button>
+    <button class="btn" onclick="window.location.href='set_macros.html'">Macros</button>
+
+
+<script>
+
+document.addEventListener('DOMContentLoaded', function() {
+    const addActivityButton = document.getElementById('addActivity');
+    const activityList = document.getElementById('activityList');
+    const saveActivityLevelsButton = document.getElementById('saveActivityLevels');
+
+    const savedProfileStatistics = localStorage.getItem('profileStatistics');
+    if (savedProfileStatistics) {
+        profileStatistics = JSON.parse(savedProfileStatistics);
+    }
+
+
+    let activityLevels = [];
+
+    // Define an array of activity options
+// Define an array of activity options
+const activityOptions = [
+    'Heavy Weight Exercise: 8.5',
+    'Cardio: 7.5',
+    'Walking: 3.0',
+    'Writing, desk work, using computer: 1.5',
+    'Walking slowly: 2.0',
+    'Walking, 3.0 mph (4.8 km/h): 3.0',
+    'Sweeping or mopping floors, vacuuming carpets: 3.3',
+    'Yoga session with asanas and pranayama: 3.3',
+    'Tennis doubles: 5.0',
+    'Weight lifting (moderate intensity): 5.0',
+    'Aerobic dancing, medium effort: 6.0',
+    'Bicycling, on flat, 10–12 mph (16–19 km/h), light effort: 6.0',
+    'Jumping jacks: 6.0',
+    'Basketball game: 8.0',
+    'Swimming moderately: 8',
+    'Swimming hard: 11.0',
+    'Jogging, 5.6 mph (9.0 km/h): 8.8',
+    'Rope jumping (66/min): 9.8',
+    'Football/soccer: 10.3',
+    'Rope jumping (84/min): 10.5',
+    'Rope jumping (100/min): 11.0',
+    'Jogging, 6.8 mph (10.9 km/h): 11.2'
+];
+
+
+    function loadProfileData() {
+        // Simulate loading data from local storage
+        const savedData = localStorage.getItem('activityLevels');
+        if (savedData) {
+            activityLevels = JSON.parse(savedData);
+            renderActivityLevels();
+        }
+    }
+
+function saveProfileData() {
+    // Calculate Daily Caloric Expenditure
+    let totalCaloriesBurned = 0;
+    activityLevels.forEach(activity => {
+        // Extract MET score from the activity description
+        const metScoreMatch = activity.activity.match(/(\d+\.\d+)$/);
+        if (metScoreMatch) {
+            const metScore = parseFloat(metScoreMatch[1]);
+            // Calculate calories burned for this activity
+            const durationInMinutes = parseFloat(activity.duration); // Assuming duration is in minuets
+            const timesPerWeek = parseInt(activity.perWeek.split(' ')[0]); // Extract the number of times per week
+			console.log(timesPerWeek)
+			
+			const caloriesBurned = (metScore * 3.5 * parseFloat(profileStatistics.weight) / 200) * durationInMinutes * timesPerWeek;
+            totalCaloriesBurned += caloriesBurned;
+        }
+    });
+    // Calculate weekly average calories burned
+    const dailyCaloricExpenditure = totalCaloriesBurned / 7;
+
+    // Add the new entry to profileStatistics
+    // Merge the new entry with the existing profileStatistics, preserving existing keys
+    profileStatistics = {
+        ...profileStatistics,
+        "Daily Caloric Expenditure": Math.round(dailyCaloricExpenditure + parseFloat(profileStatistics.selectedBMR))
+    };
+
+    // Save updated profileStatistics to local storage
+    localStorage.setItem('profileStatistics', JSON.stringify(profileStatistics));
+
+    // Save activityLevels to local storage
+    localStorage.setItem('activityLevels', JSON.stringify(activityLevels));
+
+    alert('Activity Levels and Profile Statistics Saved');
+}
+
+
+    function renderActivityLevels() {
+        activityList.innerHTML = '';
+        activityLevels.forEach((activity, index) => {
+            const activityDiv = document.createElement('div');
+            activityDiv.className = 'activity';
+
+            const activitySelect = document.createElement('select');
+            // Use the activityOptions array to populate the select element
+            activityOptions.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = option;
+                optionElement.textContent = option;
+                if (option === activity.activity) {
+                    optionElement.selected = true;
+                }
+                activitySelect.appendChild(optionElement);
+            });
+            activitySelect.onchange = function() {
+                activity.activity = this.value;
+            };
+
+            const durationInput = document.createElement('input');
+            durationInput.type = 'number';
+            durationInput.value = activity.duration;
+            durationInput.onchange = function() {
+                activity.duration = this.value;
+            };
+
+            const perWeekSelect = document.createElement('select');
+            perWeekSelect.innerHTML = '<option value="1x per week">1x per week</option><option value="2x per week">2x per week</option><option value="3x per week">3x per week</option><option value="4x per week">4x per week</option><option value="5x per week">5x per week</option><option value="6x per week">6x per week</option><option value="7x per week">7x per week</option>';
+            perWeekSelect.value = activity.perWeek;
+            perWeekSelect.onchange = function() {
+                activity.perWeek = this.value;
+            };
+
+            activityDiv.appendChild(activitySelect);
+            activityDiv.appendChild(durationInput);
+            activityDiv.appendChild(perWeekSelect);
+
+                // Create and append the delete button
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = '❌';
+                deleteButton.style.color = 'white';
+                deleteButton.style.padding = '5px';
+                deleteButton.style.marginLeft = '10px';
+                deleteButton.onclick = function() {
+                    activityLevels.splice(index, 1); // Remove the activity from the array
+                    renderActivityLevels(); // Re-render the list
+                };
+                activityDiv.appendChild(deleteButton);
+
+                activityList.appendChild(activityDiv);
+
+        });
+    }
+
+    addActivityButton.addEventListener('click', function() {
+        activityLevels.push({
+            activity: 'Heavy Weight Exercise',
+            duration: '30',
+            perWeek: '1x per week'
+        });
+        renderActivityLevels();
+    });
+
+    saveActivityLevelsButton.addEventListener('click', saveProfileData);
+
+    loadProfileData();
+});
+
+
+</script>
+</body>
+</html>

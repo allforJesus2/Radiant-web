@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Time for Food Log Reset</title>
+</head>
+<body>
+    <h1>Set Time for Food Log Reset</h1>
+    <form id="timeForm">
+        <label for="timeInput">Time (12 AM - 12 PM):</label>
+        <input type="time" id="timeInput" name="timeInput" required>
+        <button type="submit">Submit</button>
+		<button class="btn" onclick="window.location.href='nutrition.html'">Daily Food Log</button>
+
+    </form>
+	
+	
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if there is a time stored in localStorage
+    var storedTime = localStorage.getItem('userTime');
+    if (storedTime) {
+        // If there is a stored time, set the value of the time input field to this time
+        document.getElementById('timeInput').value = storedTime;
+    }
+});
+
+document.getElementById('timeForm').addEventListener('submit', function(event) {
+    event.preventDefault(); // Prevent the form from submitting normally
+    var timeInput = document.getElementById('timeInput').value;
+    localStorage.setItem('userTime', timeInput); // Store the user's time in localStorage
+});
+</script>
+
+	
+	
+	</script>
+</body>
+</html>

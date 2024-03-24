@@ -13,59 +13,107 @@ how can we add spacing between suggestions
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="dark-theme.css">
+	<style>
+		:root {
+			--background: #111;
+			--text: #fff;
+			--button: #333;
+			--input: #555;
+		}
+		
+		body, button, input {
+			font-size: 24px; /* Set your desired font size here */
+			margin: 1%;
+			padding: 2%;
+			color: var(--text);
+			background-color: var(--background);
+		}
+			
+		.container {
+			border: 1px solid #543;
+		}
+		
+		.btn {
+			background-color: var(--button);
+			color: white;
+		}
+		
+		#scrollableWindow {
+			border: 5px solid #543;
+			overflow-y: auto; /* Enable vertical scrolling */
+		}
+		#scrollableWindow > div {
+			padding: 10px 0; /* Adjust the padding as needed */
+		}
+
+		
+		.grams {
+			width: 20%;
+		}
+		
+		.food {
+			width: 40%;
+		}
+		
+	.macro-container {
+		width: 60%;
+		}
+	.calorie-container {
+		}
+		
+	.small-text {
+	color: grey;
+    font-size: 0.6em; /* Adjust the size as needed */
+}
+
+	
+	.progress-bar {
+		  width: 100%;
+		  background-color: rgba(255, 255, 255, 0.2);
+		  overflow: hidden;
+		  float: center;
+		}
+
+	.progress {
+		  float: center;
+		  height: 50%;
+		  text-align: left;
+		  color: var(--text);
+		  background-color: #00bb00;
+		  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.2) inset;
+		}
+
+.progress-bar-vertical {
+    width: 10px; /* Width of the progress bar */
+    background-color: #4CAF50; /* Color of the progress bar */
+    transition: height 0.2s; /* Smooth transition */
+}
+
+
+	</style>
+</head>
 
 
 <body>
-
- <header id="dateHeader">
  
- </header>
- 
- 
- 
-	<div class="container">
+    <div class="container">
         
 
         <div class="top container" style="display: flex;">
-		
-		
-<div class="nutrition-progress-container container">
-            <div class="progress-bar-container">
-                <span class="emoji">🔥 Calories: <span class="fraction"></span></span>
+            <div class="nutrition-progress-container container" style="flex: 2;">
                 <div class="progress-bar">
-                    <div class="progress-container">
-                        <div class="progress" data-goal="calories"></div>
-                    </div>
+                    <div class="progress" style="width: 30%;" data-goal="protein">Protein</div>
                 </div>
-            </div>
-            <div class="progress-bar-container">
-                <span class="emoji">🥩 Protein: <span class="fraction"></span></span>
                 <div class="progress-bar">
-                    <div class="progress-container">
-                        <div class="progress" data-goal="protein"></div>
-                    </div>
+                    <div class="progress" style="width: 50%;" data-goal="carbs">Carbohydrates</div>
                 </div>
-            </div>
-            <div class="progress-bar-container">
-                <span class="emoji">🍞 Carbs: <span class="fraction"></span></span>
                 <div class="progress-bar">
-                    <div class="progress-container">
-                        <div class="progress" data-goal="carbs"></div>
-                    </div>
+                    <div class="progress" style="width: 70%;" data-goal="fat">Fat</div>
                 </div>
+				<div class="progress-bar">
+					<div class="progress" style="width: 15%;" data-goal="calories">Calories</div>
+				</div>
             </div>
-            <div class="progress-bar-container">
-                <span class="emoji">🥥 Fat: <span class="fraction"></span></span>
-                <div class="progress-bar">
-                    <div class="progress-container">
-                        <div class="progress" data-goal="fat"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-
 
 
         </div>
@@ -81,40 +129,19 @@ how can we add spacing between suggestions
         </div>
 
         <div id="scrollableWindow">
-
-
             <!-- Content goes here -->
         </div>
-		
 
-
-		<button id="fetchCSVBtn">Fetch and Store CSV Data</button>
-		<button class="btn" onclick="window.location.href='set_time.html'">Log Reset Time</button>
-		<button class="btn" id="createRecipe">Create Recipe</button>
-		<button class="btn" id="clearLocalStorage">Clear Local Storage</button>
-		<button class="btn" onclick="window.location.href='profile.html'">Profile</button>
-
-		<!-- <button class="btn" onclick="window.location.href='calculate_bmr.html'">Set BMR</button>
-		
-		
-		<button class="btn" id="viewFoodData">View Food Data</button>-->
-		<button class="btn" onclick="window.location.href='set_macros.html'">Macros</button>
-		<button class="btn" onclick="window.location.href='set_activity_level.html'">Activity Level</button>
-		<button class="btn" id="nutrientAnalysis">Nutrient Analysis</button>
-		<button class="btn" onclick="window.location.href='debug.html'">Debug</button>
-		<button id="deleteDBButton">Delete 'csvDB' IndexedDB</button>
-
-		<button class="btn" id="downloadCSV">Download Food Data</button>
-		<label>Select Database File</label>		
-		<input type="file" id="csvFile" accept=".csv"></input>
-
+        <button class="btn">Set Times</button>
+        <button class="btn">Create Recipe</button>
+        <button class="btn" id="clearLocalStorage">Clear Local Storage</button>
+		<input type="file" id="csvFile" accept=".csv">
+        <button class="btn" id="downloadCSV">Download Food Data</button>
     </div>
 
 
 
     <script>
-	
-	
 	
 	var scrollableWindow = document.getElementById('scrollableWindow');
 	var buttonHeight = document.getElementsByClassName('btn')[0].clientHeight * 4; // Height of two buttons
@@ -125,41 +152,6 @@ how can we add spacing between suggestions
 	var foodInput = document.querySelector('.food');
 	var autocompleteList = document.getElementById('autocompleteList');
 	var foodList = []//['Apple', 'Banana', 'Bagel', 'Boiled egg', 'Cherry']; // Your predefined list of foods
-
-
-
-	document.getElementById('fetchCSVBtn').addEventListener('click', function() {
-		fetch('assets/FoodData.csv')
-			.then(response => response.text())
-			.then(csvData => {
-				// Process and store the CSV data
-				parseAndStoreCSV(csvData);
-			})
-			.catch(error => console.error('Error fetching CSV:', error));
-	});
-
-
-document.addEventListener('DOMContentLoaded', function() {
-    const deleteDBButton = document.getElementById('deleteDBButton');
-
-    deleteDBButton.addEventListener('click', function() {
-        const dbName = 'csvDB';
-        const request = indexedDB.deleteDatabase(dbName);
-
-        request.onsuccess = function() {
-            alert('Database deleted successfully');
-        };
-
-        request.onerror = function(event) {
-            console.error('Error deleting database:', event.target.error);
-        };
-
-        request.onblocked = function() {
-            alert('Database is blocked. Please close all connections to the database.');
-        };
-    });
-});
-
 
 	// Add event listener to the input field
 	foodInput.addEventListener('input', function() {
@@ -208,7 +200,6 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 // Function to parse and store CSV data in IndexedDB
 function parseAndStoreCSV(csvData) {
-	alert('parse and StoreCSV called');
     console.log('parseAndStoreCSV called'); // Log to confirm function call
     const lines = csvData.split('\n');
     const dbName = 'csvDB';
@@ -289,15 +280,10 @@ const headers = {
 };
 
 
-
+// Event listener for the "Add" button
 document.getElementById('addBtn').addEventListener('click', function() {
     var foodName = document.querySelector('.food').value;
     var grams = parseFloat(document.querySelector('.grams').value);
-    // Check if both fields are not empty
-    if (!foodName || !grams) {
-        alert('Please enter both food name and grams.');
-        return; // Exit the function if either field is empty
-    }
 
     // Fetch or calculate the nutritional information
     getNutritionalInfo(foodName, grams).then(function(nutritionalInfo) {
@@ -318,25 +304,14 @@ document.getElementById('addBtn').addEventListener('click', function() {
         // Check if there's already data for today
         var existingData = JSON.parse(localStorage.getItem(today)) || [];
 
-        // Find the most recent addition of the same food item within the last hour
-        var mostRecentIndex = existingData.reduce(function(mostRecentIndex, item, index) {
-            if (item.name === foodName) {
-                var lastAddedTime = new Date(item.timeAdded);
-                var currentTime = new Date();
-                var timeDifference = currentTime - lastAddedTime;
-                var oneHour = 60 * 60 * 1000; // 1 hour in milliseconds
+        // Check if a duplicate item exists
+        var duplicateIndex = existingData.findIndex(function(item) {
+            return item.name === foodName;
+        });
 
-                if (timeDifference <= oneHour) {
-                    // This item is within the last hour, so it's the most recent
-                    return index;
-                }
-            }
-            return mostRecentIndex;
-        }, -1);
-
-        if (mostRecentIndex !== -1) {
+        if (duplicateIndex !== -1) {
             // Update the existing item
-            var updatedItem = existingData[mostRecentIndex];
+            var updatedItem = existingData[duplicateIndex];
             updatedItem.grams += grams;
             getNutritionalInfo(foodName, updatedItem.grams).then(function(updatedNutrition) {
                 updatedItem.calories = updatedNutrition.calories;
@@ -348,7 +323,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
                 displayFoodItems(existingData);
             });
         } else {
-            // Add the new item as it's the first addition for this food name today or more than 1 hour since the last addition
+            // Add the new item
             existingData.push(foodItem);
             localStorage.setItem(today, JSON.stringify(existingData));
             console.log('Food item added to localStorage');
@@ -356,16 +331,14 @@ document.getElementById('addBtn').addEventListener('click', function() {
             displayFoodItems(existingData);
         }
     });
-
-    // Clear the input fields
-    document.querySelector('.food').value = '';
-    document.querySelector('.grams').value = '';
-    var totals = calculateTotals();
+	        // Clear the input fields
+	document.querySelector('.food').value = '';
+	document.querySelector('.grams').value = '';
+	var totals = calculateTotals();
     updateProgressBars(totals);
+	
+	
 });
-
-
-
 function initializeFoodList() {
     const dbName = 'csvDB';
     const storeName = 'csvStore';
@@ -404,26 +377,18 @@ function initializeFoodList() {
 }
 
 
+// Function to set up autocomplete using the foodList
 function setupAutocomplete(foodList) {
     var foodInput = document.querySelector('.food');
     var autocompleteList = document.getElementById('autocompleteList');
-    var gramsInput = document.querySelector('.grams');
+    var gramsInput = document.querySelector('.grams'); // Assuming this is the correct selector for the grams input field
 
     foodInput.addEventListener('input', function() {
         var userInput = this.value;
 
-        if (userInput.length > 1) {
-            // Split the user input into words
-            var inputWords = userInput.toLowerCase().split(' ');
-
+        if (userInput) {
             var filteredFoods = foodList.filter(function(food) {
-                // Convert the food item to lowercase for case-insensitive comparison
-                var foodLowerCase = food.toLowerCase();
-
-                // Check if all words in the user input are present in the food item
-                return inputWords.every(function(word) {
-                    return foodLowerCase.includes(word);
-                });
+                return food.toLowerCase().startsWith(userInput.toLowerCase());
             });
 
             while (autocompleteList.firstChild) {
@@ -436,12 +401,12 @@ function setupAutocomplete(foodList) {
                 listItem.addEventListener('click', function() {
                     foodInput.value = this.textContent;
                     autocompleteList.innerHTML = '';
-
-                    // Assuming 'fetchValueForKey' is defined elsewhere
-                    fetchValueForKey(this.textContent, 'servingWeight1', function(value) {
-                        gramsInput.value = value;
-                    });
-                });
+					
+					// Replace 'servingWeight1' with the key of the header you want to fetch
+					fetchValueForKey(this.textContent, 'servingWeight1', function(value) {
+							gramsInput.value = value; // Set the grams input field's value to the fetched value
+						});
+					});
 
                 autocompleteList.appendChild(listItem);
             });
@@ -450,7 +415,6 @@ function setupAutocomplete(foodList) {
         }
     });
 }
-
 
 
 // Function to fetch a specific value for a given food item based on the header key
@@ -545,24 +509,19 @@ var clearLocalStorageButton = document.getElementById('clearLocalStorage');
 
 // Add an event listener to the button
 clearLocalStorageButton.addEventListener('click', function() {
-    // Ask the user for confirmation
-    var confirmation = confirm('Are you sure you want to clear Local Storage?');
+    // Clear the local storage
+    localStorage.clear();
 
-    // If the user confirms, clear the local storage
-    if (confirmation) {
-        localStorage.clear();
+    // Optionally, provide feedback to the user
+    alert('Local Storage has been cleared.');
 
-        // Optionally, provide feedback to the user
-        alert('Local Storage has been cleared.');
-
-        // Optionally, clear the displayed list in the scrollableWindow
-        document.getElementById('scrollableWindow').innerHTML = '';
-    } else {
-        // Optionally, provide feedback to the user that the action was cancelled
-        alert('Action cancelled. Local Storage was not cleared.');
-    }
+    // Optionally, clear the displayed list in the scrollableWindow
+    document.getElementById('scrollableWindow').innerHTML = '';
 });
 
+
+// Call initializeFoodList to populate foodList from the database
+//initializeFoodList();
 
 // Function to handle the "Download Food Data" button click
 function downloadFoodData() {
@@ -590,7 +549,7 @@ function downloadFoodData() {
 document.getElementById('downloadCSV').addEventListener('click', downloadFoodData);
 
 function calculateTotals() {
-    //var today = new Date().toISOString().split('T')[0];
+    var today = new Date().toISOString().split('T')[0];
     var foodItems = JSON.parse(localStorage.getItem(today)) || [];
     var totalProtein = 0;
     var totalCarbs = 0;
@@ -616,45 +575,24 @@ function calculateTotals() {
 
 
 function updateProgressBars(totals) {
-    // Load saved macros from local storage
-    const macros = JSON.parse(localStorage.getItem('macros'));
-    const profileStatistics = JSON.parse(localStorage.getItem('profileStatistics'));
-
-    // Default values in case local storage items are not found
-    const proteinGoal = macros ? macros.protein : 150;
-    const carbsGoal = macros ? macros.carbs : 200;
-    const fatGoal = macros ? macros.fat : 100;
-    let dailyCalorieGoal = 2400; // Default value
-
-    // Update daily calorie goal if profileStatistics is found
-    if (profileStatistics) {
-        dailyCalorieGoal = profileStatistics["dailyCaloricExpenditure"]+profileStatistics["BMR"];
-    }
+    var proteinGoal = 50; // Example goal for protein
+    var carbsGoal = 300; // Example goal for carbohydrates
+    var fatGoal = 70; // Example goal for fat
+    var dailyCalorieGoal = 2000; // Example daily calorie goal
 
     // Calculate percentages for nutrients
-    const proteinPercentage = (totals.protein / proteinGoal) * 100;
-    const carbsPercentage = (totals.carbs / carbsGoal) * 100;
-    const fatPercentage = (totals.fat / fatGoal) * 100;
-    const caloriePercentage = (totals.calories / dailyCalorieGoal) * 100;
-
-    // Calculate fractions for nutrients
-    const proteinFraction = `${totals.protein} / ${proteinGoal}`;
-    const carbsFraction = `${totals.carbs} / ${carbsGoal}`;
-    const fatFraction = `${totals.fat} / ${fatGoal}`;
-    const calorieFraction = `${totals.calories} / ${dailyCalorieGoal}`;
-
+    var proteinPercentage = (totals.protein / proteinGoal) * 100;
+    var carbsPercentage = (totals.carbs / carbsGoal) * 100;
+    var fatPercentage = (totals.fat / fatGoal) * 100;
+	 // Calculate calorie percentage
+    var caloriePercentage = (totals.calories / dailyCalorieGoal) * 100;
+	
     // Update nutritional progress bars
     document.querySelector('[data-goal="protein"]').style.width = `${proteinPercentage}%`;
-    document.querySelector('.progress-bar-container:nth-child(2) .fraction').textContent = proteinFraction; // Update text content
-
     document.querySelector('[data-goal="carbs"]').style.width = `${carbsPercentage}%`;
-    document.querySelector('.progress-bar-container:nth-child(3) .fraction').textContent = carbsFraction; // Update text content
-
     document.querySelector('[data-goal="fat"]').style.width = `${fatPercentage}%`;
-    document.querySelector('.progress-bar-container:nth-child(4) .fraction').textContent = fatFraction; // Update text content
+	document.querySelector('[data-goal="calories"]').style.width = `${caloriePercentage}%`;
 
-    document.querySelector('[data-goal="calories"]').style.width = `${caloriePercentage}%`;
-    document.querySelector('.progress-bar-container:nth-child(1) .fraction').textContent = calorieFraction; // Update text content
 }
 
 
@@ -666,39 +604,19 @@ function updateProgressBars(totals) {
 
 function displayFoodItems(foodItems) {
     var scrollableWindow = document.getElementById('scrollableWindow');
-    var foodInput = document.querySelector('.food'); // Get the food input field
+	var foodInput = document.querySelector('.food'); // Get the food input field
     var gramsInput = document.querySelector('.grams'); // Get the grams input field
+
 
     // Clear any existing content
     scrollableWindow.innerHTML = '';
 
     // Iterate over the food items and create list items
-    foodItems.forEach(function(item, index) {
+    foodItems.forEach(function(item) {
         var listItem = document.createElement('div');
-		listItem.className = 'list-item'; // Add the class to the list item
-
         // Use <br> for line breaks and wrap grams and calories in <span> for styling
-        listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protein ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
+        listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protien ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
         
-        // Create a delete button with an "X" emoji
-        var deleteButton = document.createElement('button');
-        deleteButton.textContent = '❌'; // "X" emoji
-		deleteButton.className = 'delete-btn'; // Add a class to the button
-
-        deleteButton.style.float = 'right'; // Position the button to the right
-        deleteButton.addEventListener('click', function() {
-            // Remove the item from the foodItems array
-            foodItems.splice(index, 1);
-            // Update localStorage
-            //var today = new Date().toISOString().split('T')[0];
-            localStorage.setItem(today, JSON.stringify(foodItems));
-            // Update the display
-            displayFoodItems(foodItems);
-        });
-
-        // Append the delete button to the list item
-        listItem.appendChild(deleteButton);
-
         // Add click event listener to the list item
         listItem.addEventListener('click', function() {
             foodInput.value = item.name; // Set the input field's value to the clicked item's name
@@ -708,14 +626,22 @@ function displayFoodItems(foodItems) {
                 gramsInput.value = value; // Set the grams input field's value to the fetched value
             });
         });
-
-        // Insert the new list item at the beginning of the scrollable window
+		
+		//scrollableWindow.appendChild(listItem);
+		// Insert the new list item at the beginning of the scrollable window
         scrollableWindow.insertBefore(listItem, scrollableWindow.firstChild);
     });
-    
-    var totals = calculateTotals();
+	
+	
+	
+	var totals = calculateTotals();
     updateProgressBars(totals);
 }
+
+
+
+
+
 
 
 
@@ -725,70 +651,17 @@ function displayFoodItems(foodItems) {
 //block at the end of your <script> tag, right before the closing script tag.
 // This ensures that the entire DOM is fully loaded before your JavaScript code attempts
 // to access or modify any DOM elements. 
-
-
-
-function checkTime() {
-    var userTime = localStorage.getItem('userTime');
-    if (!userTime) return true; // If there's no time set, yes
-
-    var now = new Date();
-	console.log('the time now is ',now);
-    var currentHour = now.getHours();
-    var currentMinute = now.getMinutes();
-
-    var [userHour, userMinute] = userTime.split(':');
-    userHour = parseInt(userHour, 10);
-    userMinute = parseInt(userMinute, 10);
-
-    var currentTime = currentHour * 60 + currentMinute;
-    var userTimeInMinutes = userHour * 60 + userMinute;
-
-    if (currentTime > userTimeInMinutes) {
-		return true
-    }
-}
-
-		
-		
-var today;
 document.addEventListener('DOMContentLoaded', function() {
-	//this should be the only place today is defined.
-	//we need to pass this to the functions that use it
-	if (typeof today !== 'undefined') {
-		if (checkTime()) {
-			today = new Date().toISOString().split('T')[0];
-			}
-	}
-	else {
-		today = new Date().toISOString().split('T')[0];
-		}
-	
-	console.log(today)
-	var foodItems = JSON.parse(localStorage.getItem(today)) || [];
+    var today = new Date().toISOString().split('T')[0];
+    var foodItems = JSON.parse(localStorage.getItem(today)) || [];
     initializeFoodList();
-	displayFoodItems(foodItems, today);
-	
-    // Get the header element by its ID
-    const dateHeader = document.getElementById('dateHeader');
-
-    // Set the header's text content to the formatted date
-    dateHeader.textContent = today;
-	    // Create a home button
-    const homeButton = document.createElement('a');
-    homeButton.href = 'index.html';
-    homeButton.textContent = 'Home';
-    homeButton.style.marginLeft = '10px'; // Optional: Add some margin for spacing
-
-    // Append the home button to the dateHeader
-    dateHeader.appendChild(homeButton);
-
-
-
-
+	displayFoodItems(foodItems);
 	
 });
-</script>
-	
+
+
+		
+		
+    </script>
 </body>
 </html>
