@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Macros</title>
+    <link rel="stylesheet" href="dark-theme.css">
 
 </head>
 <body>
@@ -31,7 +32,7 @@
 
     if (profileStatistics) {
         // Extract daily caloric expenditure
-        dailyCalories = profileStatistics["Daily Caloric Expenditure"];
+        dailyCalories = profileStatistics["dailyCaloricExpenditure"]+ profileStatistics["BMR"];
 
         // Update the daily calories display
         document.getElementById('dailyCalories').textContent = dailyCalories;

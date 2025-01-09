@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Activity Level</title>
+	    <link rel="stylesheet" href="dark-theme.css">
+
 </head>
 <body>
     <h1>Set Activity Level</h1>
@@ -36,23 +38,23 @@ const activityOptions = [
     'Walking: 3.0',
     'Writing, desk work, using computer: 1.5',
     'Walking slowly: 2.0',
-    'Walking, 3.0 mph (4.8 km/h): 3.0',
+    'Walking, 3 mph (5 km/h): 3.0',
     'Sweeping or mopping floors, vacuuming carpets: 3.3',
-    'Yoga session with asanas and pranayama: 3.3',
+    'Yoga session: 3.3',
     'Tennis doubles: 5.0',
     'Weight lifting (moderate intensity): 5.0',
     'Aerobic dancing, medium effort: 6.0',
     'Bicycling, on flat, 10–12 mph (16–19 km/h), light effort: 6.0',
     'Jumping jacks: 6.0',
     'Basketball game: 8.0',
-    'Swimming moderately: 8',
+    'Swimming moderately: 8.0',
     'Swimming hard: 11.0',
-    'Jogging, 5.6 mph (9.0 km/h): 8.8',
+    'Jogging, 5 mph (9 km/h): 8.8',
     'Rope jumping (66/min): 9.8',
     'Football/soccer: 10.3',
     'Rope jumping (84/min): 10.5',
     'Rope jumping (100/min): 11.0',
-    'Jogging, 6.8 mph (10.9 km/h): 11.2'
+    'Jogging, 7 mph (11 km/h): 11.2'
 ];
 
 
@@ -84,12 +86,12 @@ function saveProfileData() {
     });
     // Calculate weekly average calories burned
     const dailyCaloricExpenditure = totalCaloriesBurned / 7;
-
+	console.log(dailyCaloricExpenditure)
     // Add the new entry to profileStatistics
     // Merge the new entry with the existing profileStatistics, preserving existing keys
     profileStatistics = {
         ...profileStatistics,
-        "Daily Caloric Expenditure": Math.round(dailyCaloricExpenditure + parseFloat(profileStatistics.selectedBMR))
+        "dailyCaloricExpenditure": Math.round(dailyCaloricExpenditure)
     };
 
     // Save updated profileStatistics to local storage

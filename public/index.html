@@ -1,123 +1,150 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-	<style>
-		:root {
-			--background: #111;
-			--text: #fff;
-			--button: #333;
-			--input: #555;
-		}
-		
-		body, button, input {
-			font-size: 24px;
-			margin: 3%;
-			padding: 3%;
-			color: var(--text);
-			background-color: var(--background);
-		}
-			
-		.container {
-			border: 1px solid #543;
-		}
-		
-		.btn {
-			background-color: var(--button);
-			color: white;
-		}
-		
-		#scrollableWindow {
-			border: 5px solid #543;
-		}
-
-		
-		 /* Add this style */
-        .center-text {
-            text-align: center;
-        }
-	</style>
-	</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PIDVision.AI - P&ID Analysis Software</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
-    <div class="container">
-        <h1>RADIANT</h1>
-		
-        <p class="center-text" id="date"></p>
-		
-		<p class="center-text" id="verse"></p>
-		
-        <button class="btn">Nutrition 🍎</button>
-        <button class="btn">Exercise 🏋️‍♀️</button>
-        <button class="btn" onclick="window.location.href='sleep.html'">Sleep 💤</button>
-        <button class="btn" onclick="window.location.href='profile.html'">Profile 👤</button>
+<body class="bg-gray-900 text-white min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Logo Section -->
+        <div class="flex justify-center mb-12">
+            <svg viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg" class="w-full max-w-lg">
+                <!-- Cool Tech Background -->
+                <rect x="10" y="10" width="380" height="100" rx="15" fill="#1a1a1a"/>
+                
+                <!-- Main Text with Gradient -->
+                <defs>
+                    <linearGradient id="cyber" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#ff00ff;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#00ffff;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                
+                <!-- Main Text -->
+                <text x="30" y="65" font-family="Arial" font-size="40" font-weight="bold" fill="url(#cyber)">
+                    PIDVision<tspan fill="#ff00ff">.AI</tspan>
+                </text>
+                
+                <!-- Ultra Pro Max -->
+                <text x="30" y="90" font-family="Arial" font-size="14" fill="#00ffff">U L T R A • P R O • M A X</text>
+                
+                <!-- Emoji-style Elements -->
+                <text x="320" y="45" font-size="20">🤖</text>
+                <text x="350" y="45" font-size="20">💯</text>
+                
+                <!-- Web 3.0 Decoration -->
+                <path d="M 280 30 L 300 30 L 290 50 Z" fill="none" stroke="#00ffff" stroke-width="1"/>
+                
+                <!-- Blockchain-style Connected Dots -->
+                <circle cx="320" cy="70" r="3" fill="#ff00ff"/>
+                <circle cx="340" cy="70" r="3" fill="#00ffff"/>
+                <circle cx="360" cy="70" r="3" fill="#ff00ff"/>
+                <line x1="320" y1="70" x2="360" y2="70" stroke="#444444" stroke-width="1"/>
+                
+                <!-- Version -->
+                <text x="270" y="95" font-family="monospace" font-size="10" fill="#444444">v2.0_FINAL_FINAL_2</text>
+            </svg>
+        </div>
+
+        <!-- Main Content -->
+        <div class="max-w-3xl mx-auto text-center">
+            <h1 class="text-4xl font-bold mb-6 bg-gradient-to-r from-pink-500 to-cyan-500 text-transparent bg-clip-text">
+                Intelligent P&ID Analysis Software
+            </h1>
+            <p class="text-xl text-gray-300 mb-8">
+                Automate the extraction and documentation of Process and Instrumentation Diagrams using advanced AI
+            </p>
+            
+            <!-- Download Section -->
+            <div class="bg-gray-800 rounded-lg p-8 mb-12 shadow-xl">
+                <h2 class="text-2xl font-semibold mb-4">Download PIDVision.AI</h2>
+                <p class="text-gray-400 mb-6">
+                    Version 2.0 | Windows 10/11 64-bit
+                </p>
+                <a href="downloads/PIDVision.zip" 
+                   class="inline-block bg-gradient-to-r from-pink-500 to-cyan-500 text-white font-bold py-4 px-8 rounded-lg hover:opacity-90 transition-opacity">
+                    Download ZIP
+                </a>
+                <p class="text-sm text-gray-500 mt-4">
+                    Download includes complete PIDVision folder with all required files
+                </p>
+                <div class="mt-6 text-left bg-gray-700 p-4 rounded-lg">
+                    <h3 class="font-semibold mb-2">Installation Instructions:</h3>
+                    <ol class="list-decimal list-inside space-y-2 text-gray-300">
+                        <li>Download the ZIP file</li>
+                        <li>Extract the PIDVision folder to your desired location</li>
+                        <li>Open the PIDVision folder</li>
+                        <li>Run PIDVision.exe to start the application</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- Features -->
+            <div class="grid md:grid-cols-3 gap-8 mb-12">
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-3 text-cyan-400">Advanced Image Processing</h3>
+                    <p class="text-gray-400">Interactive viewing of P&IDs with smooth zoom and pan capabilities for detailed inspection</p>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-3 text-pink-400">AI-Powered Detection</h3>
+                    <p class="text-gray-400">Automatic identification and classification of instruments, equipment, and components</p>
+                </div>
+                <div class="bg-gray-800 p-6 rounded-lg">
+                    <h3 class="text-xl font-semibold mb-3 text-cyan-400">Smart OCR</h3>
+                    <p class="text-gray-400">Extract text information including instrument tags, line numbers, and service descriptions</p>
+                </div>
+            </div>
+
+            <!-- Detailed Features -->
+            <div class="text-left bg-gray-800 rounded-lg p-8 mb-12">
+                <h2 class="text-2xl font-semibold mb-6 text-center">Key Capabilities</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3 text-pink-400">Data Capture</h3>
+                        <ul class="space-y-2 text-gray-400">
+                            <li>• PID Document Number tracking</li>
+                            <li>• Instrument group categorization</li>
+                            <li>• Line number identification</li>
+                            <li>• Equipment detail extraction</li>
+                            <li>• Service input/output mapping</li>
+                            <li>• Comment and annotation support</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold mb-3 text-cyan-400">Export & Processing</h3>
+                        <ul class="space-y-2 text-gray-400">
+                            <li>• Excel export functionality (xlwings/openpyxl)</li>
+                            <li>• Batch processing capabilities</li>
+                            <li>• Multi-page document support</li>
+                            <li>• Automated report generation</li>
+                            <li>• Instrument count summaries</li>
+                            <li>• Data validation checks</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Requirements -->
+            <div class="text-left bg-gray-800 rounded-lg p-8">
+                <h2 class="text-2xl font-semibold mb-4 text-center">System Requirements</h2>
+                <ul class="space-y-3 text-gray-400">
+                    <li>• Windows 10 or Windows 11 (64-bit)</li>
+                    <li>• 8GB RAM minimum (16GB recommended for large diagrams)</li>
+                    <li>• 2.0 GHz quad-core processor or better</li>
+                    <li>• 500MB free disk space</li>
+                    <li>• Microsoft Excel (for export features)</li>
+                    <li>• 1920x1080 screen resolution or higher recommended</li>
+                </ul>
+            </div>
+        </div>
     </div>
 
-    <script>
-        var dateElement = document.getElementById('date');
-		var verseElement = document.getElementById('verse');
-        var today = new Date();
-        dateElement.textContent = today.toDateString();
-		
-		
-		var nutritionButton = document.querySelector('.btn');
-		nutritionButton.addEventListener('click', function() {
-			window.location.href = 'nutrition.html'; // navigates to the 'nutrition.html' page
-		});
-
-
-
-		const bibleVerses = [
-			'Romans 9:16-21',
-			'Isaiah 40:31',
-			'Psalm 18:34',
-			'Isaiah 40:30',
-			'Joshua 1:9',
-			'Philippians 4:11–13',
-			'2 Corinthians 12:9–10',
-			'Isaiah 40:29–31',
-			'Nehemiah 8:10',
-			'Proverbs 24:5',
-			'Ecclesiastes 9:11',
-			'Proverbs 21:31',
-			'Proverbs 17:1',
-			'Ecclesiastes 4:6',
-			'Psalm 127:2',
-			'Matthew 6:25',
-			'Nehemiah 2:18',
-			'1 Corinthians 6:19',
-			/* Additional verses go here */
-		];
-
-		let currentIndex = Math.floor(Math.random() * bibleVerses.length);
-
-		var verseElement = document.getElementById('verse');
-		verseElement.textContent = bibleVerses[currentIndex];
-
-		var nutritionButton = document.querySelector('.btn');
-		nutritionButton.addEventListener('click', function () {
-			window.location.href = 'nutrition.html'; // navigates to the 'nutrition.html' page
-		});
-		
-		
-if ('serviceWorker' in navigator) {
- window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/service-worker.js').then(function(registration) {
-      // Registration was successful
-      console.log('ServiceWorker registration successful with scope: ', registration.scope);
-	  //alert('ServiceWorker registration successful with scope: ', registration.scope);
-    }, function(err) {
-      // registration failed :(
-      console.log('ServiceWorker registration failed: ', err);
-	  alert('ServiceWorker registration failed: ', err);
-    });
- });
-} else {console.log('sw not in navigator');
-alert('sw not in navigator');}
-
-		
-		
-		
-    </script>
+    <!-- Footer -->
+    <footer class="text-center py-8 text-gray-500 text-sm">
+        <p>© 2025 PIDVision.AI - All rights reserved</p>
+        <p class="mt-2">Streamlining P&ID documentation through intelligent automation</p>
+    </footer>
 </body>
 </html>

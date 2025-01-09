@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Routine Today is <span id="currentDay"></span></title>
+    <link rel="stylesheet" href="dark-theme.css">
+</head>
+<body>
+    <h1>Workout Routine Today is <span id="currentDay"></span></h1>
+    <div id="scrollableWindow"></div>
+    <button id="setScheduleBtn">Set Workout Schedule</button>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const scrollableWindow = document.getElementById('scrollableWindow');
+    const setScheduleBtn = document.getElementById('setScheduleBtn');
+    const currentDayElement = document.getElementById('currentDay');
+
+    function getToday() {
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        return days[new Date().getDay()];
+    }
+
+    function displayCurrentDay() {
+        const today = getToday();
+        currentDayElement.textContent = `${today}`;
+    }
+
+    function displayWorkoutSchedule() {
+        displayCurrentDay();
+        const workoutSchedule = JSON.parse(localStorage.getItem('workoutSchedule')) || {};
+        const workoutRoutines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+        const today = getToday();
+
+        // Check for new day and clear checkboxes if necessary
+        const storedDay = localStorage.getItem('storedDay');
+        if (storedDay !== today) {
+            // Clear local storage for checkboxes
+            localStorage.removeItem('checkboxStates');
+            // Update stored day
+            localStorage.setItem('storedDay', today);
+        }
+
+        scrollableWindow.innerHTML = '';
+
+        if (workoutSchedule[today]) {
+            const routineName = workoutSchedule[today];
+            const exercises = workoutRoutines[routineName] || [];
+
+            // Load checkbox states from local storage
+            const checkboxStates = JSON.parse(localStorage.getItem('checkboxStates')) || {};
+
+            exercises.forEach(function(exercise, index) {
+                var listItem = document.createElement('div');
+                listItem.className = 'list-item';
+
+                var checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `exercise-${index}`;
+                checkbox.name = `exercise-${index}`;
+
+                // Set checkbox state from local storage
+                checkbox.checked = checkboxStates[`exercise-${index}`] || false;
+
+                checkbox.addEventListener('change', function() {
+                    // Update checkbox state in local storage
+                    checkboxStates[`exercise-${index}`] = checkbox.checked;
+                    localStorage.setItem('checkboxStates', JSON.stringify(checkboxStates));
+                });
+
+                listItem.innerHTML = `
+                    <label for="exercise-${index}">${exercise.name}</label>
+                    <br><span class="small-text">Weight: ${exercise.weight}kg, Reps: ${exercise.reps}, Time: ${exercise.time} minutes</span>
+                `;
+
+                listItem.prepend(checkbox);
+                scrollableWindow.appendChild(listItem);
+            });
+        } else {
+            scrollableWindow.innerHTML = '<p>No Schedule Set</p>';
+        }
+    }
+
+    setScheduleBtn.addEventListener('click', function() {
+        window.location.href = 'set_workout_day.html';
+    });
+
+    displayWorkoutSchedule();
+});
+    </script>
+</body>
+</html>

@@ -130,14 +130,3 @@
         }
 
 /* Add more styles as needed */
-    /* Container for the sliders to prevent them from extending beyond the viewport */
-.slider-container {
-	max-width: 100%; /* Ensures the container does not exceed the viewport width */
-	overflow-x: auto; /* Allows horizontal scrolling if the content overflows */
-}
-
-
-/* Target the sliders by their IDs and set their width to 100% */
-#proteinSlider, #carbsSlider, #fatSlider {
-    width: 100%; /* This will make the sliders span the full width of their container */
-}

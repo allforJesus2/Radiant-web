@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nutrition Analysis</title>
+    <link rel="stylesheet" href="dark-theme.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        .chart-container {
+            background-color: var(--button);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+            position: relative;
+            height: 400px;
+            width: 100%;
+            max-width: 1200px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        
+        .date-selector {
+            display: flex;
+            gap: 8px;
+            margin: 16px 0;
+            align-items: center;
+        }
+        
+        select {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--button);
+            color: var(--text);
+            cursor: pointer;
+        }
+        
+        .food-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 16px 0;
+            background-color: var(--button);
+            border-radius: 8px;
+        }
+        
+        .food-table th,
+        .food-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid var(--background);
+        }
+        
+        .food-table th {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        .food-table tbody tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+        
+        .summary-box {
+            background-color: var(--button);
+            border-radius: 8px;
+            padding: 16px;
+            margin: 16px 0;
+        }
+
+        canvas {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <header id="dateHeader">
+        <h1>Nutrition Analysis</h1>
+        <a href="index.html">Home</a>
+    </header>
+
+    <!-- Date selector -->
+    <div class="date-selector">
+        <select id="yearSelect"></select>
+        <select id="monthSelect"></select>
+        <select id="daySelect"></select>
+    </div>
+
+    <!-- Chart containers -->
+    <div class="chart-container">
+        <h2>Calorie Trend</h2>
+        <canvas id="calorieChart"></canvas>
+    </div>
+
+    <div class="chart-container">
+        <h2>Macronutrient Trend</h2>
+        <canvas id="macroChart"></canvas>
+    </div>
+
+    <!-- Daily breakdown -->
+    <div id="dailyBreakdown"></div>
+
+    <script>
+        let calorieChart = null;
+        let macroChart = null;
+
+        function formatDate(dateStr) {
+            const date = new Date(dateStr);
+            return date.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short', 
+                day: 'numeric' 
+            });
+        }
+
+        function calculateDailyTotals(foods) {
+            return {
+                calories: Math.round(foods.reduce((sum, food) => sum + food.calories, 0)),
+                protein: Math.round(foods.reduce((sum, food) => sum + food.protein, 0)),
+                carbs: Math.round(foods.reduce((sum, food) => sum + food.carbs, 0)),
+                fat: Math.round(foods.reduce((sum, food) => sum + food.fat, 0))
+            };
+        }
+
+        function populateDateSelectors(foodLog) {
+            const dates = Object.keys(foodLog).map(date => new Date(date));
+            const years = [...new Set(dates.map(date => date.getFullYear()))].sort();
+            const yearSelect = document.getElementById('yearSelect');
+            const monthSelect = document.getElementById('monthSelect');
+            const daySelect = document.getElementById('daySelect');
+            
+            // Populate years
+            yearSelect.innerHTML = years.map(year => 
+                `<option value="${year}">${year}</option>`
+            ).join('');
+
+            function updateMonths() {
+                const selectedYear = parseInt(yearSelect.value);
+                const months = [...new Set(dates
+                    .filter(date => date.getFullYear() === selectedYear)
+                    .map(date => date.getMonth())
+                )].sort();
+
+                monthSelect.innerHTML = months.map(month => 
+                    `<option value="${month}">${new Date(2000, month).toLocaleString('default', { month: 'long' })}</option>`
+                ).join('');
+                
+                updateDays();
+            }
+
+            function updateDays() {
+                const selectedYear = parseInt(yearSelect.value);
+                const selectedMonth = parseInt(monthSelect.value);
+                const days = [...new Set(dates
+                    .filter(date => 
+                        date.getFullYear() === selectedYear && 
+                        date.getMonth() === selectedMonth
+                    )
+                    .map(date => date.getDate())
+                )].sort((a, b) => a - b);
+
+                daySelect.innerHTML = days.map(day => 
+                    `<option value="${day}">${day}</option>`
+                ).join('');
+
+                // Update view with selected date
+                const selectedDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${String(days[0]).padStart(2, '0')}`;
+                updateView(selectedDate);
+            }
+
+            yearSelect.onchange = updateMonths;
+            monthSelect.onchange = updateDays;
+            daySelect.onchange = () => {
+                const selectedDate = `${yearSelect.value}-${String(parseInt(monthSelect.value) + 1).padStart(2, '0')}-${String(daySelect.value).padStart(2, '0')}`;
+                updateView(selectedDate);
+            };
+
+            // Initial population
+            updateMonths();
+        }
+
+        function createDailyBreakdown(foods) {
+            const breakdown = document.getElementById('dailyBreakdown');
+            const totals = calculateDailyTotals(foods);
+            
+            const html = `
+                <div class="summary-box">
+                    <h3>Daily Totals</h3>
+                    <p>Calories: ${totals.calories} kcal</p>
+                    <p>Protein: ${totals.protein}g</p>
+                    <p>Carbs: ${totals.carbs}g</p>
+                    <p>Fat: ${totals.fat}g</p>
+                </div>
+                <table class="food-table">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Food</th>
+                            <th>Amount</th>
+                            <th>Calories</th>
+                            <th>Protein</th>
+                            <th>Carbs</th>
+                            <th>Fat</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${foods.sort((a, b) => a.timeAdded.localeCompare(b.timeAdded))
+                            .map(food => `
+                                <tr>
+                                    <td>${food.timeAdded}</td>
+                                    <td>${food.name}</td>
+                                    <td>${food.grams}g</td>
+                                    <td>${Math.round(food.calories)}</td>
+                                    <td>${Math.round(food.protein)}g</td>
+                                    <td>${Math.round(food.carbs)}g</td>
+                                    <td>${Math.round(food.fat)}g</td>
+                                </tr>
+                            `).join('')}
+                    </tbody>
+                </table>
+            `;
+            
+            breakdown.innerHTML = html;
+        }
+
+        function destroyCharts() {
+            if (calorieChart) {
+                calorieChart.destroy();
+                calorieChart = null;
+            }
+            if (macroChart) {
+                macroChart.destroy();
+                macroChart = null;
+            }
+        }
+
+        function createCharts(foodLog) {
+            destroyCharts();
+
+            const dates = Object.keys(foodLog).sort();
+            const chartData = dates.map(date => ({
+                date: formatDate(date),
+                ...calculateDailyTotals(foodLog[date])
+            }));
+
+            const chartOptions = {
+                responsive: true,
+                maintainAspectRatio: true,
+                aspectRatio: 2,
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#fff'
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        ticks: { color: '#fff' },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    },
+                    x: {
+                        ticks: { color: '#fff' },
+                        grid: { color: 'rgba(255,255,255,0.1)' }
+                    }
+                }
+            };
+
+            const calorieCtx = document.getElementById('calorieChart').getContext('2d');
+            calorieChart = new Chart(calorieCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(d => d.date),
+                    datasets: [{
+                        label: 'Calories',
+                        data: chartData.map(d => d.calories),
+                        borderColor: '#ff7300',
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+
+            const macroCtx = document.getElementById('macroChart').getContext('2d');
+            macroChart = new Chart(macroCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(d => d.date),
+                    datasets: [{
+                        label: 'Protein',
+                        data: chartData.map(d => d.protein),
+                        borderColor: '#8884d8',
+                        tension: 0.1
+                    }, {
+                        label: 'Carbs',
+                        data: chartData.map(d => d.carbs),
+                        borderColor: '#82ca9d',
+                        tension: 0.1
+                    }, {
+                        label: 'Fat',
+                        data: chartData.map(d => d.fat),
+                        borderColor: '#ff0000',
+                        tension: 0.1
+                    }]
+                },
+                options: chartOptions
+            });
+        }
+
+        function updateView(date) {
+            createDailyBreakdown(foodLog[date]);
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Get food log from localStorage
+            try {
+                const logStr = localStorage.getItem('foodLog');
+                window.foodLog = JSON.parse(logStr);
+                if (!window.foodLog) throw new Error('No food log found');
+            } catch (e) {
+                console.error('Error loading food log:', e);
+                // Use dummy data if no food log found
+                window.foodLog = {
+                    "2024-12-25": [
+                        {"name": "Oatmeal", "grams": 200, "calories": 340, "fat": 6.5, "protein": 12, "carbs": 62, "timeAdded": "8:30"},
+                        {"name": "Blueberries", "grams": 150, "calories": 85, "fat": 0.5, "protein": 1.1, "carbs": 21, "timeAdded": "8:35"}
+                    ],
+                    "2024-12-26": [
+                        {"name": "Greek Yogurt", "grams": 200, "calories": 130, "fat": 0.7, "protein": 22, "carbs": 9, "timeAdded": "7:15"},
+                        {"name": "Almonds", "grams": 30, "calories": 180, "fat": 15, "protein": 6, "carbs": 6, "timeAdded": "10:30"}
+                    ]
+                };
+            }
+
+            // Create charts
+            createCharts(window.foodLog);
+
+            // Set up date selectors
+            populateDateSelectors(window.foodLog);
+        });
+    </script>
+</body>
+</html>

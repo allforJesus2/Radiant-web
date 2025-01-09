@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Workout Routines</title>
+	<link rel="stylesheet" href="dark-theme.css">
+</head>
+<body>
+	<h1>Workout Routines</h1>
+    <div id="workout-input">
+        <input type="text" id="routine-name" placeholder="Enter workout routine name" onkeydown="if (event.keyCode === 13) addRoutine()">
+        <button onclick="addRoutine()">ADD</button>
+    </div>
+    <div id="routine-list">
+        <!-- Workout routines will be listed here -->
+    </div>
+
+    <script>
+        // Function to add a workout routine
+        function addRoutine() {
+            const routineNameInput = document.getElementById('routine-name');
+            const routineName = routineNameInput.value.trim();
+            if (routineName === '') {
+                alert('Please enter a workout routine name.');
+                return;
+            }
+            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            routines[routineName] = []; // Each routine is now an empty array
+            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            displayRoutines();
+            routineNameInput.value = ''; // Clear the input field
+        }
+
+        // Function to display workout routines
+        function displayRoutines() {
+            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            const routineList = document.getElementById('routine-list');
+            routineList.innerHTML = ''; // Clear the list
+            Object.keys(routines).forEach((routineName) => {
+                const routineElement = document.createElement('div');
+                routineElement.textContent = routineName;
+                routineElement.onclick = function() {
+                    window.location.href = `edit_workout_routine.html?selectedRoutine=${encodeURIComponent(routineName)}`;
+                };
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = '❌';
+                deleteButton.onclick = function() {
+                    deleteRoutine(routineName);
+                };
+                routineElement.appendChild(deleteButton);
+                routineList.appendChild(routineElement);
+            });
+        }
+
+        // Function to delete a workout routine
+        function deleteRoutine(routineName) {
+            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            delete routines[routineName];
+            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            displayRoutines();
+        }
+
+        // Display routines on page load
+        window.onload = displayRoutines;
+    </script>
+</body>
+</html>

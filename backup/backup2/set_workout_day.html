@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Workout Day</title>
+	<link rel="stylesheet" href="dark-theme.css">
+</head>
+<body>
+    <h1>Set Your Workout Schedule</h1>
+ 
+ 
+ 
+  <form id="workoutForm">
+    <label for="Monday">Monday:</label>
+    <select id="Monday"></select><br>
+
+    <label for="Tuesday">Tuesday:</label>
+    <select id="Tuesday"></select><br>
+
+    <label for="Wednesday">Wednesday:</label>
+    <select id="Wednesday"></select><br>
+
+    <label for="Thursday">Thursday:</label>
+    <select id="Thursday"></select><br>
+
+    <label for="Friday">Friday:</label>
+    <select id="Friday"></select><br>
+
+    <label for="Saturday">Saturday:</label>
+    <select id="Saturday"></select><br>
+
+    <label for="Sunday">Sunday:</label>
+    <select id="Sunday"></select><br>
+
+    </form>
+
+    <button class="btn" onclick="window.location.href='workout_routine.html'">Create Workout Routine</button>
+
+
+
+    <script>
+
+
+
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Retrieve workoutRoutines from local storage
+    const workoutRoutines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+
+    // Retrieve saved workoutSchedule from local storage
+    const savedWorkoutSchedule = JSON.parse(localStorage.getItem('workoutSchedule')) || {};
+
+    // Populate dropdowns with workoutRoutines and set selected options based on savedWorkoutSchedule
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    days.forEach(day => {
+        const select = document.getElementById(day);
+        select.innerHTML = '<option value="">Select a workout</option>';
+        for (const routine in workoutRoutines) {
+            const option = document.createElement('option');
+            option.value = routine;
+            option.textContent = routine;
+            select.appendChild(option);
+        }
+
+        // Set selected option based on savedWorkoutSchedule
+        if (savedWorkoutSchedule[day]) {
+            select.value = savedWorkoutSchedule[day];
+        }
+
+        // Add event listener to save on change
+        select.addEventListener('change', function() {
+            saveWorkoutSchedule();
+        });
+    });
+
+    // Function to save workout schedule
+    function saveWorkoutSchedule() {
+        const workoutSchedule = {};
+        days.forEach(day => {
+            const select = document.getElementById(day);
+            const selectedRoutine = select.value;
+            if (selectedRoutine) {
+                workoutSchedule[day] = selectedRoutine;
+            }
+        });
+
+        // Save workoutSchedule to local storage
+        localStorage.setItem('workoutSchedule', JSON.stringify(workoutSchedule));
+    }
+
+    // Handle form submission
+    document.getElementById('workoutForm').addEventListener('submit', function(event) {
+        event.preventDefault();
+        saveWorkoutSchedule(); // Save on form submission as well
+        alert('Workout schedule saved!');
+    });
+});
+
+
+	
+	
+	
+	</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 //change this to have new updates propagated to all devices
-const CACHE_NAME = 'my-cache-v2.0';
+const CACHE_NAME = 'my-cache-v1';
 
 const FILES_TO_CACHE = [
   '/set_activity_level.html',
@@ -10,8 +10,6 @@ const FILES_TO_CACHE = [
   '/debug.html',
   '/index.html',
   '/nutrition.html',
-  '/charts.html',
-  '/settings.html',
   '/profile.html',
   '/dark-theme.css',
   '/workout.html',
