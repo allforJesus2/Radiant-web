@@ -72,24 +72,25 @@
 
 
 		const bibleVerses = [
-			'Romans 9:16-21',
-			'Isaiah 40:31',
-			'Psalm 18:34',
-			'Isaiah 40:30',
-			'Joshua 1:9',
-			'Philippians 4:11–13',
-			'2 Corinthians 12:9–10',
-			'Isaiah 40:29–31',
-			'Nehemiah 8:10',
-			'Proverbs 24:5',
-			'Ecclesiastes 9:11',
-			'Proverbs 21:31',
-			'Proverbs 17:1',
-			'Ecclesiastes 4:6',
-			'Psalm 127:2',
-			'Matthew 6:25',
-			'Nehemiah 2:18',
-			'1 Corinthians 6:19',
+'Romans 9:16-21:\nGod, who has mercy. For the Scripture says to Pharaoh, “For this very purpose I have raised you up, that I might show my power in you, and that my name might be proclaimed in all the earth.” So then he has mercy on whomever he wills, and he hardens whomever he wills. You will say to me then, “Why does he still find fault? For who can resist his will?” But who are you, O man, to answer back to God? Will what is molded say to its molder, “Why have you made me like this?” Has the potter no right over the clay, to make out of the same lump one vessel for honorable use and another for dishonorable use?',
+'Isaiah 40:31:\nLord shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary; they shall walk and not faint.',
+'Psalm 18:34:\nHe trains my hands for war, so that my arms can bend a bow of bronze.',
+'Isaiah 40:30:\nEven youths shall faint and be weary, and young men shall fall exhausted;',
+'Joshua 1:9:\nBe strong and courageous. Do not be frightened, and do not be dismayed, for the Lord your God is with you wherever you go.”',
+'Philippians 4:11-13:\nIn any and every circumstance, I have learned the secret of facing plenty and hunger, abundance and need. I can do all things through him who strengthens me.',
+'2 Corinthians 12:9-10:\nMy grace is sufficient for you, for my power is made perfect in weakness.” Therefore I will boast all the more gladly of my weaknesses, so that the power of Christ may rest upon me. For the sake of Christ, then, I am content with weaknesses, insults, hardships, persecutions, and calamities. For when I am weak, then I am strong.',
+'Isaiah 40:29-31:\nEven youths shall faint and be weary, and young men shall fall exhausted; but they who wait for the Lord shall renew their strength; they shall mount up with wings like eagles; they shall run and not be weary; they shall walk and not faint.',
+'Nehemiah 8:10:\nGo your way. Eat the fat and drink sweet wine and send portions to anyone who has nothing ready, for this day is holy to our Lord. And do not be grieved, for the joy of the Lord is your strength.”',
+'Proverbs 24:5:\nA wise man is full of strength, and a man of knowledge enhances his might,',
+'Ecclesiastes 9:11:\nBetter Than Folly Again I saw that under the sun the race is not to the swift, nor the battle to the strong, nor bread to the wise, nor riches to the intelligent, nor favor to those with knowledge, but time and chance happen to them all.',
+'Proverbs 21:31:\nLord.',
+'Proverbs 17:1:\nBetter is a dry morsel with quiet than a house full of feasting with strife.',
+'Ecclesiastes 4:6:\nBetter is a handful of quietness than two hands full of toil and a striving after wind.',
+'Psalm 127:2:\nIt is in vain that you rise up early and go late to rest, eating the bread of anxious toil; for he gives to his beloved sleep.',
+'Matthew 6:25:\nNot Be Anxious “Therefore I tell you, do not be anxious about your life, what you will eat or what you will drink, nor about your body, what you will put on. Is not life more than food, and the body more than clothing?',
+'Nehemiah 2:18:\nGod that had been upon me for good, and also of the words that the king had spoken to me. And they said, “Let us rise up and build.” So they strengthened their hands for the good work.',
+'1 Corinthians 6:19:\nHoly Spirit within you, whom you have from God? You are not your own,',
+'Galatians 6:7:\nGod is not mocked, for whatever one sows, that will he also reap.',
 			/* Additional verses go here */
 		];
 
@@ -113,20 +114,41 @@ if ('serviceWorker' in navigator) {
       .then(registration => {
         console.log('ServiceWorker registration successful');
         
-        // Optional: Check for updates
+        // Check for updates every 60 minutes
+        setInterval(() => {
+          registration.update();
+        }, 1000 * 60 * 60);
+        
+        // Listen for new service worker installation
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
+          
           newWorker.addEventListener('statechange', () => {
+            // When the new service worker is installed
             if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // New content is available
-              console.log('New content available');
+              // Show update notification to user
+              if (confirm('New version available! Would you like to update?')) {
+                // Send skip waiting message
+                newWorker.postMessage({ type: 'skipWaiting' });
+                // Reload the page
+                window.location.reload();
+              }
             }
           });
         });
       })
-      .catch(err => {
-        console.error('ServiceWorker registration failed: ', err);
+      .catch(error => {
+        console.error('ServiceWorker registration failed:', error);
       });
+  });
+  
+  // Handle service worker updates
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
   });
 }
 		

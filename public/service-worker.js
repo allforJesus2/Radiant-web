@@ -1,6 +1,4 @@
-//change this to have new updates propagated to all devices
-const CACHE_NAME = 'my-cache-v2.0';
-
+const CACHE_NAME = 'my-cache-v2.3';
 const FILES_TO_CACHE = [
   '/set_activity_level.html',
   '/set_macros.html',
@@ -28,62 +26,91 @@ self.addEventListener('install', (event) => {
         console.log('Caching app shell and content');
         return cache.addAll(FILES_TO_CACHE);
       })
+      .then(() => {
+        // Force activation by skipping waiting
+        return self.skipWaiting();
+      })
       .catch((error) => {
         console.error('Cache installation failed:', error);
       })
   );
 });
 
-// Activate event - clean up old caches
+// Activate event - clean up old caches and take control
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_NAME) {
-            console.log('Removing old cache:', cacheName);
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    Promise.all([
+      // Take control of all clients
+      self.clients.claim(),
+      
+      // Remove old caches
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              console.log('Removing old cache:', cacheName);
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ])
   );
 });
 
-// Fetch event - Cache first, then network
+// Fetch event - Network first for HTML, Cache first for other resources
 self.addEventListener('fetch', (event) => {
+  const requestUrl = new URL(event.request.url);
+  
+  // Network-first strategy for HTML files
+  if (event.request.mode === 'navigate' || event.request.headers.get('accept').includes('text/html')) {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          // Clone the response before using it
+          const responseToCache = networkResponse.clone();
+          
+          // Update cache with new version
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
+          
+          return networkResponse;
+        })
+        .catch(() => {
+          // Fallback to cache if network fails
+          return caches.match(event.request);
+        })
+    );
+    return;
+  }
+  
+  // Cache-first strategy for other resources
   event.respondWith(
     caches.match(event.request)
       .then((cachedResponse) => {
-        // First try to return from cache
         if (cachedResponse) {
           return cachedResponse;
         }
-
-        // If not in cache, try network
+        
         return fetch(event.request)
           .then((networkResponse) => {
-            // Check if we received a valid response
             if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
               return networkResponse;
             }
-
-            // Clone the response
+            
             const responseToCache = networkResponse.clone();
-
-            // Add to cache for next time
-            caches.open(CACHE_NAME)
-              .then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+            
             return networkResponse;
           });
       })
   );
 });
 
-// Listen for online/offline events
+// Listen for messages from the client
 self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
