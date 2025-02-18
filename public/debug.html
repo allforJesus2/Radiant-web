@@ -11,13 +11,7 @@
     <h1>IndexedDB Stores:</h1>
     <pre id="indexeddb-stores"></pre>
 
-    <!-- Add a button to compile the food log -->
-    <button id="compile-food-log">Compile Food Log</button>
-
     <script>
-	
-
-	
 	
         // Display local storage contents
         const localStorageContents = JSON.stringify(localStorage, null, 2);
@@ -49,32 +43,6 @@
             document.getElementById('indexeddb-stores').textContent = 'IndexedDB is not supported in this browser.';
         }
 
-		function compileFoodLog() {
-			// Retrieve all keys from localStorage
-			const keys = Object.keys(localStorage);
-
-			// Filter out the keys that match the date format yyyy-mm-dd
-			const dateKeys = keys.filter(key => /^\d{4}-\d{2}-\d{2}$/.test(key));
-
-			// For each matching key, retrieve its value from localStorage
-			const foodLog = {};
-			dateKeys.forEach(key => {
-				const value = localStorage.getItem(key);
-				foodLog[key] = value;
-			});
-
-			// Store this compiled data under the key `foodLog` in localStorage
-			localStorage.setItem('foodLog', JSON.stringify(foodLog));
-
-			// Delete the original yyyy-mm-dd entries from localStorage
-			dateKeys.forEach(key => {
-				localStorage.removeItem(key);
-			});
-		}
-
-
-        // Add an event listener to the button to compile the food log
-        document.getElementById('compile-food-log').addEventListener('click', compileFoodLog);
     </script>
 </body>
 </html>

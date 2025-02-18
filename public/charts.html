@@ -8,12 +8,12 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
     <style>
         .chart-container {
-            background-color: var(--button);
+            background-color: transparent;
             border-radius: 8px;
             padding: 16px;
             margin: 16px 0;
             position: relative;
-            height: 400px;
+            height: auto;
             width: 100%;
             max-width: 1200px;
             margin-left: auto;
@@ -25,6 +25,7 @@
             gap: 8px;
             margin: 16px 0;
             align-items: center;
+            justify-content: space-between;
         }
         
         select {
@@ -70,6 +71,63 @@
             background-color: rgba(0, 0, 0, 0.2);
             border-radius: 4px;
         }
+
+        .data-actions {
+            display: flex;
+            gap: 8px;
+        }
+        
+        button, .upload-btn {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--button);
+            color: var(--text);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover, .upload-btn:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+        }
+
+        header h1 {
+            margin: 0;
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        header a {
+            color: var(--text);
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            background-color: var(--button);
+        }
+
+        header a:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        @media (max-width: 768px) {
+            .chart-container {
+                padding: 8px;
+                margin: 8px 0;
+                height: 400px;
+            }
+            
+            canvas {
+                width: 100% !important;
+                height: 100% !important;
+            }
+        }
     </style>
 </head>
 <body>
@@ -78,12 +136,25 @@
         <a href="index.html">Home</a>
     </header>
 
-    <!-- Date selector -->
+    <!-- Modified date selector with buttons -->
     <div class="date-selector">
-        <select id="yearSelect"></select>
-        <select id="monthSelect"></select>
-        <select id="daySelect"></select>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <span>Select Date for Overview:</span>
+            <select id="yearSelect"></select>
+            <select id="monthSelect"></select>
+            <select id="daySelect"></select>
+        </div>
+        <div class="data-actions">
+            <button onclick="exportData()">Export Data</button>
+            <label class="upload-btn">
+                Import Data
+                <input type="file" id="importInput" hidden accept=".json" onchange="importData(this)">
+            </label>
+        </div>
     </div>
+
+    <!-- Daily breakdown - moved here -->
+    <div id="dailyBreakdown"></div>
 
     <!-- Chart containers -->
     <div class="chart-container">
@@ -96,12 +167,66 @@
         <canvas id="macroChart"></canvas>
     </div>
 
-    <!-- Daily breakdown -->
-    <div id="dailyBreakdown"></div>
+    <!-- Add new chart container -->
+    <div class="chart-container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Daily Calorie Distribution</h2>
+            <div style="display: flex; gap: 8px;">
+                <select id="dotSize" onchange="updateDistributionChart()">
+                    <option value="2">Small</option>
+                    <option value="5" selected>Medium</option>
+                    <option value="8">Large</option>
+                </select>
+                <select id="distributionRange" onchange="updateDistributionChart()">
+                    <option value="7">Last Week</option>
+                    <option value="30">Last Month</option>
+                    <option value="365">Last Year</option>
+                    <option value="all">All Time</option>
+                </select>
+            </div>
+        </div>
+        <canvas id="distributionChart"></canvas>
+    </div>
+
+    <!-- Add new food totals container after distribution chart -->
+    <div class="chart-container">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h2>Food Totals</h2>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <select id="foodTotalsRange" onchange="handleFoodTotalsRangeChange()">
+                    <option value="1">Last 1 Days</option>
+                    <option value="3">Last 3 Days</option>
+                    <option value="7" selected>Last 7 Days</option>
+                    <option value="30">Last 30 Days</option>
+                    <option value="custom">Custom</option>
+                </select>
+                <input 
+                    type="number" 
+                    id="customDaysInput" 
+                    min="1" 
+                    placeholder="Days" 
+                    style="display: none; width: 80px; padding: 8px; border: none; border-radius: 4px; background-color: var(--button); color: var(--text);"
+                    onchange="updateFoodTotals()"
+                >
+            </div>
+        </div>
+        <table class="food-table">
+            <thead>
+                <tr>
+                    <th>Food</th>
+                    <th>Total Amount</th>
+                    <th>Times Eaten</th>
+                    <th>Total Calories</th>
+                </tr>
+            </thead>
+            <tbody id="foodTotalsBody"></tbody>
+        </table>
+    </div>
 
     <script>
         let calorieChart = null;
         let macroChart = null;
+        let distributionChart = null;  // Add new chart variable
 
         function formatDate(dateStr) {
             const date = new Date(dateStr);
@@ -185,10 +310,24 @@
             const html = `
                 <div class="summary-box">
                     <h3>Daily Totals</h3>
-                    <p>Calories: ${totals.calories} kcal</p>
-                    <p>Protein: ${totals.protein}g</p>
-                    <p>Carbs: ${totals.carbs}g</p>
-                    <p>Fat: ${totals.fat}g</p>
+                    <table class="food-table" style="margin-top: 8px;">
+                        <thead>
+                            <tr>
+                                <th>Calories</th>
+                                <th>Protein</th>
+                                <th>Carbs</th>
+                                <th>Fat</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>${totals.calories} kcal</td>
+                                <td>${totals.protein}g</td>
+                                <td>${totals.carbs}g</td>
+                                <td>${totals.fat}g</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
                 <table class="food-table">
                     <thead>
@@ -231,6 +370,10 @@
                 macroChart.destroy();
                 macroChart = null;
             }
+            if (distributionChart) {
+                distributionChart.destroy();
+                distributionChart = null;
+            }
         }
 
         function createCharts(foodLog) {
@@ -245,11 +388,12 @@
             const chartOptions = {
                 responsive: true,
                 maintainAspectRatio: true,
-                aspectRatio: 2,
+                aspectRatio: window.innerWidth < 768 ? 1.2 : 2,
                 plugins: {
                     legend: {
                         labels: {
-                            color: '#fff'
+                            color: '#fff',
+                            boxWidth: window.innerWidth < 768 ? 12 : 40
                         }
                     }
                 },
@@ -304,10 +448,209 @@
                 },
                 options: chartOptions
             });
+
+            // Modified distribution chart creation
+            const distributionCtx = document.getElementById('distributionChart').getContext('2d');
+            const range = document.getElementById('distributionRange').value;
+            
+            // Process data for distribution chart
+            const timeSlots = Array.from({length: 24}, (_, i) => `${String(i).padStart(2, '0')}:00`);
+            const allDates = Object.keys(foodLog).sort();
+            const recentDates = range === 'all' ? 
+                allDates : 
+                allDates.slice(-parseInt(range));
+            
+            const distributionData = recentDates.map(date => {
+                const hourlyCalories = new Array(24).fill(0);
+                
+                foodLog[date].forEach(food => {
+                    const hour = parseInt(food.timeAdded.split(':')[0]);
+                    hourlyCalories[hour] += food.calories;
+                });
+                
+                return hourlyCalories;
+            });
+
+            // Find max calories for color scaling
+            const maxCalories = Math.max(...distributionData.flat());
+
+            distributionChart = new Chart(distributionCtx, {
+                type: 'scatter',
+                data: {
+                    datasets: distributionData.flatMap((dayData, dateIndex) => 
+                        dayData.map((calories, hour) => ({
+                            x: hour,
+                            y: dateIndex,
+                            calories: calories
+                        }))
+                    ).map(point => ({
+                        data: [{
+                            x: point.x,
+                            y: point.y
+                        }],
+                        backgroundColor: `rgba(255, 115, 0, ${point.calories / maxCalories})`,
+                        pointRadius: parseInt(document.getElementById('dotSize').value),
+                        pointStyle: 'rect'
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: window.innerWidth < 768 ? 1 : 2,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const dataPoint = Math.round(distributionData[context.raw.y][context.raw.x]);
+                                    const time = `${String(context.raw.x).padStart(2, '0')}:00`;
+                                    return `Time: ${time}, Calories: ${dataPoint}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: -0.5,
+                            max: recentDates.length - 0.5,
+                            ticks: {
+                                color: '#fff',
+                                callback: function(value) {
+                                    return value >= 0 && value < recentDates.length ? 
+                                        formatDate(recentDates[value]) : '';
+                                },
+                                maxRotation: 45,
+                                minRotation: 45
+                            },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            title: {
+                                display: true,
+                                text: 'Date',
+                                color: '#fff'
+                            }
+                        },
+                        x: {
+                            min: -0.5,
+                            max: 23.5,
+                            ticks: { 
+                                color: '#fff',
+                                callback: function(value) {
+                                    return window.innerWidth < 768 ? 
+                                        `${String(value)}h` : 
+                                        `${String(value).padStart(2, '0')}:00`;
+                                }
+                            },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            title: {
+                                display: true,
+                                text: 'Time of Day',
+                                color: '#fff'
+                            }
+                        }
+                    }
+                }
+            });
         }
 
         function updateView(date) {
             createDailyBreakdown(foodLog[date]);
+            updateFoodTotals();
+        }
+
+        function exportData() {
+            const dataStr = JSON.stringify(localStorage.getItem('foodLog'));
+            const dateStr = new Date().toISOString().split('T')[0];
+            const filename = `nutrition-data_${dateStr}.json`;
+            
+            const element = document.createElement('a');
+            element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr));
+            element.setAttribute('download', filename);
+            element.style.display = 'none';
+            document.body.appendChild(element);
+            element.click();
+            document.body.removeChild(element);
+        }
+
+        function importData(input) {
+            const file = input.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (!data) throw new Error('Invalid data format');
+                    
+                    localStorage.setItem('foodLog', data);
+                    alert('Data imported successfully! Reloading...');
+                    setTimeout(() => location.reload(), 1000);
+                } catch (error) {
+                    alert('Error importing data: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Add new function to update distribution chart
+        function updateDistributionChart() {
+            createCharts(window.foodLog);
+        }
+
+        function handleFoodTotalsRangeChange() {
+            const rangeSelect = document.getElementById('foodTotalsRange');
+            const customInput = document.getElementById('customDaysInput');
+            
+            customInput.style.display = rangeSelect.value === 'custom' ? 'block' : 'none';
+            updateFoodTotals();
+        }
+
+        function updateFoodTotals() {
+            const rangeSelect = document.getElementById('foodTotalsRange');
+            const customInput = document.getElementById('customDaysInput');
+            
+            let daysToShow;
+            if (rangeSelect.value === 'custom') {
+                daysToShow = parseInt(customInput.value) || 7; // Default to 7 if invalid
+            } else {
+                daysToShow = parseInt(rangeSelect.value);
+            }
+
+            const dates = Object.keys(window.foodLog).sort();
+            const recentDays = dates.slice(-daysToShow);
+            const foodTotals = {};
+
+            // Compile food totals
+            recentDays.forEach(date => {
+                window.foodLog[date].forEach(food => {
+                    if (!foodTotals[food.name]) {
+                        foodTotals[food.name] = {
+                            grams: 0,
+                            calories: 0,
+                            count: 0
+                        };
+                    }
+                    foodTotals[food.name].grams += food.grams;
+                    foodTotals[food.name].calories += food.calories;
+                    foodTotals[food.name].count += 1;
+                });
+            });
+
+            // Sort by total calories
+            const sortedFoods = Object.entries(foodTotals)
+                .sort(([,a], [,b]) => b.calories - a.calories);
+
+            // Update table
+            const tbody = document.getElementById('foodTotalsBody');
+            tbody.innerHTML = sortedFoods.map(([name, data]) => `
+                <tr>
+                    <td>${name}</td>
+                    <td>${Math.round(data.grams)}g</td>
+                    <td>${data.count}</td>
+                    <td>${Math.round(data.calories)} kcal</td>
+                </tr>
+            `).join('');
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -331,8 +674,9 @@
                 };
             }
 
-            // Create charts
+            // Create charts and update food totals
             createCharts(window.foodLog);
+            updateFoodTotals();
 
             // Set up date selectors
             populateDateSelectors(window.foodLog);
