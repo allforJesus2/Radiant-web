@@ -20,6 +20,10 @@
             margin-right: auto;
         }
         
+        .chart-container h2 {
+            margin: 0 0 16px 0;
+        }
+        
         .date-selector {
             display: flex;
             gap: 8px;
@@ -119,11 +123,16 @@
         @media (max-width: 768px) {
             .chart-container {
                 padding: 8px;
-                margin: 8px 0;
-                height: 400px;
+                margin: 16px 0;
+            }
+            
+            .chart-container h2 {
+                font-size: 1.2em;
+                margin: 0 0 12px 0;
             }
             
             canvas {
+                margin-top: 8px;
                 width: 100% !important;
                 height: 100% !important;
             }
@@ -229,7 +238,8 @@
         let distributionChart = null;  // Add new chart variable
 
         function formatDate(dateStr) {
-            const date = new Date(dateStr);
+            // Add one day to account for timezone issues
+            const date = new Date(new Date(dateStr).getTime() + 24 * 60 * 60 * 1000);
             return date.toLocaleDateString('en-US', { 
                 weekday: 'short', 
                 month: 'short', 
@@ -247,7 +257,10 @@
         }
 
         function populateDateSelectors(foodLog) {
-            const dates = Object.keys(foodLog).map(date => new Date(date));
+            // Convert dates and add one day to account for timezone issues
+            const dates = Object.keys(foodLog).map(date => 
+                new Date(new Date(date).getTime() + 24 * 60 * 60 * 1000)
+            );
             const years = [...new Set(dates.map(date => date.getFullYear()))].sort();
             const yearSelect = document.getElementById('yearSelect');
             const monthSelect = document.getElementById('monthSelect');
