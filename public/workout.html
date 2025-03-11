@@ -3,13 +3,82 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Workout Routine Today is <span id="currentDay"></span></title>
+    <title>Today's Workout</title>
     <link rel="stylesheet" href="dark-theme.css">
+    <style>
+        .nav-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            background-color: #333;
+            margin-bottom: 20px;
+        }
+        .nav-bar a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+        }
+        .nav-bar a:hover {
+            background-color: #555;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        #scrollableWindow {
+            max-height: 70vh;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            padding: 10px;
+            background-color: #222;
+            border-radius: 4px;
+        }
+        .list-item {
+            padding: 15px;
+            margin: 5px 0;
+            background-color: #333;
+            border-radius: 4px;
+        }
+        .list-item input[type="checkbox"] {
+            margin-right: 10px;
+            transform: scale(1.5);
+        }
+        .small-text {
+            font-size: 0.8em;
+            color: #aaa;
+            margin-left: 25px;
+        }
+        #setScheduleBtn {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #setScheduleBtn:hover {
+            background-color: #45a049;
+        }
+        #currentDay {
+            color: #4CAF50;
+        }
+    </style>
 </head>
 <body>
-    <h1>Workout Routine Today is <span id="currentDay"></span></h1>
-    <div id="scrollableWindow"></div>
-    <button id="setScheduleBtn">Set Workout Schedule</button>
+    <div class="nav-bar">
+        <a href="index.html">Home</a>
+        <a href="workout.html">Today's Workout</a>
+        <a href="workout_routine.html">Workout Routines</a>
+        <a href="set_workout_day.html">Schedule</a>
+    </div>
+    
+    <div class="container">
+        <h1>Workout for <span id="currentDay"></span></h1>
+        <div id="scrollableWindow"></div>
+        <button id="setScheduleBtn">Set Workout Schedule</button>
+    </div>
 
     <script>
 document.addEventListener('DOMContentLoaded', function() {

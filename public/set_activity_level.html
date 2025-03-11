@@ -4,18 +4,91 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Activity Level</title>
-	    <link rel="stylesheet" href="dark-theme.css">
+    <link rel="stylesheet" href="dark-theme.css">
+    <style>
+        .activity-container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .activity {
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr auto;
+            gap: 10px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+
+        select, input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--input, #555);
+            border-radius: 4px;
+            background-color: var(--background, #222);
+            color: var(--text, #fff);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--button, #444);
+            color: var(--text, #fff);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--button-hover, #555);
+        }
+
+        .btn-primary {
+            background-color: #007BFF;
+        }
+
+        .btn-delete {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2em;
+            padding: 5px 10px;
+        }
+
+        .btn-delete:hover {
+            opacity: 0.8;
+        }
+
+        #activityList {
+            margin: 20px 0;
+        }
+    </style>
 </head>
 <body>
-    <h1>Set Activity Level</h1>
-    <button id="addActivity">Add Activity</button>
-    <div id="activityList"></div>
-    <button id="saveActivityLevels">Save Activity Levels</button>
-    <button class="btn" onclick="window.location.href='set_macros.html'">Macros</button>
+    <div class="activity-container">
+        <h1>Set Activity Level</h1>
+        
+        <div class="button-group">
+            <button id="addActivity" class="btn">Add Activity</button>
+            <button id="saveActivityLevels" class="btn">Save Activity Levels</button>
+            <button class="btn btn-primary" onclick="window.location.href='set_macros.html'">NEXT: Set Macros</button>
+        </div>
 
+        <div id="activityList"></div>
+    </div>
 
-<script>
+    <script>
 
 document.addEventListener('DOMContentLoaded', function() {
     const addActivityButton = document.getElementById('addActivity');
@@ -125,12 +198,26 @@ function saveProfileData() {
                 activity.activity = this.value;
             };
 
+            // Create a wrapper div for duration input and label
+            const durationWrapper = document.createElement('div');
+            durationWrapper.style.display = 'flex';
+            durationWrapper.style.alignItems = 'center';
+            durationWrapper.style.gap = '5px';
+
             const durationInput = document.createElement('input');
             durationInput.type = 'number';
             durationInput.value = activity.duration;
+            durationInput.style.width = '80%';
             durationInput.onchange = function() {
                 activity.duration = this.value;
             };
+
+            const durationLabel = document.createElement('span');
+            durationLabel.textContent = 'mins';
+            durationLabel.style.color = 'var(--text, #fff)';
+
+            durationWrapper.appendChild(durationInput);
+            durationWrapper.appendChild(durationLabel);
 
             const perWeekSelect = document.createElement('select');
             perWeekSelect.innerHTML = '<option value="1x per week">1x per week</option><option value="2x per week">2x per week</option><option value="3x per week">3x per week</option><option value="4x per week">4x per week</option><option value="5x per week">5x per week</option><option value="6x per week">6x per week</option><option value="7x per week">7x per week</option>';
@@ -140,23 +227,22 @@ function saveProfileData() {
             };
 
             activityDiv.appendChild(activitySelect);
-            activityDiv.appendChild(durationInput);
+            activityDiv.appendChild(durationWrapper);
             activityDiv.appendChild(perWeekSelect);
 
-                // Create and append the delete button
-                const deleteButton = document.createElement('button');
-                deleteButton.textContent = '❌';
-                deleteButton.style.color = 'white';
-                deleteButton.style.padding = '5px';
-                deleteButton.style.marginLeft = '10px';
-                deleteButton.onclick = function() {
-                    activityLevels.splice(index, 1); // Remove the activity from the array
-                    renderActivityLevels(); // Re-render the list
-                };
-                activityDiv.appendChild(deleteButton);
+            // Create and append the delete button
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = '❌';
+            deleteButton.style.color = 'white';
+            deleteButton.style.padding = '5px';
+            deleteButton.style.marginLeft = '10px';
+            deleteButton.onclick = function() {
+                activityLevels.splice(index, 1);
+                renderActivityLevels();
+            };
+            activityDiv.appendChild(deleteButton);
 
-                activityList.appendChild(activityDiv);
-
+            activityList.appendChild(activityDiv);
         });
     }
 

@@ -5,34 +5,308 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Workout Routine</title>
 	<link rel="stylesheet" href="dark-theme.css">
+    <style>
+        .nav-bar {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            background-color: #333;
+            margin-bottom: 20px;
+        }
+        .nav-bar a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+        }
+        .nav-bar a:hover {
+            background-color: #555;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .exercise-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: #333;
+            border-radius: 4px;
+        }
+        .exercise-item button {
+            margin-left: 10px;
+        }
+        .back-button {
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background-color: #555;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .back-button:hover {
+            background-color: #666;
+        }
+        #workout-input {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #333;
+            border-radius: 4px;
+        }
+        #workout-input div {
+            display: flex;
+            align-items: center;
+            min-width: 0;
+        }
+        #workout-input span {
+            margin-right: 10px;
+            font-size: 1.2em;
+            flex-shrink: 0;
+        }
+        #workout-input input {
+            flex: 1;
+            min-width: 0;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background-color: #444;
+            color: white;
+        }
+        #workout-input .button-container {
+            grid-column: span 2;
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        #workout-input .add-button {
+            flex: 1;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        #workout-input .add-button:hover {
+            background-color: #45a049;
+        }
+        #workout-input .update-button {
+            flex: 1;
+            padding: 10px 15px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: none;
+        }
+        #workout-input .update-button:hover {
+            background-color: #1976D2;
+        }
+        #workout-input .add-copy-button {
+            flex: 1;
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: none;
+        }
+        #workout-input .add-copy-button:hover {
+            background-color: #45a049;
+        }
+        #workout-input .cancel-button {
+            flex: 1;
+            padding: 10px 15px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            display: none;
+        }
+        #workout-input .cancel-button:hover {
+            background-color: #d32f2f;
+        }
+        #exercise-list {
+            list-style-type: none;
+            padding: 0;
+        }
+        #exercise-list li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            margin: 5px 0;
+            background-color: #333;
+            border-radius: 4px;
+            cursor: move;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        #exercise-list li:hover {
+            background-color: #444;
+        }
+        #exercise-list li.selected {
+            border-color: #ff8c00;
+            background-color: #3a3a3a;
+        }
+        #exercise-list li.dragging {
+            opacity: 0.5;
+            background-color: #444;
+            transform: scale(1.02);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+        #exercise-list li.drag-over {
+            border-top: 2px solid #ff8c00;
+            transform: translateY(2px);
+        }
+        #exercise-list .exercise-info {
+            flex-grow: 1;
+            margin-right: 10px;
+        }
+        #exercise-list .exercise-info .exercise-name {
+            font-size: 1.2em;
+            font-weight: 500;
+            margin-bottom: 2px;
+        }
+        #exercise-list .exercise-info .exercise-details {
+            color: #999;
+            font-size: 0.9em;
+        }
+        #exercise-list .button-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        #exercise-list .button-container button {
+            background: none;
+            border: none;
+            font-size: 1.2em;
+            cursor: pointer;
+            padding: 4px;
+            transition: transform 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        #exercise-list .button-container button:hover {
+            transform: scale(1.2);
+        }
+        #exercise-list .button-container .move-button:hover {
+            color: #4CAF50;
+        }
+        #exercise-list .button-container .delete-button:hover {
+            color: #f44336;
+        }
+        @media (max-width: 600px) {
+            #workout-input {
+                grid-template-columns: 1fr;
+            }
+            #workout-input .button-container {
+                grid-column: 1;
+                display: flex;
+                flex-direction: row;
+                gap: 5px;
+            }
+            #workout-input .button-container button {
+                flex: 1;
+                font-size: 0.9em;
+                padding: 8px;
+            }
+        }
+    </style>
 </head>
 <body>
-    <h1 id="routine-name"></h1>
-    <div id="workout-input">
-	<div id="workout-input">
-		<div>
-			<span>🔤</span>
-			<input type="text" id="exercise-name" placeholder="Enter exercise name">
-		</div>
-		<div>
-			<span>🔁</span>
-			<input type="number" id="reps" placeholder="Reps">
-		</div>
-		<div>
-			<span>💪</span>
-			<input type="number" id="weight" placeholder="Weight">
-		</div>
-		<div>
-			<span>⏱️</span>
-			<input type="number" id="time" placeholder="Time">
-		</div>
+    <div class="nav-bar">
+        <a href="workout.html">Today's Workout</a>
+        <a href="workout_routine.html">Workout Routines</a>
+        <a href="set_workout_day.html">Schedule</a>
+    </div>
+    
+    <div class="container">
+        <button class="back-button" onclick="window.location.href='workout_routine.html'">← Back to Routines</button>
+        <h1 id="routine-name"></h1>
+        <div id="workout-input">
+            <div>
+                <span>🔤</span>
+                <input type="text" id="exercise-name" list="exercise-suggestions" placeholder="Enter exercise name">
+                <datalist id="exercise-suggestions">
+                    <!-- Strength Training -->
+                    <option value="Bench Press">
+                    <option value="Squat">
+                    <option value="Deadlift">
+                    <option value="Overhead Press">
+                    <option value="Barbell Row">
+                    <option value="Pull-ups">
+                    <option value="Push-ups">
+                    <option value="Dumbbell Curl">
+                    <option value="Tricep Extension">
+                    <option value="Lateral Raise">
+                    <option value="Face Pull">
+                    <option value="Leg Press">
+                    <option value="Calf Raise">
+                    <option value="Lunges">
+                    <!-- Cardio -->
+                    <option value="Running">
+                    <option value="Cycling">
+                    <option value="Swimming">
+                    <option value="Jump Rope">
+                    <option value="Burpees">
+                    <!-- Core -->
+                    <option value="Plank">
+                    <option value="Crunches">
+                    <option value="Russian Twist">
+                    <option value="Leg Raises">
+                    <option value="Mountain Climbers">
+                </datalist>
+            </div>
+            <div>
+                <span>🔁</span>
+                <input type="number" id="reps" placeholder="Reps">
+            </div>
+            <div>
+                <span>💪</span>
+                <input type="number" id="weight" placeholder="Weight">
+                <select id="weight-unit">
+                    <option value="lbs">lbs</option>
+                    <option value="kg">kg</option>
+                </select>
+            </div>
+            <div>
+                <span>⏱️</span>
+                <input type="number" id="time" placeholder="Time">
+                <select id="time-unit">
+                    <option value="sec">sec</option>
+                    <option value="min">min</option>
+                </select>
+            </div>
 
-		<button onclick="addExercise()">ADD</button>
-	</div>
+            <div class="button-container">
+                <button id="add-button" class="add-button" onclick="addExercise()">ADD EXERCISE</button>
+                <button id="update-button" class="update-button" style="display: none;">UPDATE</button>
+                <button id="add-copy-button" class="add-copy-button" style="display: none;">ADD COPY</button>
+                <button id="cancel-button" class="cancel-button" style="display: none;">CANCEL</button>
+            </div>
+        </div>
 
-    <ul id="exercise-list">
-        <!-- Exercises will be listed here -->
-    </ul>
+        <ul id="exercise-list">
+            <!-- Exercises will be listed here -->
+        </ul>
+    </div>
     <script>
         const queryString = window.location.search;
         const urlParams = new URLSearchParams(queryString);
@@ -46,38 +320,246 @@
             const exerciseList = document.getElementById('exercise-list');
             exerciseList.innerHTML = '';
 			
-
-
             exercises.forEach((exercise, index) => {
-                const { name, reps, weight, time } = exercise;
+                const { name, reps, weight, time, weightUnit = 'lbs', timeUnit = 'sec' } = exercise;
                 const exerciseElement = document.createElement('li');
-                exerciseElement.textContent = `${name} - Reps: ${reps || '-'}, Weight: ${weight || '-'}, Time: ${time || '-'} seconds`;
-                exerciseElement.addEventListener('click', () => {
-                    document.getElementById('exercise-name').value = name;
-                    document.getElementById('reps').value = reps || '';
-                    document.getElementById('weight').value = weight || '';
-                    document.getElementById('time').value = time || '';
-                });
-
+                exerciseElement.dataset.index = index;
+                exerciseElement.draggable = true;
+                
+                // Add drag and drop event listeners
+                exerciseElement.addEventListener('dragstart', handleDragStart);
+                exerciseElement.addEventListener('dragend', handleDragEnd);
+                exerciseElement.addEventListener('dragover', handleDragOver);
+                exerciseElement.addEventListener('drop', handleDrop);
+                
+                // Add touch event listeners to exercise-info div instead of the whole element
+                const exerciseInfo = document.createElement('div');
+                exerciseInfo.className = 'exercise-info';
+                
+                // Add touch event listeners for drag and drop
+                exerciseInfo.addEventListener('touchstart', handleTouchStart);
+                exerciseInfo.addEventListener('touchmove', handleTouchMove, { passive: false });
+                exerciseInfo.addEventListener('touchend', handleTouchEnd);
+                
+                const nameElement = document.createElement('div');
+                nameElement.className = 'exercise-name';
+                nameElement.textContent = name;
+                
+                const detailsElement = document.createElement('div');
+                detailsElement.className = 'exercise-details';
+                const timeDisplay = timeUnit === 'min' ? `${time || '-'} min` : `${time || '-'} sec`;
+                const weightDisplay = weightUnit === 'kg' ? `${weight || '-'} kg` : `${weight || '-'} lbs`;
+                detailsElement.textContent = `Reps: ${reps || '-'}, Weight: ${weightDisplay}, Time: ${timeDisplay}`;
+                
+                exerciseInfo.appendChild(nameElement);
+                exerciseInfo.appendChild(detailsElement);
+                exerciseElement.appendChild(exerciseInfo);
+                
+                const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'button-container';
+                
                 const deleteButton = document.createElement('button');
-                deleteButton.textContent = '❌'; // Red X emoji
-                deleteButton.addEventListener('click', () => {
-                    exercises.splice(index, 1);
-                    routines[selectedRoutine] = exercises;
-                    localStorage.setItem('workoutRoutines', JSON.stringify(routines));
-                    displayExercises();
+                deleteButton.textContent = '❌';
+                deleteButton.title = 'Delete';
+                deleteButton.className = 'delete-button';
+                deleteButton.addEventListener('click', (e) => {
+                    e.stopPropagation();  // Prevent event from bubbling up
+                    const confirmDelete = confirm('Are you sure you want to delete this exercise?');
+                    if (confirmDelete) {
+                        exercises.splice(index, 1);
+                        routines[selectedRoutine] = exercises;
+                        localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+                        displayExercises();
+                        clearForm();
+                    }
                 });
-
-				const editButton = document.createElement('button');
-				editButton.textContent = '✏️';
-				editButton.addEventListener('click', () => {
-					editExercise(index);
-				});
-				
-				exerciseElement.appendChild(editButton);
-                exerciseElement.appendChild(deleteButton);
+                
+                // Add touchend event listener to handle button taps properly
+                deleteButton.addEventListener('touchend', (e) => {
+                    e.stopPropagation();  // Prevent event from bubbling up
+                });
+                
+                buttonContainer.appendChild(deleteButton);
+                exerciseElement.appendChild(buttonContainer);
+                
+                exerciseElement.addEventListener('click', () => {
+                    highlightExercise(index);
+                    editExercise(index);
+                });
+                
                 exerciseList.appendChild(exerciseElement);
             });
+        }
+
+        // Drag and Drop Functions
+        let draggedItem = null;
+        let touchStartY = 0;
+        let currentTouchElement = null;
+        let lastTouchY = 0;
+        let isDragging = false;
+        let longPressTimer = null;
+        let initialScrollTop = 0;
+        let hasMoved = false;
+
+        function handleDragStart(e) {
+            draggedItem = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.innerHTML);
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            const items = document.querySelectorAll('#exercise-list li');
+            items.forEach(item => item.classList.remove('drag-over'));
+            draggedItem = null;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.classList.add('drag-over');
+            return false;
+        }
+
+        function handleDrop(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            this.classList.remove('drag-over');
+            
+            if (draggedItem !== this) {
+                moveExerciseToNewPosition(draggedItem, this);
+            }
+            
+            return false;
+        }
+
+        // Touch event handlers
+        function handleTouchStart(e) {
+            const touch = e.touches[0];
+            touchStartY = touch.clientY;
+            currentTouchElement = this;
+            lastTouchY = touch.clientY;
+            hasMoved = false;
+            initialScrollTop = document.documentElement.scrollTop;
+            
+            // Start long press timer
+            longPressTimer = setTimeout(() => {
+                if (!hasMoved && currentTouchElement) {
+                    isDragging = true;
+                    currentTouchElement.classList.add('dragging');
+                    currentTouchElement.style.opacity = '0.5';
+                    // Add haptic feedback if available
+                    if (window.navigator.vibrate) {
+                        window.navigator.vibrate(50);
+                    }
+                }
+            }, 500); // 500ms delay before initiating drag
+        }
+
+        function handleTouchMove(e) {
+            if (!currentTouchElement) return;
+            
+            const touch = e.touches[0];
+            const deltaY = Math.abs(touch.clientY - touchStartY);
+            
+            // Check if user has moved more than 10px
+            if (deltaY > 10) {
+                hasMoved = true;
+                clearTimeout(longPressTimer);
+            }
+            
+            // If not dragging, allow normal scrolling
+            if (!isDragging) {
+                return;
+            }
+            
+            e.preventDefault(); // Only prevent default if we're dragging
+            lastTouchY = touch.clientY;
+            
+            const elements = document.querySelectorAll('#exercise-list li:not(.dragging)');
+            let closestElement = null;
+            let closestDistance = Infinity;
+            
+            elements.forEach(element => {
+                const box = element.getBoundingClientRect();
+                const offset = touch.clientY - box.top - box.height / 2;
+                
+                if (Math.abs(offset) < Math.abs(closestDistance)) {
+                    closestDistance = offset;
+                    closestElement = element;
+                }
+            });
+            
+            if (closestElement) {
+                elements.forEach(element => element.classList.remove('drag-over'));
+                closestElement.classList.add('drag-over');
+            }
+        }
+
+        function handleTouchEnd(e) {
+            clearTimeout(longPressTimer);
+            
+            if (!currentTouchElement || !isDragging) {
+                currentTouchElement = null;
+                isDragging = false;
+                return;
+            }
+            
+            const targetElement = document.querySelector('#exercise-list li.drag-over');
+            if (targetElement && currentTouchElement !== targetElement) {
+                moveExerciseToNewPosition(currentTouchElement, targetElement);
+            }
+            
+            // Clean up
+            document.querySelectorAll('#exercise-list li').forEach(item => {
+                item.classList.remove('dragging', 'drag-over');
+                item.style.opacity = '1';
+            });
+            
+            currentTouchElement = null;
+            isDragging = false;
+            hasMoved = false;
+        }
+
+        function moveExerciseToNewPosition(fromElement, toElement) {
+            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            const exercises = routines[selectedRoutine] || [];
+            
+            const fromIndex = parseInt(fromElement.dataset.index);
+            const toIndex = parseInt(toElement.dataset.index);
+            
+            // Get the exercise to move
+            const exercise = exercises[fromIndex];
+            
+            // Remove it from the current position
+            exercises.splice(fromIndex, 1);
+            
+            // Insert it at the new position
+            exercises.splice(toIndex, 0, exercise);
+            
+            // Save the updated order
+            routines[selectedRoutine] = exercises;
+            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            
+            // Refresh the display
+            displayExercises();
+            
+            // Keep the moved exercise highlighted
+            highlightExercise(toIndex);
+        }
+
+        function highlightExercise(index) {
+            // Remove highlight from all exercises
+            const exercises = document.querySelectorAll('#exercise-list li');
+            exercises.forEach(exercise => exercise.classList.remove('selected'));
+            
+            // Add highlight to selected exercise
+            const selectedExercise = document.querySelector(`#exercise-list li[data-index="${index}"]`);
+            if (selectedExercise) {
+                selectedExercise.classList.add('selected');
+            }
         }
 
         function addExercise() {
@@ -85,7 +567,8 @@
             const reps = document.getElementById('reps').value;
             const weight = document.getElementById('weight').value;
             const time = document.getElementById('time').value;
-
+            const weightUnit = document.getElementById('weight-unit').value;
+            const timeUnit = document.getElementById('time-unit').value;
 
             if (exerciseName === '') {
                 alert('Please enter an exercise name.');
@@ -95,97 +578,110 @@
             const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
             const exercises = routines[selectedRoutine] || [];
 
-            exercises.push({ name: exerciseName, reps, weight, time });
+            exercises.push({ name: exerciseName, reps, weight, time, weightUnit, timeUnit });
             routines[selectedRoutine] = exercises;
             localStorage.setItem('workoutRoutines', JSON.stringify(routines));
 
             displayExercises();
 
+            // Clear the form
+            clearForm();
+        }
+
+        function clearForm() {
             document.getElementById('exercise-name').value = '';
             document.getElementById('reps').value = '';
             document.getElementById('weight').value = '';
             document.getElementById('time').value = '';
+            
+            // Reset buttons to ADD mode
+            const addButton = document.getElementById('add-button');
+            const updateButton = document.getElementById('update-button');
+            const addCopyButton = document.getElementById('add-copy-button');
+            const cancelButton = document.getElementById('cancel-button');
+            
+            addButton.style.display = 'block';
+            updateButton.style.display = 'none';
+            addCopyButton.style.display = 'none';
+            cancelButton.style.display = 'none';
+
+            // Remove highlight from all exercises
+            const exercises = document.querySelectorAll('#exercise-list li');
+            exercises.forEach(exercise => exercise.classList.remove('selected'));
         }
 
+        function editExercise(index) {
+            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            const exercises = routines[selectedRoutine] || [];
+            const exercise = exercises[index];
+            
+            // Fill the form with the exercise details
+            document.getElementById('exercise-name').value = exercise.name;
+            document.getElementById('reps').value = exercise.reps || '';
+            document.getElementById('weight').value = exercise.weight || '';
+            document.getElementById('time').value = exercise.time || '';
+            document.getElementById('weight-unit').value = exercise.weightUnit || 'lbs';
+            document.getElementById('time-unit').value = exercise.timeUnit || 'sec';
+            
+            // Show edit mode buttons
+            const addButton = document.getElementById('add-button');
+            const updateButton = document.getElementById('update-button');
+            const addCopyButton = document.getElementById('add-copy-button');
+            const cancelButton = document.getElementById('cancel-button');
+            
+            addButton.style.display = 'none';
+            updateButton.style.display = 'block';
+            addCopyButton.style.display = 'block';
+            cancelButton.style.display = 'block';
+            
+            // Set up button click handlers
+            updateButton.onclick = function() {
+                updateExercise(index);
+            };
+            
+            addCopyButton.onclick = function() {
+                addExercise();
+            };
 
+            cancelButton.onclick = function() {
+                clearForm();
+            };
+            
+            // Scroll to the form
+            document.getElementById('workout-input').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function updateExercise(index) {
+            const exerciseName = document.getElementById('exercise-name').value.trim();
+            const reps = document.getElementById('reps').value;
+            const weight = document.getElementById('weight').value;
+            const time = document.getElementById('time').value;
+            const weightUnit = document.getElementById('weight-unit').value;
+            const timeUnit = document.getElementById('time-unit').value;
+            
+            if (exerciseName === '') {
+                alert('Please enter an exercise name.');
+                return;
+            }
+            
+            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            const exercises = routines[selectedRoutine] || [];
+            
+            exercises[index] = { name: exerciseName, reps, weight, time, weightUnit, timeUnit };
+            routines[selectedRoutine] = exercises;
+            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            
+            // Reset the form and buttons
+            clearForm();
+            
+            displayExercises();
+        }
 
-	  function editExercise(index) {
-			const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
-			const exercises = routines[selectedRoutine] || [];
-			const exercise = exercises[index];
-
-			// Present a form or modal to the user to input the new details
-			// For simplicity, we'll use alerts here, but you might want to use a more user-friendly approach
-			const newName = prompt("Enter new exercise name:", exercise.name);
-			const newReps = prompt("Enter new reps:", exercise.reps);
-			const newWeight = prompt("Enter new weight:", exercise.weight);
-			const newTime = prompt("Enter new time (seconds):", exercise.time);
-
-			if (newName !== null && newReps !== null && newWeight !== null && newTime !== null) {
-				// Update the exercise in the local storage with the new details
-				exercise.name = newName;
-				exercise.reps = newReps;
-				exercise.weight = newWeight;
-				exercise.time = newTime;
-
-				routines[selectedRoutine] = exercises;
-				localStorage.setItem('workoutRoutines', JSON.stringify(routines));
-
-				// Refresh the display to reflect the changes
-				displayExercises();
-			}
-		}
-
-
-	
-		//pressing enter will add the exercise
-		document.getElementById('exercise-name').addEventListener('keydown', function(event) {
-			if (event.key === 'Enter') {
-				addExercise();
-			}
-		});
-
-		document.getElementById('reps').addEventListener('keydown', function(event) {
-			if (event.key === 'Enter') {
-				addExercise();
-			}
-		});
-
-		document.getElementById('weight').addEventListener('keydown', function(event) {
-			if (event.key === 'Enter') {
-				addExercise();
-			}
-		});
-
-		document.getElementById('time').addEventListener('keydown', function(event) {
-			if (event.key === 'Enter') {
-				addExercise();
-			}
-		});
-		
-		//clear field when clicked
-		document.getElementById('exercise-name').addEventListener('click', function() {
-			this.value = '';
-		});
-
-		document.getElementById('reps').addEventListener('click', function() {
-			this.value = '';
-		});
-
-		document.getElementById('weight').addEventListener('click', function() {
-			this.value = '';
-		});
-
-		document.getElementById('time').addEventListener('click', function() {
-			this.value = '';
-		});
-
-		
-		
-
-
-
-        window.onload = displayExercises;
+        window.onload = function() {
+            displayExercises();
+            // Initialize the cancel button to be hidden
+            document.getElementById('cancel-button').style.display = 'none';
+        };
     </script>
 </body>
 </html>
