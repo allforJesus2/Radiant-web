@@ -74,6 +74,7 @@ how can we add spacing between suggestions
             <input type="text" class="food" placeholder="Food name...">
             <input class="grams" type="number" inputmode="numeric" placeholder="Grams">
             <button class="btn" id="addBtn">Add</button>
+            <button class="btn" id="refreshFoodDb" title="Refresh food database">🔄</button>
         </div>
 
         <div id="autocompleteList">
@@ -143,6 +144,34 @@ how can we add spacing between suggestions
 
         #settingsToggle {
             width: 100%;
+        }
+
+        /* Style text selection for grams input */
+        .grams::selection {
+            background-color: #0015ff;
+            color: white;
+        }
+
+
+        .serving-bubble {
+            position: absolute;
+            background: var(--background-color);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 5px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: fadeIn 0.2s ease-in;
+            /* Make background fully opaque and ensure text contrast */
+            background-color: #000000;
+            color: #ffffff;
+            opacity: 1;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
     </style>
 
@@ -370,6 +399,23 @@ function initializeFoodList() {
     };
 }
 
+function showServingBubble(description, targetElement) {
+    // Create and show the bubble
+    const bubble = document.createElement('div');
+    bubble.className = 'serving-bubble';
+    bubble.textContent = description;
+    targetElement.parentNode.appendChild(bubble);
+    
+    // Position the bubble below the target element
+    const rect = targetElement.getBoundingClientRect();
+    bubble.style.top = (rect.bottom + 5) + 'px';
+    bubble.style.left = rect.left + 'px';
+    
+    // Remove the bubble after 3 seconds
+    setTimeout(() => {
+        bubble.remove();
+    }, 3000);
+}
 
 function setupAutocomplete(foodList) {
     var foodInput = document.querySelector('.food');
@@ -403,13 +449,19 @@ function setupAutocomplete(foodList) {
                 listItem.addEventListener('click', function() {
                     foodInput.value = this.textContent;
                     autocompleteList.innerHTML = '';
-
-                    // Assuming 'fetchValueForKey' is defined elsewhere
+                    
+                    // Focus and select grams input immediately after selection
+                    gramsInput.focus();
+                    gramsInput.select();
+                    
+                    // Fetch both serving weight and description
                     fetchValueForKey(this.textContent, 'servingWeight1', function(value) {
                         gramsInput.value = value;
-                        // Focus on the grams input and select its content
-                        gramsInput.focus();
                         gramsInput.select();
+                    });
+                    
+                    fetchValueForKey(this.textContent, 'servingDescription1', function(description) {
+                        showServingBubble(description, gramsInput);
                     });
                 });
 
@@ -766,7 +818,8 @@ function displayFoodItems(foodItems) {
         deleteButton.textContent = '❌';
         deleteButton.className = 'delete-btn';
         deleteButton.style.float = 'right';
-        deleteButton.addEventListener('click', function() {
+        deleteButton.addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent the listItem click from firing
             foodItems.splice(index, 1);
             var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
             foodLog[today] = foodItems;
@@ -778,8 +831,19 @@ function displayFoodItems(foodItems) {
 
         listItem.addEventListener('click', function() {
             foodInput.value = item.name;
+            
+            // Focus and select grams input immediately
+            gramsInput.focus();
+            gramsInput.select();
+            
+            // Fetch serving weight and description
             fetchValueForKey(item.name, 'servingWeight1', function(value) {
                 gramsInput.value = value;
+                gramsInput.select();
+            });
+            
+            fetchValueForKey(item.name, 'servingDescription1', function(description) {
+                showServingBubble(description, gramsInput);
             });
         });
 
@@ -861,15 +925,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Set the header's text content to the formatted date
     dateHeader.textContent = today;
-	    // Create a home button
+    
+    // Create a recipes link
+    const recipesLink = document.createElement('a');
+    recipesLink.href = 'create-recipe.html';
+    recipesLink.textContent = 'Recipes';
+    recipesLink.style.marginLeft = '20px';
+
+    // Create a home button
     const homeButton = document.createElement('a');
     homeButton.href = 'index.html';
     homeButton.textContent = 'Home';
-    homeButton.style.marginLeft = '10px'; // Optional: Add some margin for spacing
+    homeButton.style.marginLeft = '20px';
 
-    // Append the home button to the dateHeader
+    // Append both links to the header
+    dateHeader.appendChild(recipesLink);
     dateHeader.appendChild(homeButton);
 
+    // Add event listener for refresh button
+    document.getElementById('refreshFoodDb').addEventListener('click', refreshFoodDatabase);
 });
 
 document.getElementById('settingsToggle').addEventListener('click', function() {
@@ -882,6 +956,25 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
         this.textContent = '⚙️ Settings';
     }
 });
+
+// Add the refresh function after the initializeFoodList function
+function refreshFoodDatabase() {
+    // Clear the current foodList
+    foodList = [];
+    
+    // Show loading indicator
+    const originalPlaceholder = document.querySelector('.food').placeholder;
+    document.querySelector('.food').placeholder = "Refreshing food database...";
+    
+    // Call initializeFoodList again
+    initializeFoodList();
+    
+    // Set a timeout to restore the placeholder
+    setTimeout(function() {
+        document.querySelector('.food').placeholder = originalPlaceholder;
+        alert("Food database refreshed. New recipes should now appear in search.");
+    }, 1000);
+}
 </script>
 	
 </body>

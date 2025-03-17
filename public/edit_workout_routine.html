@@ -51,6 +51,68 @@
         .back-button:hover {
             background-color: #666;
         }
+        .info-container {
+            margin-bottom: 20px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        .info-section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #2c2c2c;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+        .info-section h3 {
+            margin-top: 0;
+            color: #4CAF50;
+        }
+        .info-section p {
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .info-section ul {
+            padding-left: 20px;
+        }
+        .info-section li {
+            margin-bottom: 5px;
+        }
+        .info-section .section-title {
+            font-weight: bold;
+            color: #4CAF50;
+            margin-top: 10px;
+            margin-bottom: 5px;
+        }
+        .toggle-info {
+            background: none;
+            border: none;
+            color: #4CAF50;
+            cursor: pointer;
+            font-size: 1em;
+            padding: 0;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+        }
+        .toggle-info:hover {
+            text-decoration: underline;
+        }
+        .toggle-info::before {
+            content: '▼';
+            margin-right: 5px;
+            transition: transform 0.3s;
+        }
+        .toggle-info.collapsed::before {
+            content: '►';
+        }
+        .info-content {
+            transition: max-height 0.3s ease-out;
+            max-height: 1000px;
+            overflow: hidden;
+        }
+        .info-content.collapsed {
+            max-height: 0;
+        }
         #workout-input {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
@@ -240,6 +302,57 @@
     <div class="container">
         <button class="back-button" onclick="window.location.href='workout_routine.html'">← Back to Routines</button>
         <h1 id="routine-name"></h1>
+        
+        <div class="info-container">
+            <div class="info-section">
+                <button class="toggle-info collapsed" onclick="toggleInfo(this)">Muscle Growth Guidelines</button>
+                <div class="info-content collapsed">
+                    <p>For optimal muscle growth (hypertrophy), the consensus among experts is to perform 3-4 sets of 8-12 repetitions per exercise. This rep range effectively targets fast-twitch muscle fibers, which are more prone to growth in response to resistance training.</p>
+                    
+                    <div class="section-title">Key Factors for Muscle Growth</div>
+                    <ul>
+                        <li><strong>Volume:</strong> Aim for 10-20 sets per muscle group per week, with some research suggesting that 30-40 sets per week may yield the best hypertrophy results.</li>
+                        <li><strong>Weight:</strong> Choose a weight that allows you to reach muscle failure within the target rep range. If you can easily do more than 12 reps, increase the weight.</li>
+                        <li><strong>Frequency:</strong> Work each muscle group at least 2-3 times per week for optimal growth.</li>
+                        <li><strong>Progressive Overload:</strong> Gradually increase the difficulty of your exercises over time by adjusting weight, reps, or intensity to continue stimulating muscle growth.</li>
+                    </ul>
+                    
+                    <div class="section-title">Additional Considerations</div>
+                    <ul>
+                        <li><strong>Rest Periods:</strong> For hypertrophy-focused training, rest 30-90 seconds between sets.</li>
+                        <li><strong>Exercise Selection:</strong> Prioritize multi-joint movements like bench press, squats, and deadlifts, which recruit more total muscle mass.</li>
+                        <li><strong>Training to Failure:</strong> Aim to finish your sets 0-5 reps short of failure for optimal results without excessive fatigue.</li>
+                        <li><strong>Variation:</strong> While 8-12 reps is generally recommended, incorporating some lower (6-8) and higher (12-15) rep ranges can be beneficial for overall muscle development.</li>
+                    </ul>
+                    
+                    <p>By following these guidelines and consistently challenging your muscles, you can create an optimal environment for muscle growth.</p>
+                </div>
+            </div>
+            
+            <div class="info-section">
+                <button class="toggle-info collapsed" onclick="toggleInfo(this)">Weight Loss Guidelines</button>
+                <div class="info-content collapsed">
+                    <p>For weight loss, the optimal rep and set range typically involves higher repetitions with moderate weights to maximize calorie burn and improve muscular endurance.</p>
+                    
+                    <div class="section-title">Reps and Sets for Weight Loss</div>
+                    <ul>
+                        <li>Perform 2-4 sets of 10-15 repetitions per exercise. This range is ideal for fat loss as it increases time under tension, which enhances calorie expenditure and metabolic activity.</li>
+                        <li>Compound exercises (e.g., squats, deadlifts, push-ups) are especially effective because they engage multiple muscle groups and burn more calories.</li>
+                    </ul>
+                    
+                    <div class="section-title">Additional Guidelines</div>
+                    <ul>
+                        <li><strong>Strength Training:</strong> Incorporate strength training to build muscle mass, which boosts your resting metabolic rate. Aim for 4-8 total sets per muscle group per session.</li>
+                        <li><strong>Cardio:</strong> Combine strength training with cardiovascular exercises like running, cycling, or interval training for a balanced approach to weight loss. The recommended cardio duration is 150 minutes of moderate intensity or 75 minutes of high intensity per week.</li>
+                        <li><strong>Progressive Overload:</strong> Gradually increase weights or reps to challenge your muscles and maintain progress.</li>
+                        <li><strong>Rest Periods:</strong> Rest for 30-60 seconds between sets to keep your heart rate elevated and promote calorie burn.</li>
+                    </ul>
+                    
+                    <p>While exercise plays a crucial role, weight loss ultimately depends on maintaining a calorie deficit through a combination of diet and physical activity.</p>
+                </div>
+            </div>
+        </div>
+        
         <div id="workout-input">
             <div>
                 <span>🔤</span>
@@ -313,6 +426,12 @@
         const selectedRoutine = urlParams.get('selectedRoutine');
 
         document.getElementById('routine-name').textContent = decodeURIComponent(selectedRoutine);
+
+        function toggleInfo(button) {
+            button.classList.toggle('collapsed');
+            const content = button.nextElementSibling;
+            content.classList.toggle('collapsed');
+        }
 
         function displayExercises() {
             const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};

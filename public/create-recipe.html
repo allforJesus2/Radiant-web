@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="dark-theme.css">
+</head>
+<body>
+    <header id="dateHeader">
+        <a href="index.html">Home</a>
+        <a href="nutrition.html" style="margin-left: 20px;">Nutrition Tracker</a>
+    </header>
+
+    <div class="container">
+        <div class="top container">
+            <h2>Create New Recipe</h2>
+            
+            <div class="input-group">
+                <input type="text" class="food" placeholder="Ingredient name...">
+                <input class="grams" type="number" inputmode="numeric" placeholder="Grams">
+                <button class="btn" id="addIngredient">Add Ingredient</button>
+            </div>
+
+            <div id="autocompleteList"></div>
+
+            <div id="ingredientsList" class="scrollable-list"></div>
+
+            <div class="results-container">
+                <button class="btn" id="calculateRecipe">Calculate Recipe</button>
+                <div id="recipeResults"></div>
+            </div>
+        </div>
+
+        <!-- New Section for Saved Recipes -->
+        <div class="saved-recipes-container">
+            <h2>My Saved Recipes</h2>
+            <div id="savedRecipesList" class="scrollable-list"></div>
+        </div>
+    </div>
+
+    <style>
+        .scrollable-list {
+            max-height: 40vh;
+            overflow-y: auto;
+            margin: 15px 0;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            padding: 10px;
+        }
+
+        .ingredient-item {
+            padding: 10px;
+            border-bottom: 1px solid var(--border-color);
+            position: relative;
+        }
+
+        .ingredient-item .delete-btn {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        #recipeResults {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            background-color: var(--background-color);
+        }
+
+        .recipe-totals {
+            margin: 10px 0;
+            padding: 10px;
+            background-color: var(--input-background);
+            border-radius: 5px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .input-group input {
+            flex: 1;
+        }
+        
+        #autocompleteList div {
+            padding: 8px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        #autocompleteList div:hover {
+            background-color: var(--hover-color, #333);
+        }
+
+        /* New styles for saved recipes */
+        .saved-recipes-container {
+            margin-top: 30px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 20px;
+        }
+
+        .recipe-item {
+            padding: 15px;
+            border-bottom: 1px solid var(--border-color);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .recipe-item:hover {
+            background-color: var(--hover-color, #333);
+        }
+
+        .recipe-info {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+        }
+
+        .recipe-name {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 5px;
+        }
+
+        .recipe-macros {
+            font-size: 0.9em;
+            color: var(--text-secondary-color, #ccc);
+        }
+
+        .recipe-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .use-recipe-btn, .delete-recipe-btn {
+            padding: 5px 10px;
+            background-color: var(--button-color, #444);
+            border: none;
+            border-radius: 4px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .use-recipe-btn:hover, .delete-recipe-btn:hover {
+            background-color: var(--button-hover-color, #555);
+        }
+
+        .delete-recipe-btn {
+            background-color: #993333;
+        }
+
+        .delete-recipe-btn:hover {
+            background-color: #cc4444;
+        }
+
+        .recipe-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            display: none;
+        }
+
+        .recipe-modal-content {
+            background-color: var(--background-color);
+            border-radius: 8px;
+            width: 80%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 20px;
+        }
+
+        .close-modal {
+            float: right;
+            font-size: 1.5em;
+            cursor: pointer;
+        }
+    </style>
+
+    <script>
+        const ingredients = [];
+        let totalWeight = 0;
+        let recipeTotals = {
+            calories: 0,
+            protein: 0,
+            carbs: 0,
+            fat: 0
+        };
+        
+        // Define the headers dictionary to match nutrition.html
+        const headers = {
+            name: 0,
+            foodGroup: 1,
+            calories: 2,
+            fat: 3,
+            protein: 4,
+            carbohydrate: 5,
+            sugars: 6,
+            fiber: 7,
+            netCarbs: 8,
+            servingWeight1: 9,
+            servingDescription1: 10
+        };
+        
+        let foodList = [];
+
+        document.getElementById('addIngredient').addEventListener('click', addIngredient);
+        document.getElementById('calculateRecipe').addEventListener('click', calculateRecipe);
+        
+        // Add event listener for the Enter key on the grams input
+        document.querySelector('.grams').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                addIngredient();
+            }
+        });
+
+        function addIngredient() {
+            const foodName = document.querySelector('.food').value;
+            const grams = parseFloat(document.querySelector('.grams').value);
+            
+            if (!foodName || !grams) {
+                alert('Please enter both ingredient name and grams');
+                return;
+            }
+
+            getNutritionalInfo(foodName, grams).then(nutrition => {
+                ingredients.push({
+                    name: foodName,
+                    grams: grams,
+                    calories: nutrition.calories,
+                    protein: nutrition.protein,
+                    carbs: nutrition.carbs,
+                    fat: nutrition.fat
+                });
+
+                updateIngredientsList();
+                clearInputs();
+            });
+        }
+
+        function updateIngredientsList() {
+            const list = document.getElementById('ingredientsList');
+            list.innerHTML = ingredients.map((ingredient, index) => `
+                <div class="ingredient-item">
+                    ${ingredient.name} (${ingredient.grams}g)
+                    <span class="small-text">
+                        Cals: ${ingredient.calories.toFixed(1)}, 
+                        P: ${ingredient.protein.toFixed(1)}g, 
+                        C: ${ingredient.carbs.toFixed(1)}g, 
+                        F: ${ingredient.fat.toFixed(1)}g
+                    </span>
+                    <button class="delete-btn" onclick="removeIngredient(${index})">❌</button>
+                </div>
+            `).join('');
+        }
+
+        function removeIngredient(index) {
+            ingredients.splice(index, 1);
+            updateIngredientsList();
+        }
+
+        function calculateRecipe() {
+            recipeTotals = ingredients.reduce((totals, ingredient) => ({
+                calories: totals.calories + ingredient.calories,
+                protein: totals.protein + ingredient.protein,
+                carbs: totals.carbs + ingredient.carbs,
+                fat: totals.fat + ingredient.fat
+            }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+
+            totalWeight = ingredients.reduce((sum, ingredient) => sum + ingredient.grams, 0);
+
+            displayRecipeResults();
+        }
+
+        function displayRecipeResults() {
+            const per100g = {
+                calories: (recipeTotals.calories / totalWeight * 100).toFixed(1),
+                protein: (recipeTotals.protein / totalWeight * 100).toFixed(1),
+                carbs: (recipeTotals.carbs / totalWeight * 100).toFixed(1),
+                fat: (recipeTotals.fat / totalWeight * 100).toFixed(1)
+            };
+
+            const resultsDiv = document.getElementById('recipeResults');
+            resultsDiv.innerHTML = `
+                <div class="recipe-totals">
+                    <h3>Per 100g:</h3>
+                    <p>Calories: ${per100g.calories}</p>
+                    <p>Protein: ${per100g.protein}g</p>
+                    <p>Carbs: ${per100g.carbs}g</p>
+                    <p>Fat: ${per100g.fat}g</p>
+                </div>
+                <div class="recipe-totals">
+                    <h3>Total Recipe (${totalWeight}g):</h3>
+                    <p>Calories: ${recipeTotals.calories.toFixed(1)}</p>
+                    <p>Protein: ${recipeTotals.protein.toFixed(1)}g</p>
+                    <p>Carbs: ${recipeTotals.carbs.toFixed(1)}g</p>
+                    <p>Fat: ${recipeTotals.fat.toFixed(1)}g</p>
+                </div>
+                <button class="btn" onclick="saveRecipe()">Save Recipe</button>
+            `;
+        }
+
+        function saveRecipe() {
+            const recipeName = prompt('Enter recipe name:');
+            if (!recipeName) return;
+
+            const per100g = {
+                calories: parseFloat((recipeTotals.calories / totalWeight * 100).toFixed(1)),
+                protein: parseFloat((recipeTotals.protein / totalWeight * 100).toFixed(1)),
+                carbs: parseFloat((recipeTotals.carbs / totalWeight * 100).toFixed(1)),
+                fat: parseFloat((recipeTotals.fat / totalWeight * 100).toFixed(1))
+            };
+
+            // Calculate sugars, fiber, and net carbs (set to 0 since we don't have this data)
+            const sugars = 0;
+            const fiber = 0;
+            const netCarbs = per100g.carbs;
+
+            // Add to IndexedDB
+            const dbName = 'csvDB';
+            const storeName = 'csvStore';
+            
+            const dbRequest = indexedDB.open(dbName, 1);
+            
+            dbRequest.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                
+                // Get the highest ID to append this recipe
+                const countRequest = store.count();
+                countRequest.onsuccess = function() {
+                    const newId = countRequest.result;
+                    
+                    // Create the new recipe data array with all required fields
+                    const newRecipe = {
+                        id: newId,
+                        data: [
+                            recipeName,           // name
+                            'Custom Recipe',      // foodGroup
+                            per100g.calories,     // calories
+                            per100g.fat,          // fat
+                            per100g.protein,      // protein
+                            per100g.carbs,        // carbohydrate
+                            sugars,               // sugars
+                            fiber,                // fiber
+                            netCarbs,             // netCarbs
+                            100,                  // servingWeight1
+                            '100g',               // servingDescription1
+                            '',                   // Add empty strings for any remaining fields
+                            ''                    // that might be expected in the database
+                        ]
+                    };
+
+                    const addRequest = store.add(newRecipe);
+                    
+                    addRequest.onsuccess = function() {
+                        // Add the new recipe to the current foodList for immediate use
+                        foodList.push(recipeName);
+                        
+                        // Show success message with refresh instruction
+                        const message = 'Recipe saved to database!\n\nIMPORTANT: If you go back to the nutrition page, you may need to refresh it once to see your new recipe in search results.';
+                        alert(message);
+                        
+                        // Update the saved recipes list
+                        loadSavedRecipes();
+                        
+                        // Redirect option
+                        const shouldRedirect = confirm('Would you like to go to the nutrition tracker now?');
+                        if (shouldRedirect) {
+                            window.location.href = 'nutrition.html';
+                        }
+                    };
+                    
+                    addRequest.onerror = function(e) {
+                        console.error('Error saving recipe:', e.target.error);
+                        alert('Error saving recipe. Please try again.');
+                    };
+                };
+            };
+        }
+
+        function clearInputs() {
+            document.querySelector('.food').value = '';
+            document.querySelector('.grams').value = '';
+            document.querySelector('.food').focus();
+        }
+        
+        // Function to fetch nutritional info for a given food and grams
+        function getNutritionalInfo(foodName, grams) {
+            // Placeholder for the nutritionalInfo object that will be populated
+            var nutritionalInfo = {
+                calories: 0,
+                fat: 0,
+                protein: 0,
+                carbs: 0
+            };
+
+            // Create an array of Promises for each fetch operation
+            var fetchPromises = ['calories', 'fat', 'protein', 'carbohydrate'].map(function(headerKey) {
+                return new Promise(function(resolve, reject) {
+                    fetchValueForKey(foodName, headerKey, function(value) {
+                        // Calculate the nutritional value based on grams
+                        var calculatedValue = parseFloat(((grams / 100) * value).toFixed(1));
+                        // Update the nutritionalInfo object
+                        switch (headerKey) {
+                            case 'calories':
+                                nutritionalInfo.calories = calculatedValue;
+                                break;
+                            case 'fat':
+                                nutritionalInfo.fat = calculatedValue;
+                                break;
+                            case 'protein':
+                                nutritionalInfo.protein = calculatedValue;
+                                break;
+                            case 'carbohydrate':
+                                nutritionalInfo.carbs = calculatedValue;
+                                break;
+                            default:
+                                console.error('Invalid header key:', headerKey);
+                        }
+                        resolve();
+                    });
+                });
+            });
+
+            // Return a Promise that resolves with the nutritionalInfo object once all fetch operations have completed
+            return Promise.all(fetchPromises).then(function() {
+                return nutritionalInfo;
+            });
+        }
+        
+        // Function to fetch a specific value for a given food item based on the header key
+        function fetchValueForKey(foodName, headerKey, callback) {
+            const dbName = 'csvDB';
+            const storeName = 'csvStore';
+
+            const dbRequest = indexedDB.open(dbName, 1);
+
+            dbRequest.onerror = function(event) {
+                console.error('Database error:', event.target.error);
+            };
+
+            dbRequest.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.openCursor();
+
+                request.onsuccess = function(event) {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        // Assuming the 'name' is the first element in the 'data' array
+                        if (cursor.value.data[headers.name] === foodName) {
+                            // Found the food item, fetch the value for the specified header key
+                            const value = cursor.value.data[headers[headerKey]];
+                            callback(value);
+                            return;
+                        }
+                        cursor.continue();
+                    } else {
+                        console.log('Food item not found:', foodName);
+                    }
+                };
+
+                request.onerror = function(event) {
+                    console.error('Cursor error:', event.target.error);
+                };
+            };
+        }
+        
+        // Initialize food list from IndexedDB
+        function initializeFoodList() {
+            const dbName = 'csvDB';
+            const storeName = 'csvStore';
+            
+            const dbRequest = indexedDB.open(dbName, 1);
+
+            dbRequest.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains(storeName)) {
+                    // Create the object store if it doesn't exist
+                    db.createObjectStore(storeName, { keyPath: 'id' });
+                }
+            };
+
+            dbRequest.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.openCursor();
+
+                request.onsuccess = function(event) {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        // Assuming the 'name' is the first element in the 'data' array
+                        foodList.push(cursor.value.data[headers.name]);
+                        cursor.continue();
+                    } else {
+                        // All records have been processed
+                        // Now you can use foodList for autocomplete
+                        setupAutocomplete(foodList);
+                    }
+                };
+            };
+        }
+        
+        // Setup autocomplete functionality
+        function setupAutocomplete(foodList) {
+            var foodInput = document.querySelector('.food');
+            var autocompleteList = document.getElementById('autocompleteList');
+            var gramsInput = document.querySelector('.grams');
+
+            foodInput.addEventListener('input', function() {
+                var userInput = this.value;
+
+                if (userInput.length > 1) {
+                    // Split the user input into words
+                    var inputWords = userInput.toLowerCase().split(' ');
+
+                    var filteredFoods = foodList.filter(function(food) {
+                        // Convert the food item to lowercase for case-insensitive comparison
+                        var foodLowerCase = food.toLowerCase();
+
+                        // Check if all words in the user input are present in the food item
+                        return inputWords.every(function(word) {
+                            return foodLowerCase.includes(word);
+                        });
+                    });
+
+                    while (autocompleteList.firstChild) {
+                        autocompleteList.removeChild(autocompleteList.firstChild);
+                    }
+
+                    filteredFoods.forEach(function(food) {
+                        var listItem = document.createElement('div');
+                        listItem.textContent = food;
+                        listItem.addEventListener('click', function() {
+                            foodInput.value = this.textContent;
+                            autocompleteList.innerHTML = '';
+                            
+                            // Focus and select grams input immediately after selection
+                            gramsInput.focus();
+                            gramsInput.select();
+                            
+                            // Fetch serving weight
+                            fetchValueForKey(this.textContent, 'servingWeight1', function(value) {
+                                gramsInput.value = value;
+                                gramsInput.select();
+                            });
+                        });
+
+                        autocompleteList.appendChild(listItem);
+                    });
+                } else {
+                    autocompleteList.innerHTML = '';
+                }
+            });
+        }
+        
+        // New function to load saved recipes
+        function loadSavedRecipes() {
+            const dbName = 'csvDB';
+            const storeName = 'csvStore';
+            
+            const dbRequest = indexedDB.open(dbName, 1);
+            
+            dbRequest.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.openCursor();
+                
+                const savedRecipes = [];
+                
+                request.onsuccess = function(event) {
+                    const cursor = event.target.result;
+                    if (cursor) {
+                        // Check if this is a custom recipe
+                        if (cursor.value.data[headers.foodGroup] === 'Custom Recipe') {
+                            savedRecipes.push({
+                                id: cursor.value.id,
+                                name: cursor.value.data[headers.name],
+                                calories: cursor.value.data[headers.calories],
+                                protein: cursor.value.data[headers.protein],
+                                carbs: cursor.value.data[headers.carbohydrate],
+                                fat: cursor.value.data[headers.fat]
+                            });
+                        }
+                        cursor.continue();
+                    } else {
+                        // Display saved recipes
+                        displaySavedRecipes(savedRecipes);
+                    }
+                };
+            };
+        }
+        
+        // Function to display saved recipes
+        function displaySavedRecipes(recipes) {
+            const recipesList = document.getElementById('savedRecipesList');
+            
+            if (recipes.length === 0) {
+                recipesList.innerHTML = '<p>No saved recipes yet. Create your first recipe!</p>';
+                return;
+            }
+            
+            recipesList.innerHTML = '';
+            
+            recipes.forEach(recipe => {
+                const recipeItem = document.createElement('div');
+                recipeItem.className = 'recipe-item';
+                
+                recipeItem.innerHTML = `
+                    <div class="recipe-info">
+                        <span class="recipe-name">${recipe.name}</span>
+                        <span class="recipe-macros">
+                            Cal: ${recipe.calories} | P: ${recipe.protein}g | C: ${recipe.carbs}g | F: ${recipe.fat}g
+                        </span>
+                    </div>
+                    <div class="recipe-actions">
+                        <button class="delete-recipe-btn" data-recipe-id="${recipe.id}">❌ Delete</button>
+                        <button class="use-recipe-btn" data-recipe-id="${recipe.id}">Use Recipe</button>
+                    </div>
+                `;
+                
+                recipesList.appendChild(recipeItem);
+            });
+            
+            // Add event listeners to "Use Recipe" buttons
+            document.querySelectorAll('.use-recipe-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const recipeId = parseInt(this.getAttribute('data-recipe-id'));
+                    useRecipe(recipeId);
+                });
+            });
+            
+            // Add event listeners to "Delete Recipe" buttons
+            document.querySelectorAll('.delete-recipe-btn').forEach(button => {
+                button.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const recipeId = parseInt(this.getAttribute('data-recipe-id'));
+                    deleteRecipe(recipeId);
+                });
+            });
+            
+            // Add click event to recipe items to view recipe details
+            document.querySelectorAll('.recipe-item').forEach(item => {
+                item.addEventListener('click', function(e) {
+                    if (!e.target.classList.contains('use-recipe-btn') && !e.target.classList.contains('delete-recipe-btn')) {
+                        const recipeId = parseInt(this.querySelector('.use-recipe-btn').getAttribute('data-recipe-id'));
+                        viewRecipeDetails(recipeId);
+                    }
+                });
+            });
+        }
+        
+        // Function to use a recipe (adds it as an ingredient with a default weight)
+        function useRecipe(recipeId) {
+            const dbName = 'csvDB';
+            const storeName = 'csvStore';
+            
+            const dbRequest = indexedDB.open(dbName, 1);
+            
+            dbRequest.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.get(recipeId);
+                
+                request.onsuccess = function(event) {
+                    const recipe = request.result;
+                    if (recipe) {
+                        // Set as the current ingredient with default 100g
+                        document.querySelector('.food').value = recipe.data[headers.name];
+                        document.querySelector('.grams').value = 100;
+                        document.querySelector('.grams').focus();
+                        document.querySelector('.grams').select();
+                    }
+                };
+            };
+        }
+        
+        // Function to delete a recipe
+        function deleteRecipe(recipeId) {
+            // Ask for confirmation
+            const confirmDelete = confirm('Are you sure you want to delete this recipe?');
+            if (!confirmDelete) return;
+            
+            const dbName = 'csvDB';
+            const storeName = 'csvStore';
+            
+            const dbRequest = indexedDB.open(dbName, 1);
+            
+            dbRequest.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction([storeName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                
+                // Get the recipe to find its name
+                const getRequest = store.get(recipeId);
+                
+                getRequest.onsuccess = function() {
+                    const recipe = getRequest.result;
+                    if (recipe) {
+                        const recipeName = recipe.data[headers.name];
+                        
+                        // Delete the recipe
+                        const deleteRequest = store.delete(recipeId);
+                        
+                        deleteRequest.onsuccess = function() {
+                            // Remove recipe name from foodList array
+                            const index = foodList.indexOf(recipeName);
+                            if (index > -1) {
+                                foodList.splice(index, 1);
+                            }
+                            
+                            // Show success message
+                            alert(`Recipe "${recipeName}" has been deleted.`);
+                            
+                            // Refresh the recipes list
+                            loadSavedRecipes();
+                        };
+                        
+                        deleteRequest.onerror = function(e) {
+                            console.error('Error deleting recipe:', e.target.error);
+                            alert('Error deleting recipe. Please try again.');
+                        };
+                    }
+                };
+            };
+        }
+        
+        // Function to view recipe details
+        function viewRecipeDetails(recipeId) {
+            const dbName = 'csvDB';
+            const storeName = 'csvStore';
+            
+            const dbRequest = indexedDB.open(dbName, 1);
+            
+            dbRequest.onsuccess = function(event) {
+                const db = event.target.result;
+                const transaction = db.transaction([storeName], 'readonly');
+                const store = transaction.objectStore(storeName);
+                const request = store.get(recipeId);
+                
+                request.onsuccess = function(event) {
+                    const recipe = request.result;
+                    if (recipe) {
+                        // Create a modal to display recipe details
+                        const modal = document.createElement('div');
+                        modal.className = 'recipe-modal';
+                        
+                        modal.innerHTML = `
+                            <div class="recipe-modal-content">
+                                <span class="close-modal">&times;</span>
+                                <h2>${recipe.data[headers.name]}</h2>
+                                <div class="recipe-details">
+                                    <h3>Nutritional Information (per 100g)</h3>
+                                    <p>Calories: ${recipe.data[headers.calories]}</p>
+                                    <p>Protein: ${recipe.data[headers.protein]}g</p>
+                                    <p>Carbs: ${recipe.data[headers.carbohydrate]}g</p>
+                                    <p>Fat: ${recipe.data[headers.fat]}g</p>
+                                </div>
+                                <div class="modal-actions">
+                                    <button class="btn" onclick="useRecipe(${recipeId})">Use This Recipe</button>
+                                    <button class="btn delete-btn" onclick="deleteRecipe(${recipeId}); document.querySelector('.recipe-modal').remove();">Delete Recipe</button>
+                                </div>
+                            </div>
+                        `;
+                        
+                        document.body.appendChild(modal);
+                        modal.style.display = 'flex';
+                        
+                        // Close modal functionality
+                        modal.querySelector('.close-modal').addEventListener('click', function() {
+                            modal.style.display = 'none';
+                            setTimeout(() => {
+                                modal.remove();
+                            }, 300);
+                        });
+                        
+                        // Close when clicking outside the modal content
+                        modal.addEventListener('click', function(e) {
+                            if (e.target === modal) {
+                                modal.style.display = 'none';
+                                setTimeout(() => {
+                                    modal.remove();
+                                }, 300);
+                            }
+                        });
+                    }
+                };
+            };
+        }
+
+        // Initialize autocomplete and load saved recipes when the page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeFoodList();
+            loadSavedRecipes();
+        });
+    </script>
+</body>
+</html> 

@@ -1,0 +1,1315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5/3/1 Workout Generator</title>
+    <style>
+        :root {
+            --primary: #3a0ca3;
+            --secondary: #4361ee;
+            --light: #f1faee;
+            --dark: #1d3557;
+            --accent: #e63946;
+            --success: #2a9d8f;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 0.5rem;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 1rem;
+        }
+        
+        h1 {
+            font-size: 1.8rem;
+            margin-bottom: 0.25rem;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            font-weight: 300;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .input-section, .result-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .input-section {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .result-section {
+            flex: 2;
+            min-width: 300px;
+        }
+        
+        h2 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--light);
+            padding-bottom: 0.5rem;
+        }
+        
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        button {
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        
+        button:hover {
+            background-color: var(--primary);
+        }
+        
+        .week-tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .week-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            background-color: #f5f5f5;
+            margin-right: 5px;
+        }
+        
+        .week-tab.active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom-color: white;
+            margin-bottom: -1px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .week-content {
+            display: none;
+        }
+        
+        .week-content.active {
+            display: block;
+        }
+        
+        /* Day tabs styling */
+        .day-tabs {
+            display: flex;
+            margin-bottom: 1rem;
+            gap: 0.5rem;
+        }
+        
+        .day-tab {
+            padding: 8px 16px;
+            cursor: pointer;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            flex: 1;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .day-tab:hover {
+            background-color: #e9ecef;
+        }
+        
+        .day-tab.active {
+            background-color: var(--secondary);
+            color: white;
+            border-color: var(--secondary);
+        }
+        
+        .day-content {
+            display: none;
+        }
+        
+        .day-content.active {
+            display: block;
+        }
+        
+        .day-card {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid var(--secondary);
+        }
+        
+        .day-header {
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .exercise-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        
+        .exercise-table th, .exercise-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        
+        .exercise-table th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+        
+        .accessory-section {
+            margin-top: 1rem;
+        }
+        
+        .accessory-section h4 {
+            color: var(--secondary);
+            margin-bottom: 0.5rem;
+        }
+        
+        .accessory-list {
+            list-style-type: none;
+        }
+        
+        .accessory-list li {
+            padding: 5px 0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .notes {
+            margin-top: 1rem;
+            padding: 10px;
+            background-color: #f1faee;
+            border-left: 3px solid var(--success);
+            font-style: italic;
+        }
+        
+        .warm-up-section {
+            margin-top: 1rem;
+            background-color: #fff3ec;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        
+        .warm-up-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .warm-up-table td {
+            padding: 5px;
+        }
+        
+        .print-button {
+            background-color: var(--success);
+            margin-top: 1rem;
+        }
+        
+        @media print {
+            header, .input-section, button {
+                display: none;
+            }
+            
+            .container {
+                width: 100%;
+                max-width: none;
+                padding: 0;
+            }
+            
+            .result-section {
+                box-shadow: none;
+                padding: 0;
+            }
+            
+            .day-card {
+                page-break-inside: avoid;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .input-section, .result-section {
+                width: 100%;
+            }
+            
+            /* Make the result section appear first on mobile */
+            .input-section {
+                order: 2;
+                margin-top: 20px;
+            }
+            
+            .result-section {
+                order: 1;
+            }
+        }
+        
+        .toggle-container {
+            display: flex;
+            margin-bottom: 1rem;
+        }
+        
+        .toggle-option {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background-color: #f5f5f5;
+            cursor: pointer;
+            border: 1px solid #ddd;
+        }
+        
+        .toggle-option:first-child {
+            border-radius: 4px 0 0 4px;
+        }
+        
+        .toggle-option:last-child {
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .toggle-option.active {
+            background-color: var(--secondary);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .percentage-info {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+        
+        .amrap-set {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        .explanation-box {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        .level-display {
+            float: right;
+            background-color: #FFD700;
+            color: #000;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-top: 5px;
+        }
+        
+        .level-up-button {
+            background-color: #FFD700;
+            color: #000;
+            margin-top: 1rem;
+            animation: pulse 1.5s infinite;
+            border: 2px solid #DAA520;
+        }
+        
+        .level-up-button:hover {
+            background-color: #DAA520;
+            border-color: #B8860B;
+        }
+        
+        .level-down-button {
+            background-color: var(--dark);
+            margin-top: 1rem;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 1rem;
+        }
+        
+        .button-group button {
+            flex: 1;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>5/3/1 Workout Generator</h1>
+        </header>
+        
+        <div class="main-content">
+            <div class="input-section">
+                <h2>Program Setup</h2>
+                
+                <div class="input-group">
+                    <label for="squat-1rm">Squat 1RM (lbs)</label>
+                    <input type="number" id="squat-1rm" min="0" step="5" placeholder="e.g. 315">
+                </div>
+                
+                <div class="input-group">
+                    <label for="bench-1rm">Bench Press 1RM (lbs)</label>
+                    <input type="number" id="bench-1rm" min="0" step="5" placeholder="e.g. 225">
+                </div>
+                
+                <div class="input-group">
+                    <label for="deadlift-1rm">Deadlift 1RM (lbs)</label>
+                    <input type="number" id="deadlift-1rm" min="0" step="5" placeholder="e.g. 405">
+                </div>
+                
+                <div class="input-group">
+                    <label for="ohp-1rm">Overhead Press 1RM (lbs)</label>
+                    <input type="number" id="ohp-1rm" min="0" step="5" placeholder="e.g. 135">
+                </div>
+                
+                <div class="input-group">
+                    <div class="notes" style="margin-bottom: 1rem;">
+                        <p><strong>Progression Guide:</strong></p>
+                        <ul>
+                            <li>After each 4-week cycle:</li>
+                            <li>• Increase upper body lifts (Bench, OHP) by 5 lbs</li>
+                            <li>• Increase lower body lifts (Squat, Deadlift) by 10 lbs</li>
+                            <li>Use AMRAP sets to gauge progress</li>
+                            <li>Adjust slower if AMRAP sets are challenging</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>Training Max Percentage</label>
+                    <div class="toggle-container">
+                        <div class="toggle-option active" data-value="90">90%</div>
+                        <div class="toggle-option" data-value="85">85%</div>
+                    </div>
+                    <p class="percentage-info">Wendler recommends 85-90% of 1RM as your Training Max</p>
+                </div>
+                
+                <div class="input-group">
+                    <label for="accessory-template">Accessory Template</label>
+                    <select id="accessory-template">
+                        <option value="standard">Standard (25-50 reps Push/Pull/Core)</option>
+                        <option value="bbb">Boring But Big (5x10 @ 50-60%)</option>
+                        <option value="fsl">First Set Last (5x5 @ First Set Weight)</option>
+                        <option value="triumvirate">Triumvirate (2 accessories, 5x10-15)</option>
+                        <option value="beginners">5/3/1 for Beginners (FSL + specific accessories)</option>
+                    </select>
+                </div>
+                <div id="accessory-explanation" class="explanation-box"></div>
+                
+                <button id="generate-button">Generate Workout Plan</button>
+                
+                <div class="input-group">
+                    <button id="delete-profile-button" style="background-color: var(--accent); margin-top: 1rem;">Delete Saved Profile</button>
+                </div>
+
+                <div class="input-group">
+                    <button id="print-button" class="print-button">Print Workout Plan</button>
+                </div>
+            </div>
+            
+            <div class="result-section">
+                <h2>Your 5/3/1 Workout Plan <span id="level-display" class="level-display">LVL: 1</span></h2>
+                
+                <div class="week-tabs">
+                    <div class="week-tab active" data-week="1">Week 1 (5/5/5+)</div>
+                    <div class="week-tab" data-week="2">Week 2 (3/3/3+)</div>
+                    <div class="week-tab" data-week="3">Week 3 (5/3/1+)</div>
+                    <div class="week-tab" data-week="4">Week 4 (Deload)</div>
+                </div>
+                
+                <div id="workout-results">
+                    <p>Enter your 1-rep max values and click "Generate Workout Plan" to create your personalized 5/3/1 program.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables
+            let tmPercentage = 90;
+            let accessoryTemplate = 'standard';
+            let workoutPlan = {};
+            let currentWeek = 1;
+            let currentDay = 0;
+            let userLevel = 1; // Initialize user level
+
+            // Load saved profile from localStorage
+            function loadProfile() {
+                const savedProfile = localStorage.getItem('531-workout-profile');
+                if (savedProfile) {
+                    const profile = JSON.parse(savedProfile);
+                    
+                    // Restore input values
+                    document.getElementById('squat-1rm').value = profile.inputs.squat || '';
+                    document.getElementById('bench-1rm').value = profile.inputs.bench || '';
+                    document.getElementById('deadlift-1rm').value = profile.inputs.deadlift || '';
+                    document.getElementById('ohp-1rm').value = profile.inputs.ohp || '';
+                    
+                    // Restore TM percentage
+                    tmPercentage = profile.tmPercentage || 90;
+                    tmOptions.forEach(option => {
+                        option.classList.toggle('active', option.dataset.value === tmPercentage.toString());
+                    });
+                    
+                    // Restore accessory template
+                    accessoryTemplate = profile.accessoryTemplate || 'standard';
+                    accessorySelect.value = accessoryTemplate;
+                    
+                    // Restore workout plan
+                    if (profile.workoutPlan) {
+                        workoutPlan = profile.workoutPlan;
+                        renderWorkoutPlan();
+                    }
+                    
+                    // Restore UI state
+                    currentWeek = profile.currentWeek || 1;
+                    currentDay = profile.currentDay || 0;
+                    
+                    // Restore user level
+                    userLevel = profile.userLevel || 1;
+                    updateLevelDisplay();
+                    
+                    // Update UI to show saved week/day
+                    setTimeout(() => {
+                        // Update week tabs to show correct active state
+                        weekTabs.forEach(tab => {
+                            tab.classList.toggle('active', tab.dataset.week === currentWeek.toString());
+                        });
+                        
+                        showWeekContent(currentWeek);
+                        const activeWeek = document.querySelector(`.week-content[data-week="${currentWeek}"]`);
+                        if (activeWeek) {
+                            showDayContent(activeWeek, currentDay);
+                        }
+                    }, 0);
+                }
+            }
+
+            // Update level display
+            function updateLevelDisplay() {
+                levelDisplay.textContent = `LVL: ${userLevel}`;
+            }
+
+            // Save profile to localStorage
+            function saveProfile() {
+                const profile = {
+                    inputs: {
+                        squat: document.getElementById('squat-1rm').value,
+                        bench: document.getElementById('bench-1rm').value,
+                        deadlift: document.getElementById('deadlift-1rm').value,
+                        ohp: document.getElementById('ohp-1rm').value
+                    },
+                    tmPercentage,
+                    accessoryTemplate,
+                    workoutPlan,
+                    currentWeek,
+                    currentDay,
+                    userLevel // Save user level
+                };
+                
+                localStorage.setItem('531-workout-profile', JSON.stringify(profile));
+            }
+
+            // Configuration objects
+            const daysSetup = [
+                { day: 1, main: "ohp", name: "Overhead Press Day" },
+                { day: 2, main: "deadlift", name: "Deadlift Day" },
+                { day: 3, main: "bench", name: "Bench Press Day" },
+                { day: 4, main: "squat", name: "Squat Day" }
+            ];
+
+            const weekPercentages = {
+                1: [
+                    { reps: 5, percentage: 65 },
+                    { reps: 5, percentage: 75 },
+                    { reps: "5+", percentage: 85, amrap: true }
+                ],
+                2: [
+                    { reps: 3, percentage: 70 },
+                    { reps: 3, percentage: 80 },
+                    { reps: "3+", percentage: 90, amrap: true }
+                ],
+                3: [
+                    { reps: 5, percentage: 75 },
+                    { reps: 3, percentage: 85 },
+                    { reps: "1+", percentage: 95, amrap: true }
+                ],
+                4: [
+                    { reps: 5, percentage: 40 },
+                    { reps: 5, percentage: 50 },
+                    { reps: 5, percentage: 60 }
+                ]
+            };
+
+            const accessoryExercises = {
+                standard: {
+                    ohp: {
+                        push: ["Dips", "Incline Dumbbell Press", "Pushups"],
+                        pull: ["Chin-ups", "Barbell Rows", "Face Pulls"],
+                        core: ["Ab Wheel", "Hanging Leg Raises", "Planks"]
+                    },
+                    deadlift: {
+                        push: ["Push-ups", "Dumbbell Bench Press", "Dips"],
+                        pull: ["Lat Pulldowns", "Face Pulls", "Dumbbell Rows"],
+                        legs: ["Bulgarian Split Squats", "Lunges", "Leg Curls"]
+                    },
+                    bench: {
+                        push: ["Close-grip Bench", "Tricep Extensions", "Dips"],
+                        pull: ["Barbell Rows", "Pull-ups", "Face Pulls"],
+                        core: ["Russian Twists", "Sit-ups", "Planks"]
+                    },
+                    squat: {
+                        push: ["Shoulder Press", "Push-ups", "Tricep Extensions"],
+                        pull: ["Cable Rows", "Bicep Curls", "Lat Pulldowns"],
+                        legs: ["Lunges", "Leg Raises", "Glute Bridges"]
+                    }
+                },
+                bbb: {
+                    ohp: { main: "OHP", secondary: "Bench Press" },
+                    deadlift: { main: "Deadlift", secondary: "Squat" },
+                    bench: { main: "Bench Press", secondary: "OHP" },
+                    squat: { main: "Squat", secondary: "Deadlift" }
+                },
+                fsl: {
+                    ohp: { main: "OHP", accessories: ["Dips", "Rows", "Ab Work"] },
+                    deadlift: { main: "Deadlift", accessories: ["Leg Curls", "Pulldowns", "Planks"] },
+                    bench: { main: "Bench Press", accessories: ["Triceps", "Pull-ups", "Core"] },
+                    squat: { main: "Squat", accessories: ["Lunges", "Rows", "Ab Work"] }
+                },
+                triumvirate: {
+                    ohp: {
+                        accessories: [
+                            { name: "Dips", sets: 5, reps: "10-15" },
+                            { name: "Chin-ups", sets: 5, reps: "10-15" }
+                        ]
+                    },
+                    deadlift: {
+                        accessories: [
+                            { name: "Hanging Leg Raises", sets: 5, reps: "10-15" },
+                            { name: "Good Mornings", sets: 5, reps: "10-15" }
+                        ]
+                    },
+                    bench: {
+                        accessories: [
+                            { name: "Dumbbell Rows", sets: 5, reps: "10-15" },
+                            { name: "Incline Dumbbell Press", sets: 5, reps: "10-15" }
+                        ]
+                    },
+                    squat: {
+                        accessories: [
+                            { name: "Leg Curls", sets: 5, reps: "10-15" },
+                            { name: "Ab Wheel", sets: 5, reps: "10-15" }
+                        ]
+                    }
+                },
+                beginners: {
+                    ohp: {
+                        mainFSL: true,
+                        accessories: {
+                            push: ["Dips", "Push-ups", "Dumbbell Bench"],
+                            pull: ["Chin-ups", "Barbell Rows", "Face Pulls"],
+                            legs: ["Ab Wheel", "Hanging Leg Raises", "Planks"]
+                        }
+                    },
+                    deadlift: {
+                        mainFSL: true,
+                        accessories: {
+                            push: ["Push-ups", "Dips", "Tricep Extensions"],
+                            pull: ["Pull-ups", "Inverted Rows", "Face Pulls"],
+                            legs: ["Lunges", "Step-ups", "Ab Work"]
+                        }
+                    },
+                    bench: {
+                        mainFSL: true,
+                        accessories: {
+                            push: ["Dips", "Incline Press", "Lateral Raises"],
+                            pull: ["Pull-ups", "DB Rows", "Face Pulls"],
+                            legs: ["Hanging Leg Raises", "Ab Wheel", "Planks"]
+                        }
+                    },
+                    squat: {
+                        mainFSL: true,
+                        accessories: {
+                            push: ["Dips", "Push-ups", "DB Press"],
+                            pull: ["Pull-ups", "Barbell Rows", "Face Pulls"],
+                            legs: ["Leg Curls", "Back Raises", "Ab Work"]
+                        }
+                    }
+                }
+            };
+
+            // DOM elements
+            const generateButton = document.getElementById('generate-button');
+            const printButton = document.getElementById('print-button');
+            const weekTabs = document.querySelectorAll('.week-tab');
+            const tmOptions = document.querySelectorAll('.toggle-option');
+            const accessorySelect = document.getElementById('accessory-template');
+            const levelDisplay = document.getElementById('level-display');
+            
+            // Event listeners
+            generateButton.addEventListener('click', () => {
+                generateWorkoutPlan();
+                saveProfile();
+            });
+            
+            // Add delete profile functionality
+            const deleteProfileButton = document.getElementById('delete-profile-button');
+            deleteProfileButton.addEventListener('click', () => {
+                if (confirm('Are you sure you want to delete your saved workout profile? This cannot be undone.')) {
+                    localStorage.removeItem('531-workout-profile');
+                    // Reset form values
+                    document.getElementById('squat-1rm').value = '';
+                    document.getElementById('bench-1rm').value = '';
+                    document.getElementById('deadlift-1rm').value = '';
+                    document.getElementById('ohp-1rm').value = '';
+                    // Reset user level
+                    userLevel = 1;
+                    updateLevelDisplay();
+                    // Reset workout plan
+                    workoutPlan = {};
+                    // Reset UI
+                    renderWorkoutPlan();
+                    showWeekContent(1);
+                    alert('Workout profile has been deleted.');
+                }
+            });
+            
+            printButton.addEventListener('click', () => { window.print(); });
+            
+            weekTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    weekTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    currentWeek = parseInt(tab.dataset.week);
+                    showWeekContent(currentWeek);
+                    saveProfile();
+                });
+            });
+            
+            tmOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    tmOptions.forEach(o => o.classList.remove('active'));
+                    option.classList.add('active');
+                    tmPercentage = parseInt(option.dataset.value);
+                    saveProfile();
+                });
+            });
+            
+            accessorySelect.addEventListener('change', () => {
+                accessoryTemplate = accessorySelect.value;
+                saveProfile();
+            });
+
+            // Add event delegation for day tabs with profile saving
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('day-tab')) {
+                    const weekContent = e.target.closest('.week-content');
+                    currentDay = parseInt(e.target.dataset.day);
+                    showDayContent(weekContent, currentDay);
+                    saveProfile();
+                }
+            });
+
+            // Load saved profile on page load
+            loadProfile();
+            
+            // Helper functions
+            function round5(num) {
+                return Math.round(num / 5) * 5;
+            }
+            
+            function generateWarmupSets(exerciseTM) {
+                return [
+                    { reps: 5, weight: round5(exerciseTM * 0.4) },
+                    { reps: 5, weight: round5(exerciseTM * 0.5) },
+                    { reps: 3, weight: round5(exerciseTM * 0.6) }
+                ];
+            }
+            
+            function calculateWorkingWeight(oneRM, tmPercent, weekPercent) {
+                const trainingMax = oneRM * (tmPercent / 100);
+                return round5(trainingMax * (weekPercent / 100));
+            }
+            
+            // Main function to generate workout plan
+            function generateWorkoutPlan() {
+                // Get 1RM values
+                const squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
+                const bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
+                const deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
+                const ohp1RM = parseFloat(document.getElementById('ohp-1rm').value) || 0;
+                
+                if (squat1RM === 0 && bench1RM === 0 && deadlift1RM === 0 && ohp1RM === 0) {
+                    alert('Please enter at least one 1RM value.');
+                    return;
+                }
+                
+                // Calculate Training Maxes
+                const squatTM = squat1RM * (tmPercentage / 100);
+                const benchTM = bench1RM * (tmPercentage / 100);
+                const deadliftTM = deadlift1RM * (tmPercentage / 100);
+                const ohpTM = ohp1RM * (tmPercentage / 100);
+                
+                // Week percentages
+                // Create workout plan structure
+                workoutPlan = {
+                    weeks: {},
+                    trainingMaxes: {
+                        squat: round5(squatTM),
+                        bench: round5(benchTM),
+                        deadlift: round5(deadliftTM),
+                        ohp: round5(ohpTM)
+                    }
+                };
+                
+                // Generate workout plan for each week
+                for (let week = 1; week <= 4; week++) {
+                    workoutPlan.weeks[week] = [];
+                    
+                    daysSetup.forEach(daySetup => {
+                        const { day, main, name } = daySetup;
+                        const exerciseTM = workoutPlan.trainingMaxes[main];
+                        
+                        if (exerciseTM === 0) return; // Skip if no 1RM entered
+                        
+                        const dayPlan = {
+                            day,
+                            name,
+                            mainLift: { 
+                                name: main.charAt(0).toUpperCase() + main.slice(1),
+                                tm: exerciseTM,
+                                warmup: generateWarmupSets(exerciseTM),
+                                sets: []
+                            },
+                            accessories: []
+                        };
+                        
+                        // Add main lift sets based on week percentages
+                        weekPercentages[week].forEach(set => {
+                            dayPlan.mainLift.sets.push({
+                                reps: set.reps,
+                                weight: round5(exerciseTM * (set.percentage / 100)),
+                                percentage: set.percentage,
+                                amrap: set.amrap || false
+                            });
+                        });
+                        
+                        // Add accessories based on template
+                        if (accessoryTemplate === 'standard') {
+                            const exercises = accessoryExercises.standard[main];
+                            dayPlan.accessories = [
+                                { type: 'Push', exercises: exercises.push, reps: '25-50 total reps' },
+                                { type: 'Pull', exercises: exercises.pull, reps: '25-50 total reps' },
+                                { type: exercises.core ? 'Core' : 'Legs', exercises: exercises.core || exercises.legs, reps: '25-50 total reps' }
+                            ];
+                        } else if (accessoryTemplate === 'bbb') {
+                            const bbbExercise = accessoryExercises.bbb[main];
+                            const bbbWeight = round5(exerciseTM * 0.5); // 50% TM for BBB
+                            
+                            dayPlan.accessories = [
+                                { 
+                                    type: 'Boring But Big', 
+                                    exercise: bbbExercise.main, 
+                                    sets: '5 sets of 10 reps', 
+                                    weight: bbbWeight
+                                },
+                                { 
+                                    type: 'Supplemental',
+                                    exercise: bbbExercise.secondary,
+                                    sets: '3-5 sets of 10-20 reps'
+                                }
+                            ];
+                        } else if (accessoryTemplate === 'fsl') {
+                            // First set last - use first working set weight for 5x5
+                            const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
+                            const fslExercises = accessoryExercises.fsl[main];
+                            
+                            dayPlan.accessories = [
+                                {
+                                    type: 'First Set Last',
+                                    exercise: fslExercises.main,
+                                    sets: '5 sets of 5 reps',
+                                    weight: fslWeight
+                                },
+                                {
+                                    type: 'Supplemental Work',
+                                    exercises: fslExercises.accessories,
+                                    reps: '50-100 total reps'
+                                }
+                            ];
+                        } else if (accessoryTemplate === 'triumvirate') {
+                            const triumvirateExercises = accessoryExercises.triumvirate[main];
+                            dayPlan.accessories = triumvirateExercises.accessories;
+                        } else if (accessoryTemplate === 'beginners') {
+                            // First set last - use first working set weight for 5x5
+                            const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
+                            const beginnerExercises = accessoryExercises.beginners[main];
+                            
+                            dayPlan.fslWeight = fslWeight; // Store for rendering
+                            
+                            // Ensure the accessories property has properly structured data
+                            try {
+                                dayPlan.accessories = [
+                                    {
+                                        type: 'Push',
+                                        exercises: beginnerExercises.accessories.push || ['Push exercises'],
+                                        reps: '50-100 total reps'
+                                    },
+                                    {
+                                        type: 'Pull',
+                                        exercises: beginnerExercises.accessories.pull || ['Pull exercises'],
+                                        reps: '50-100 total reps'
+                                    },
+                                    {
+                                        type: 'Legs/Core',
+                                        exercises: beginnerExercises.accessories.legs || ['Legs/Core exercises'],
+                                        reps: '50-100 total reps'
+                                    }
+                                ];
+                            } catch (error) {
+                                // Fallback if there's any issue with the data structure
+                                console.error('Error setting up accessories for beginners template:', error);
+                                dayPlan.accessories = [
+                                    { type: 'Push', exercises: ['Push exercises'], reps: '50-100 total reps' },
+                                    { type: 'Pull', exercises: ['Pull exercises'], reps: '50-100 total reps' },
+                                    { type: 'Legs/Core', exercises: ['Legs/Core exercises'], reps: '50-100 total reps' }
+                                ];
+                            }
+                        }
+                        
+                        workoutPlan.weeks[week].push(dayPlan);
+                    });
+                }
+                
+                // Render workout plan
+                renderWorkoutPlan();
+                
+                // Show week 1 by default
+                showWeekContent(1);
+            }
+            
+            // Function to safely join an array or return a default string
+            function safeJoin(arr, separator, defaultText) {
+                if (Array.isArray(arr) && arr.length > 0) {
+                    return arr.join(separator);
+                }
+                return defaultText || 'Not specified';
+            }
+            
+            // Function to render workout plan
+            function renderWorkoutPlan() {
+                const resultsContainer = document.getElementById('workout-results');
+                
+                if (!workoutPlan.weeks || Object.keys(workoutPlan.weeks).length === 0) {
+                    resultsContainer.innerHTML = '<p>Enter your 1-rep max values and click "Generate Workout Plan" to create your personalized 5/3/1 program.</p>';
+                    return;
+                }
+                
+                let html = '';
+                
+                // Create HTML for each week
+                for (let week = 1; week <= 4; week++) {
+                    let weekName = '';
+                    switch(week) {
+                        case 1: weekName = '5/5/5+'; break;
+                        case 2: weekName = '3/3/3+'; break;
+                        case 3: weekName = '5/3/1+'; break;
+                        case 4: weekName = 'Deload'; break;
+                    }
+                    
+                    html += `<div class="week-content ${week === 1 ? 'active' : ''}" data-week="${week}">`;
+                    html += `<h3>Week ${week} (${weekName})</h3>`;
+                    
+                    if (workoutPlan.weeks[week].length === 0) {
+                        html += '<p>Please enter at least one 1RM value to generate workout days.</p>';
+                    } else {
+                        // Add day tabs
+                        html += '<div class="day-tabs">';
+                        workoutPlan.weeks[week].forEach((day, dayIndex) => {
+                            html += `<div class="day-tab ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">Day ${day.day}</div>`;
+                        });
+                        html += '</div>';
+                        
+                        // Add day content container
+                        html += '<div class="day-contents">';
+                        workoutPlan.weeks[week].forEach((day, dayIndex) => {
+                            const isLastDayOfCycle = (week === 4 && dayIndex === workoutPlan.weeks[week].length - 1);
+                            
+                            html += `
+                            <div class="day-content ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">
+                                <div class="day-card">
+                                    <div class="day-header">Day ${day.day}: ${day.name}</div>
+                                    
+                                    <div class="warm-up-section">
+                                        <h4>Warm-up Sets</h4>
+                                        <table class="warm-up-table">
+                                            <tr>
+                                                <td>5 reps × ${day.mainLift.warmup[0].weight} lbs (40%)</td>
+                                                <td>5 reps × ${day.mainLift.warmup[1].weight} lbs (50%)</td>
+                                                <td>3 reps × ${day.mainLift.warmup[2].weight} lbs (60%)</td>
+                                            </tr>
+                                        </table>
+                                    </div>
+                                    
+                                    <h4>Main Lift: ${day.mainLift.name}</h4>
+                                    <table class="exercise-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Set</th>
+                                                <th>Weight (lbs)</th>
+                                                <th>Reps</th>
+                                                <th>% of TM</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>`;
+                            
+                            day.mainLift.sets.forEach((set, index) => {
+                                html += `
+                                    <tr>
+                                        <td>Set ${index + 1}</td>
+                                        <td>${set.weight}</td>
+                                        <td class="${set.amrap ? 'amrap-set' : ''}">${set.reps}${set.amrap ? ' (AMRAP)' : ''}</td>
+                                        <td>${set.percentage}%</td>
+                                    </tr>`;
+                            });
+                            
+                            html += `
+                                        </tbody>
+                                    </table>
+                                    
+                                    <div class="accessory-section">
+                                        <h4>Accessory Work</h4>`;
+                            
+                            if (accessoryTemplate === 'standard') {
+                                html += `<ul class="accessory-list">`;
+                                day.accessories.forEach(accessory => {
+                                    html += `
+                                        <li>
+                                            <span><strong>${accessory.type}:</strong> ${safeJoin(accessory.exercises, ' or ', accessory.type + ' exercises')}</span>
+                                            <span>${accessory.reps}</span>
+                                        </li>`;
+                                });
+                                html += `</ul>`;
+                            } else if (accessoryTemplate === 'bbb') {
+                                html += `<ul class="accessory-list">
+                                    <li>
+                                        <span><strong>${day.accessories[0].type}:</strong> ${day.accessories[0].exercise}</span>
+                                        <span>${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs</span>
+                                    </li>
+                                    <li>
+                                        <span><strong>Supplemental:</strong> ${day.accessories[1].exercise}</span>
+                                        <span>${day.accessories[1].sets}</span>
+                                    </li>
+                                </ul>`;
+                            } else if (accessoryTemplate === 'fsl') {
+                                html += `<ul class="accessory-list">
+                                    <li>
+                                        <span><strong>${day.accessories[0].type}:</strong> ${day.accessories[0].exercise}</span>
+                                        <span>${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs</span>
+                                    </li>
+                                    <li>
+                                        <span><strong>${day.accessories[1].type}:</strong> ${safeJoin(day.accessories[1].exercises, ', ')}</span>
+                                        <span>${day.accessories[1].reps}</span>
+                                    </li>
+                                </ul>`;
+                            } else if (accessoryTemplate === 'triumvirate') {
+                                html += `<ul class="accessory-list">`;
+                                day.accessories.forEach(accessory => {
+                                    html += `
+                                        <li>
+                                            <span><strong>${accessory.name}</strong></span>
+                                            <span>${accessory.sets} sets of ${accessory.reps} reps</span>
+                                        </li>`;
+                                });
+                                html += `</ul>`;
+                            } else if (accessoryTemplate === 'beginners') {
+                                html += `<ul class="accessory-list">
+                                    <li>
+                                        <span><strong>First Set Last:</strong> ${day.mainLift.name}</span>
+                                        <span>5 sets of 5 reps @ ${day.fslWeight} lbs</span>
+                                    </li>
+                                    <li>
+                                        <span><strong>Push:</strong> ${safeJoin(day.accessories[0].exercises, ' or ')}</span>
+                                        <span>50-100 total reps (5x10-20)</span>
+                                    </li>
+                                    <li>
+                                        <span><strong>Pull:</strong> ${safeJoin(day.accessories[1].exercises, ' or ')}</span>
+                                        <span>50-100 total reps (5x10-20)</span>
+                                    </li>
+                                    <li>
+                                        <span><strong>Legs/Core:</strong> ${safeJoin(day.accessories[2].exercises, ' or ')}</span>
+                                        <span>50-100 total reps (5x10-20)</span>
+                                    </li>
+                                </ul>`;
+                            }
+                            
+                            html += `
+                                    </div>
+                                    
+                                    <div class="notes">
+                                        <p>Notes:</p>
+                                        <ul>
+                                            <li>AMRAP = As Many Reps As Possible (with good form)</li>
+                                            <li>Rest 2-3 minutes between main lift sets</li>
+                                            <li>Rest 60-90 seconds between accessory sets</li>
+                                            <li>Accessory work should be done at 7-8 RPE (Rate of Perceived Exertion)</li>
+                                            <li>Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight</li>
+                                            <li>Increase weight only when you can complete all reps with good form</li>
+                                        </ul>
+                                    </div>
+                                    
+                                    ${isLastDayOfCycle ? `
+                                    <div class="button-group">
+                                        <button id="level-down-button" class="level-down-button">LEVEL DOWN (Decrease Weights)</button>
+                                        <button id="level-up-button" class="level-up-button">LEVEL UP! (Complete Cycle & Increase Weights)</button>
+                                    </div>
+                                    ` : ''}
+                                </div>
+                            </div>`;
+                        });
+                        html += '</div>'; // Close day-contents
+                    }
+                    
+                    html += '</div>'; // Close week-content
+                }
+                
+                resultsContainer.innerHTML = html;
+                
+                // Add event listeners for level buttons
+                const levelUpButton = document.getElementById('level-up-button');
+                if (levelUpButton) {
+                    levelUpButton.addEventListener('click', levelUp);
+                }
+                
+                const levelDownButton = document.getElementById('level-down-button');
+                if (levelDownButton) {
+                    levelDownButton.addEventListener('click', levelDown);
+                }
+            }
+            
+            // Function to show specific week content
+            function showWeekContent(weekNum) {
+                const weekContents = document.querySelectorAll('.week-content');
+                weekContents.forEach(content => {
+                    content.classList.toggle('active', content.dataset.week === weekNum.toString());
+                });
+                
+                // Show first day of the selected week
+                const activeWeek = document.querySelector(`.week-content[data-week="${weekNum}"]`);
+                if (activeWeek) {
+                    const firstDayTab = activeWeek.querySelector('.day-tab');
+                    if (firstDayTab) {
+                        showDayContent(activeWeek, 0);
+                    }
+                }
+            }
+            
+            // Function to show specific day content
+            function showDayContent(weekElement, dayIndex) {
+                const dayTabs = weekElement.querySelectorAll('.day-tab');
+                const dayContents = weekElement.querySelectorAll('.day-content');
+                
+                dayTabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.day === dayIndex.toString());
+                });
+                
+                dayContents.forEach(content => {
+                    content.classList.toggle('active', content.dataset.day === dayIndex.toString());
+                });
+            }
+
+            // Add explanation functionality for accessory templates
+            const accessoryTemplateSelect = document.getElementById('accessory-template');
+            const accessoryExplanation = document.getElementById('accessory-explanation');
+            
+            // Template explanations
+            const explanations = {
+                'standard': 'The Standard template focuses on balanced development with 25-50 reps each of pushing, pulling, and core exercises. This provides a well-rounded approach to assistance work that complements the main lifts without excessive fatigue.',
+                
+                'bbb': 'Boring But Big (BBB) is one of Wendler\'s most popular templates. It adds 5 sets of 10 reps at 50-60% of your training max for the same lift or a complementary lift after your main work. BBB builds muscle mass and work capacity while reinforcing proper movement patterns.',
+                
+                'fsl': 'First Set Last (FSL) uses the weight from your first work set (the 5 reps set) for 5 additional sets of 5 reps. This provides additional volume at a moderate intensity, helping to build strength and reinforce technique without excessive fatigue.',
+                
+                'triumvirate': 'The Triumvirate template prescribes two assistance exercises per main lift, each performed for 5 sets of 10-15 reps. This focused approach targets specific muscle groups that support your main lifts, providing balanced development with moderate volume.',
+                
+                'beginners': '5/3/1 for Beginners combines FSL work (5 sets of 5 reps at your first set weight) with specific push, pull, and single-leg/core accessories (50 reps each). This template is designed to build a foundation of strength and work capacity for those new to the program.'
+            };
+            
+            // Function to update the explanation based on selected template
+            function updateExplanation() {
+                const selectedTemplate = accessoryTemplateSelect.value;
+                accessoryExplanation.textContent = explanations[selectedTemplate] || '';
+            }
+            
+            // Set initial explanation
+            updateExplanation();
+            
+            // Update explanation when template changes
+            accessoryTemplateSelect.addEventListener('change', updateExplanation);
+
+            // Function to level down (decrease weights)
+            function levelDown() {
+                // Don't allow level to go below 1
+                if (userLevel <= 1) {
+                    alert("You are already at Level 1. Cannot decrease level further.");
+                    return;
+                }
+                
+                // Get current 1RM values
+                let squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
+                let bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
+                let deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
+                let ohp1RM = parseFloat(document.getElementById('ohp-1rm').value) || 0;
+                
+                // Decrease upper body lifts by 5lbs, lower body by 10lbs
+                if (bench1RM >= 5) bench1RM -= 5;
+                if (ohp1RM >= 5) ohp1RM -= 5;
+                if (squat1RM >= 10) squat1RM -= 10;
+                if (deadlift1RM >= 10) deadlift1RM -= 10;
+                
+                // Update input fields
+                document.getElementById('squat-1rm').value = squat1RM;
+                document.getElementById('bench-1rm').value = bench1RM;
+                document.getElementById('deadlift-1rm').value = deadlift1RM;
+                document.getElementById('ohp-1rm').value = ohp1RM;
+                
+                // Decrease user level
+                userLevel--;
+                updateLevelDisplay();
+                
+                // Generate new workout plan
+                generateWorkoutPlan();
+                
+                // Reset to week 1
+                currentWeek = 1;
+                currentDay = 0;
+                
+                // Update week tabs UI
+                weekTabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.week === '1');
+                });
+                
+                // Save profile
+                saveProfile();
+                
+                // Show message
+                alert(`You've scaled back to Level ${userLevel}. Your lift weights have been decreased and a new cycle has been generated.`);
+            }
+
+            // Function to level up (increase weights)
+            function levelUp() {
+                // Get current 1RM values
+                let squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
+                let bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
+                let deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
+                let ohp1RM = parseFloat(document.getElementById('ohp-1rm').value) || 0;
+                
+                // Increase upper body lifts by 5lbs, lower body by 10lbs
+                if (bench1RM > 0) bench1RM += 5;
+                if (ohp1RM > 0) ohp1RM += 5;
+                if (squat1RM > 0) squat1RM += 10;
+                if (deadlift1RM > 0) deadlift1RM += 10;
+                
+                // Update input fields
+                document.getElementById('squat-1rm').value = squat1RM;
+                document.getElementById('bench-1rm').value = bench1RM;
+                document.getElementById('deadlift-1rm').value = deadlift1RM;
+                document.getElementById('ohp-1rm').value = ohp1RM;
+                
+                // Increase user level
+                userLevel++;
+                updateLevelDisplay();
+                
+                // Generate new workout plan
+                generateWorkoutPlan();
+                
+                // Reset to week 1
+                currentWeek = 1;
+                currentDay = 0;
+                
+                // Update week tabs UI
+                weekTabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.week === '1');
+                });
+                
+                // Save profile
+                saveProfile();
+                
+                // Show success message
+                alert(`Congratulations! You've leveled up to Level ${userLevel}! Your lift weights have been increased and a new cycle has been generated.`);
+            }
+        });
+    </script>
+</body>
+</html>

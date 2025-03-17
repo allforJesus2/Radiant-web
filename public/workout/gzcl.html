@@ -1,0 +1,1082 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GZCL Workout Generator</title>
+    <style>
+        :root {
+            --primary: #2b468b;
+            --secondary: #3c6ebd;
+            --light: #f1faee;
+            --dark: #1d3557;
+            --accent: #e63946;
+            --success: #2a9d8f;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: #f5f5f5;
+            color: var(--dark);
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem;
+            text-align: center;
+            border-radius: 8px 8px 0 0;
+            margin-bottom: 2rem;
+        }
+        
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .subtitle {
+            font-size: 1.2rem;
+            font-weight: 300;
+        }
+        
+        .main-content {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        .input-section, .result-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .input-section {
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .result-section {
+            flex: 2;
+            min-width: 300px;
+        }
+        
+        h2 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            border-bottom: 2px solid var(--light);
+            padding-bottom: 0.5rem;
+        }
+        
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        
+        input[type="number"], select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 1rem;
+        }
+        
+        button {
+            background-color: var(--secondary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s;
+            width: 100%;
+        }
+        
+        button:hover {
+            background-color: var(--primary);
+        }
+        
+        .day-tabs {
+            display: flex;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #ddd;
+            flex-wrap: wrap;
+        }
+        
+        .day-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            background-color: #f5f5f5;
+            margin-right: 5px;
+            margin-bottom: 5px;
+        }
+        
+        .day-tab.active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom-color: white;
+            margin-bottom: -1px;
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .day-content {
+            display: none;
+        }
+        
+        .day-content.active {
+            display: block;
+        }
+        
+        .exercise-card {
+            background-color: #f9f9f9;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .tier-card {
+            border-left: 4px solid var(--secondary);
+            margin-bottom: 15px;
+            padding-left: 10px;
+        }
+        
+        .tier-card.t1 {
+            border-left-color: #e63946;
+        }
+        
+        .tier-card.t2 {
+            border-left-color: #3c6ebd;
+        }
+        
+        .tier-card.t3 {
+            border-left-color: #2a9d8f;
+        }
+        
+        .tier-header {
+            font-weight: 600;
+            font-size: 1.2rem;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        
+        .exercise-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+        
+        .exercise-table th, .exercise-table td {
+            padding: 10px;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        
+        .exercise-table th {
+            background-color: #f5f5f5;
+            font-weight: 600;
+        }
+        
+        .notes {
+            margin-top: 1rem;
+            padding: 10px;
+            background-color: #f1faee;
+            border-left: 3px solid var(--success);
+            font-style: italic;
+        }
+        
+        .amrap-set {
+            color: var(--accent);
+            font-weight: 600;
+        }
+        
+        .toggle-container {
+            display: flex;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+        
+        .toggle-option {
+            flex: 1;
+            text-align: center;
+            padding: 10px;
+            background-color: #f5f5f5;
+            cursor: pointer;
+            border: 1px solid #ddd;
+            min-width: 80px;
+        }
+        
+        .toggle-option:first-child {
+            border-radius: 4px 0 0 4px;
+        }
+        
+        .toggle-option:last-child {
+            border-radius: 0 4px 4px 0;
+        }
+        
+        .toggle-option.active {
+            background-color: var(--secondary);
+            color: white;
+            font-weight: 600;
+        }
+        
+        .percentage-info {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 0.5rem;
+        }
+        
+        .print-button {
+            background-color: var(--success);
+            margin-top: 1rem;
+        }
+        
+        @media print {
+            header, .input-section, button {
+                display: none;
+            }
+            
+            .container {
+                width: 100%;
+                max-width: none;
+                padding: 0;
+            }
+            
+            .result-section {
+                box-shadow: none;
+                padding: 0;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .main-content {
+                flex-direction: column;
+            }
+            
+            .input-section, .result-section {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>GZCL Workout Generator</h1>
+            <p class="subtitle">Build your personalized GZCL program</p>
+        </header>
+        
+        <div class="main-content">
+            <div class="input-section">
+                <h2>Program Setup</h2>
+                
+                <div class="input-group">
+                    <label for="squat-max">Squat 2-3RM (lbs)</label>
+                    <input type="number" id="squat-max" min="0" step="5" placeholder="e.g. 315">
+                </div>
+                
+                <div class="input-group">
+                    <label for="bench-max">Bench Press 2-3RM (lbs)</label>
+                    <input type="number" id="bench-max" min="0" step="5" placeholder="e.g. 225">
+                </div>
+                
+                <div class="input-group">
+                    <label for="deadlift-max">Deadlift 2-3RM (lbs)</label>
+                    <input type="number" id="deadlift-max" min="0" step="5" placeholder="e.g. 405">
+                </div>
+                
+                <div class="input-group">
+                    <label for="ohp-max">Overhead Press 2-3RM (lbs)</label>
+                    <input type="number" id="ohp-max" min="0" step="5" placeholder="e.g. 135">
+                </div>
+                
+                <div class="input-group">
+                    <label>Program Type</label>
+                    <div class="toggle-container">
+                        <div class="toggle-option active" data-value="gzclp">GZCLP</div>
+                        <div class="toggle-option" data-value="rippler">The Rippler</div>
+                        <div class="toggle-option" data-value="jacked">J&T 2.0</div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label>Training Frequency</label>
+                    <div class="toggle-container">
+                        <div class="toggle-option active" data-value="3day">3 Day</div>
+                        <div class="toggle-option" data-value="4day">4 Day</div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
+                    <label for="t3-template">T3 Exercise Focus</label>
+                    <select id="t3-template">
+                        <option value="balanced">Balanced (General Development)</option>
+                        <option value="upper">Upper Body Focus</option>
+                        <option value="lower">Lower Body Focus</option>
+                        <option value="hypertrophy">Hypertrophy Focus</option>
+                    </select>
+                </div>
+                
+                <button id="generate-button">Generate Workout Plan</button>
+                
+                <div class="input-group">
+                    <button id="print-button" class="print-button">Print Workout Plan</button>
+                </div>
+            </div>
+            
+            <div class="result-section">
+                <h2>Your GZCL Workout Plan</h2>
+                
+                <div class="day-tabs">
+                    <!-- Will be filled by JavaScript -->
+                </div>
+                
+                <div id="workout-results">
+                    <p>Enter your max values and click "Generate Workout Plan" to create your personalized GZCL program.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Variables
+            let programType = 'gzclp';
+            let trainingFrequency = '3day';
+            let t3Template = 'balanced';
+            let workoutPlan = {};
+
+            // Configuration objects
+            const t1Exercises = {
+                squat: { name: "Squat", category: "lower" },
+                bench: { name: "Bench Press", category: "upper" },
+                deadlift: { name: "Deadlift", category: "lower" },
+                ohp: { name: "Overhead Press", category: "upper" }
+            };
+            
+            const t2Exercises = {
+                front_squat: { name: "Front Squat", main: "squat", category: "lower" },
+                incline_bench: { name: "Incline Bench Press", main: "bench", category: "upper" },
+                romanian_deadlift: { name: "Romanian Deadlift", main: "deadlift", category: "lower" },
+                close_grip_bench: { name: "Close Grip Bench Press", main: "bench", category: "upper" },
+                paused_squat: { name: "Paused Squat", main: "squat", category: "lower" },
+                spoto_press: { name: "Spoto Press", main: "bench", category: "upper" },
+                deficit_deadlift: { name: "Deficit Deadlift", main: "deadlift", category: "lower" },
+                push_press: { name: "Push Press", main: "ohp", category: "upper" },
+                leg_press: { name: "Leg Press", main: "squat", category: "lower" },
+                db_bench: { name: "Dumbbell Bench Press", main: "bench", category: "upper" },
+                sumo_deadlift: { name: "Sumo Deadlift", main: "deadlift", category: "lower" },
+                db_shoulder_press: { name: "Dumbbell Shoulder Press", main: "ohp", category: "upper" }
+            };
+            
+            const t3Exercises = {
+                upper: [
+                    "Lat Pulldown", "Barbell Row", "Dumbbell Row", "Face Pull", 
+                    "Tricep Pushdown", "Dumbbell Lateral Raise", "Chest Fly", 
+                    "Bicep Curl", "Dips", "Cable Lateral Raise", "Pec Deck", 
+                    "EZ Bar Curl", "Tricep Extension", "Rear Delt Fly"
+                ],
+                lower: [
+                    "Leg Extension", "Leg Curl", "Calf Raise", "Hip Thrust", 
+                    "Bulgarian Split Squat", "Glute Bridge", "Goblet Squat", 
+                    "Leg Press", "Back Extension", "Walking Lunge", "Cable Pull Through", 
+                    "Seated Calf Raise", "Step Up", "Hack Squat"
+                ],
+                core: [
+                    "Ab Wheel", "Hanging Leg Raise", "Plank", "Russian Twist", 
+                    "Cable Crunch", "Side Plank", "Pallof Press", "Medicine Ball Throw"
+                ]
+            };
+            
+            const dayConfigs = {
+                "3day": {
+                    "gzclp": [
+                        { day: 1, name: "Day A", t1: "squat", t2: "bench" },
+                        { day: 2, name: "Day B", t1: "ohp", t2: "deadlift" },
+                        { day: 3, name: "Day C", t1: "bench", t2: "squat" }
+                    ],
+                    "rippler": [
+                        { day: 1, name: "Day 1", t1: "squat", t2: "bench" },
+                        { day: 2, name: "Day 2", t1: "deadlift", t2: "ohp" },
+                        { day: 3, name: "Day 3", t1: "bench", t2: "squat" }
+                    ],
+                    "jacked": [
+                        { day: 1, name: "Day 1", t1: "squat", t2: ["front_squat", "leg_press"] },
+                        { day: 2, name: "Day 2", t1: "bench", t2: ["incline_bench", "db_bench"] },
+                        { day: 3, name: "Day 3", t1: "deadlift", t2: ["deficit_deadlift", "front_squat"] }
+                    ]
+                },
+                "4day": {
+                    "gzclp": [
+                        { day: 1, name: "Day A", t1: "squat", t2: "bench" },
+                        { day: 2, name: "Day B", t1: "ohp", t2: "deadlift" },
+                        { day: 3, name: "Day C", t1: "bench", t2: "squat" },
+                        { day: 4, name: "Day D", t1: "deadlift", t2: "ohp" }
+                    ],
+                    "rippler": [
+                        { day: 1, name: "Day 1", t1: "squat", t2: "bench" },
+                        { day: 2, name: "Day 2", t1: "deadlift", t2: "ohp" },
+                        { day: 3, name: "Day 3", t1: "bench", t2: "front_squat" },
+                        { day: 4, name: "Day 4", t1: "ohp", t2: "sumo_deadlift" }
+                    ],
+                    "jacked": [
+                        { day: 1, name: "Upper A", t1: "bench", t2: ["incline_bench", "db_bench"] },
+                        { day: 2, name: "Lower A", t1: "squat", t2: ["front_squat", "leg_press"] },
+                        { day: 3, name: "Upper B", t1: "ohp", t2: ["close_grip_bench", "db_shoulder_press"] },
+                        { day: 4, name: "Lower B", t1: "deadlift", t2: ["deficit_deadlift", "paused_squat"] }
+                    ]
+                }
+            };
+
+            const programSchemes = {
+                "gzclp": {
+                    t1: { 
+                        sets: [
+                            { reps: 5, percent: 85, sets: 3, label: "5×3" },
+                            { reps: 6, percent: 85, sets: 2, label: "6×2" },
+                            { reps: 10, percent: 85, sets: 1, label: "10×1" },
+                            { reps: "Deload", percent: 85, sets: 0, label: "Deload" }
+                        ],
+                        progression: "If you complete all sets, add 5-10 lbs and stay on 5×3. If you fail, move to next scheme.",
+                        amrap: true
+                    },
+                    t2: { 
+                        sets: 3, 
+                        reps: 10, 
+                        percent: 65,
+                        progression: "If you complete all reps, add 5-10 lbs. If you fail, drop to 8 reps for 3 sets." 
+                    },
+                    t3: { 
+                        sets: 3, 
+                        reps: 15, 
+                        amrapLast: true,
+                        progression: "If you complete 25+ reps on last set, add 5-10 lbs next time." 
+                    }
+                },
+                "rippler": {
+                    t1: { 
+                        scheme: [
+                            { week: 1, sets: 4, reps: 6, percent: 85 },
+                            { week: 2, sets: 3, reps: 5, percent: 87.5 },
+                            { week: 3, sets: 3, reps: 4, percent: 90 },
+                            { week: 4, sets: 3, reps: 3, percent: 92.5 },
+                            { week: 5, sets: 2, reps: 2, percent: 95 },
+                            { week: 6, sets: 2, reps: 1, percent: 97.5 },
+                            { week: 7, sets: 4, reps: 5, percent: 87.5 },
+                            { week: 8, sets: 4, reps: 4, percent: 90 },
+                            { week: 9, sets: 3, reps: 3, percent: 92.5 },
+                            { week: 10, sets: 3, reps: 2, percent: 95 },
+                            { week: 11, sets: 2, reps: 1, percent: 97.5 },
+                            { week: 12, sets: 1, reps: 1, percent: 100 }
+                        ],
+                        amrapLast: true
+                    },
+                    t2: { 
+                        scheme: [
+                            { week: 1, sets: 5, reps: 6, percent: 65 },
+                            { week: 2, sets: 5, reps: 6, percent: 67.5 },
+                            { week: 3, sets: 4, reps: 6, percent: 70 },
+                            { week: 4, sets: 4, reps: 6, percent: 72.5 },
+                            { week: 5, sets: 3, reps: 6, percent: 75 },
+                            { week: 6, sets: 3, reps: 6, percent: 77.5 },
+                            { week: 7, sets: 5, reps: 5, percent: 70 },
+                            { week: 8, sets: 5, reps: 5, percent: 72.5 },
+                            { week: 9, sets: 4, reps: 5, percent: 75 },
+                            { week: 10, sets: 4, reps: 5, percent: 77.5 },
+                            { week: 11, sets: 3, reps: 5, percent: 80 },
+                            { week: 12, sets: 3, reps: 5, percent: 82.5 }
+                        ]
+                    },
+                    t3: { 
+                        sets: 4, 
+                        reps: 10, 
+                        progression: "Max reps on final set, add weight when you hit 20 reps" 
+                    }
+                },
+                "jacked": {
+                    t1: { 
+                        scheme: "Varies by week", 
+                        notes: "Find rep max, then do follow-up sets at reduced weight"
+                    },
+                    t2: { 
+                        scheme: "Multiple T2 exercises", 
+                        notes: "Work toward rep maxes with moderate weights"
+                    },
+                    t3: { 
+                        scheme: "Multiple T3 exercises", 
+                        notes: "High volume, progressive increases over blocks"
+                    }
+                }
+            };
+
+            // DOM elements
+            const generateButton = document.getElementById('generate-button');
+            const printButton = document.getElementById('print-button');
+            const programOptions = document.querySelectorAll('.toggle-option[data-value="gzclp"], .toggle-option[data-value="rippler"], .toggle-option[data-value="jacked"]');
+            const frequencyOptions = document.querySelectorAll('.toggle-option[data-value="3day"], .toggle-option[data-value="4day"]');
+            const t3TemplateSelect = document.getElementById('t3-template');
+            
+            // Event listeners
+            generateButton.addEventListener('click', generateWorkoutPlan);
+            printButton.addEventListener('click', () => { window.print(); });
+            
+            programOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    programOptions.forEach(o => o.classList.remove('active'));
+                    option.classList.add('active');
+                    programType = option.dataset.value;
+                });
+            });
+            
+            frequencyOptions.forEach(option => {
+                option.addEventListener('click', () => {
+                    frequencyOptions.forEach(o => o.classList.remove('active'));
+                    option.classList.add('active');
+                    trainingFrequency = option.dataset.value;
+                });
+            });
+            
+            t3TemplateSelect.addEventListener('change', () => {
+                t3Template = t3TemplateSelect.value;
+            });
+            
+            // Helper functions
+            function round5(num) {
+                return Math.round(num / 5) * 5;
+            }
+            
+            function getRandomT3Exercises(category, count) {
+                let exercises = [];
+                
+                if (category === 'balanced') {
+                    const upperCount = Math.ceil(count / 2);
+                    const lowerCount = Math.floor(count / 2);
+                    
+                    exercises = exercises.concat(getRandomSubset(t3Exercises.upper, upperCount));
+                    exercises = exercises.concat(getRandomSubset(t3Exercises.lower, lowerCount));
+                    
+                    // Add 1 core exercise if there's room
+                    if (count > 2) {
+                        exercises.pop(); // Remove last one to make room for core
+                        exercises.push(getRandomSubset(t3Exercises.core, 1)[0]);
+                    }
+                } else if (category === 'upper') {
+                    exercises = getRandomSubset(t3Exercises.upper, count);
+                    
+                    // Add 1 core exercise if there's room
+                    if (count > 2) {
+                        exercises.pop(); // Remove last one to make room for core
+                        exercises.push(getRandomSubset(t3Exercises.core, 1)[0]);
+                    }
+                } else if (category === 'lower') {
+                    exercises = getRandomSubset(t3Exercises.lower, count);
+                    
+                    // Add 1 core exercise if there's room
+                    if (count > 2) {
+                        exercises.pop(); // Remove last one to make room for core
+                        exercises.push(getRandomSubset(t3Exercises.core, 1)[0]);
+                    }
+                } else if (category === 'hypertrophy') {
+                    // For hypertrophy, get a mix but with more exercises overall
+                    const upperCount = Math.ceil(count / 2) + 1;
+                    const lowerCount = Math.floor(count / 2);
+                    
+                    exercises = exercises.concat(getRandomSubset(t3Exercises.upper, upperCount));
+                    exercises = exercises.concat(getRandomSubset(t3Exercises.lower, lowerCount));
+                    exercises.push(getRandomSubset(t3Exercises.core, 1)[0]);
+                }
+                
+                return exercises;
+            }
+            
+            function getRandomSubset(array, count) {
+                const shuffled = [...array].sort(() => 0.5 - Math.random());
+                return shuffled.slice(0, count);
+            }
+            
+            function getT2Exercise(t1Exercise) {
+                // Get complementary T2 exercise based on T1
+                const validT2s = Object.keys(t2Exercises).filter(key => 
+                    t2Exercises[key].main === t1Exercise || 
+                    (t2Exercises[key].category !== t1Exercises[t1Exercise].category)
+                );
+                
+                const index = Math.floor(Math.random() * validT2s.length);
+                return validT2s[index];
+            }
+            
+            // Main function to generate workout plan
+            function generateWorkoutPlan() {
+                // Get max values
+                const squatMax = parseFloat(document.getElementById('squat-max').value) || 0;
+                const benchMax = parseFloat(document.getElementById('bench-max').value) || 0;
+                const deadliftMax = parseFloat(document.getElementById('deadlift-max').value) || 0;
+                const ohpMax = parseFloat(document.getElementById('ohp-max').value) || 0;
+                
+                if (squatMax === 0 && benchMax === 0 && deadliftMax === 0 && ohpMax === 0) {
+                    alert('Please enter at least one max value.');
+                    return;
+                }
+                
+                // Store maxes
+                const maxes = {
+                    squat: squatMax,
+                    bench: benchMax,
+                    deadlift: deadliftMax,
+                    ohp: ohpMax
+                };
+                
+                // Create workout plan structure
+                workoutPlan = {
+                    programType: programType,
+                    frequency: trainingFrequency,
+                    t3Template: t3Template,
+                    maxes: maxes,
+                    days: []
+                };
+                
+                // Get day configuration based on program and frequency
+                const dayConfig = dayConfigs[trainingFrequency][programType];
+                
+                // Generate workout for each day
+                dayConfig.forEach(config => {
+                    // Skip if the required max is not provided
+                    if (maxes[config.t1] === 0) {
+                        return;
+                    }
+                    
+                    const day = {
+                        day: config.day,
+                        name: config.name,
+                        exercises: {
+                            t1: [],
+                            t2: [],
+                            t3: []
+                        }
+                    };
+                    
+                    // Add T1 exercise
+                    const t1Exercise = config.t1;
+                    day.exercises.t1.push({
+                        name: t1Exercises[t1Exercise].name,
+                        key: t1Exercise,
+                        max: maxes[t1Exercise]
+                    });
+                    
+                    // Add T2 exercise(s)
+                    if (Array.isArray(config.t2)) {
+                        // For programs with defined multiple T2s
+                        config.t2.forEach(t2Key => {
+                            const relatedMax = maxes[t2Exercises[t2Key].main];
+                            if (relatedMax > 0) {
+                                day.exercises.t2.push({
+                                    name: t2Exercises[t2Key].name,
+                                    key: t2Key,
+                                    relatedMax: relatedMax
+                                });
+                            }
+                        });
+                    } else if (typeof config.t2 === 'string') {
+                        // For programs with a single defined T2
+                        if (maxes[config.t2] > 0) {
+                            day.exercises.t2.push({
+                                name: t1Exercises[config.t2].name,
+                                key: config.t2,
+                                relatedMax: maxes[config.t2]
+                            });
+                        } else {
+                            // If the defined T2 has no max, pick a suitable replacement
+                            const t2Key = getT2Exercise(t1Exercise);
+                            const relatedMax = maxes[t2Exercises[t2Key].main];
+                            if (relatedMax > 0) {
+                                day.exercises.t2.push({
+                                    name: t2Exercises[t2Key].name,
+                                    key: t2Key,
+                                    relatedMax: relatedMax
+                                });
+                            }
+                        }
+                    }
+                    
+                    // Add T3 exercises based on template
+                    let t3Count = programType === 'gzclp' ? 2 : 
+                                 programType === 'rippler' ? 2 : 3;
+                    
+                    if (t3Template === 'hypertrophy') {
+                        t3Count += 1; // Add more T3s for hypertrophy focus
+                    }
+                    
+                    const t3Exercises = getRandomT3Exercises(t3Template, t3Count);
+                    t3Exercises.forEach(exercise => {
+                        day.exercises.t3.push({
+                            name: exercise
+                        });
+                    });
+                    
+                    workoutPlan.days.push(day);
+                });
+                
+                // Render the workout plan
+                renderWorkoutPlan();
+            }
+            
+            // Function to render the workout plan
+            function renderWorkoutPlan() {
+                const tabsContainer = document.querySelector('.day-tabs');
+                const resultsContainer = document.getElementById('workout-results');
+                
+                // Clear previous content
+                tabsContainer.innerHTML = '';
+                
+                if (!workoutPlan.days || workoutPlan.days.length === 0) {
+                    resultsContainer.innerHTML = '<p>Enter your max values and click "Generate Workout Plan" to create your personalized GZCL program.</p>';
+                    return;
+                }
+                
+                // Create tabs for each day
+                workoutPlan.days.forEach((day, index) => {
+                    const tab = document.createElement('div');
+                    tab.className = `day-tab ${index === 0 ? 'active' : ''}`;
+                    tab.dataset.day = day.day;
+                    tab.textContent = day.name;
+                    tab.addEventListener('click', () => {
+                        document.querySelectorAll('.day-tab').forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        showDayContent(day.day);
+                    });
+                    tabsContainer.appendChild(tab);
+                });
+                
+                // Create content for each day
+                let html = '';
+                
+                workoutPlan.days.forEach((day, index) => {
+                    html += `<div class="day-content ${index === 0 ? 'active' : ''}" data-day="${day.day}">`;
+                    html += `<h3>${day.name}</h3>`;
+                    
+                    // Render T1 exercises
+                    html += `<div class="tier-card t1">
+                        <div class="tier-header">Tier 1 (Main Compound) - Heavy Strength (85-100%)</div>`;
+                    
+                    day.exercises.t1.forEach(exercise => {
+                        html += `<div class="exercise-card">
+                            <h4>${exercise.name}</h4>`;
+                            
+                        if (programType === 'gzclp') {
+                            const schemeIndex = 0; // Default to first scheme
+                            const scheme = programSchemes.gzclp.t1.sets[schemeIndex];
+                            const weight = round5(exercise.max * (scheme.percent / 100));
+                            
+                            html += `<p>Current progression: ${scheme.label}</p>
+                                <table class="exercise-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Set</th>
+                                            <th>Weight (lbs)</th>
+                                            <th>Reps</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+                                    
+                            for (let i = 0; i < scheme.sets; i++) {
+                                html += `<tr>
+                                    <td>Set ${i + 1}</td>
+                                    <td>${weight}</td>
+                                    <td class="${i === scheme.sets - 1 ? 'amrap-set' : ''}">${scheme.reps}${i === scheme.sets - 1 ? '+ (AMRAP)' : ''}</td>
+                                </tr>`;
+                            }
+                                    
+                            html += `</tbody>
+                                </table>
+                                <p class="percentage-info">${programSchemes.gzclp.t1.progression}</p>`;
+                        } else if (programType === 'rippler') {
+                            // For Rippler, we'll show Week 1 by default
+                            const scheme = programSchemes.rippler.t1.scheme[0]; // Week 1
+                            const weight = round5(exercise.max * (scheme.percent / 100));
+                            
+                            html += `<p>Week 1 of 12</p>
+                                <table class="exercise-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Set</th>
+                                            <th>Weight (lbs)</th>
+                                            <th>Reps</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+                                    
+                            for (let i = 0; i < scheme.sets; i++) {
+                                html += `<tr>
+                                    <td>Set ${i + 1}</td>
+                                    <td>${weight}</td>
+                                    <td class="${i === scheme.sets - 1 ? 'amrap-set' : ''}">${scheme.reps}${i === scheme.sets - 1 ? '+ (AMRAP)' : ''}</td>
+                                </tr>`;
+                            }
+                                    
+                            html += `</tbody>
+                                </table>
+                                <p class="percentage-info">Follow the 12-week progression with weekly weight increases.</p>`;
+                        } else if (programType === 'jacked') {
+                            // For Jacked & Tan 2.0, simplified first week view
+                            const weight = round5(exercise.max * 0.65); // Starting with moderate weight
+                            
+                            html += `<p>Week 1 - Find 10RM</p>
+                                <table class="exercise-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Set</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>Set 1</td>
+                                            <td>Work up to 10RM (approximately ${weight})</td>
+                                        </tr>
+                                        <tr>
+                                            <td>Sets 2-6</td>
+                                            <td>5 back-off sets at 65% of 10RM</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                                <p class="percentage-info">Six week progression: Find new RM each week (10RM, 8RM, 6RM, 4RM, 2RM, 1RM)</p>`;
+                        }
+                        
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div>`;
+                    
+                    // Render T2 exercises
+                    html += `<div class="tier-card t2">
+                        <div class="tier-header">Tier 2 (Secondary Compound) - Moderate Volume Strength (65-85%)</div>`;
+                    
+                    day.exercises.t2.forEach(exercise => {
+                        html += `<div class="exercise-card">
+                            <h4>${exercise.name}</h4>`;
+                            
+                        if (programType === 'gzclp') {
+                            const weight = round5(exercise.relatedMax * 0.65);
+                            
+                            html += `<table class="exercise-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sets</th>
+                                        <th>Weight (lbs)</th>
+                                        <th>Reps</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>3</td>
+                                        <td>${weight}</td>
+                                        <td>10</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p class="percentage-info">${programSchemes.gzclp.t2.progression}</p>`;
+                        } else if (programType === 'rippler') {
+                            // For Rippler, show Week 1 by default
+                            const scheme = programSchemes.rippler.t2.scheme[0]; // Week 1
+                            const weight = round5(exercise.relatedMax * (scheme.percent / 100));
+                            
+                            html += `<p>Week 1 of 12</p>
+                                <table class="exercise-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Sets</th>
+                                            <th>Weight (lbs)</th>
+                                            <th>Reps</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+                                    
+                            for (let i = 0; i < scheme.sets; i++) {
+                                html += `<tr>
+                                    <td>${scheme.sets}</td>
+                                    <td>${weight}</td>
+                                    <td>${scheme.reps}</td>
+                                </tr>`;
+                            }
+                                    
+                            html += `</tbody>
+                                </table>
+                                <p class="percentage-info">Follow the 12-week progression with weekly weight increases.</p>`;
+                        } else if (programType === 'jacked') {
+                            // For Jacked & Tan 2.0
+                            const weight = round5(exercise.relatedMax * 0.60);
+                            
+                            html += `<p>Week 1</p>
+                                <table class="exercise-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Set</th>
+                                            <th>Description</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+                                    
+                            for (let i = 0; i < 4; i++) {
+                                html += `<tr>
+                                    <td>Sets 1-4</td>
+                                    <td>Find 10RM (approximately ${weight})</td>
+                                </tr>`;
+                            }
+                                    
+                            for (let i = 0; i < 4; i++) {
+                                html += `<tr>
+                                    <td>Sets 5-8</td>
+                                    <td>Max reps @ 70% of 10RM</td>
+                                </tr>`;
+                            }
+                                    
+                            html += `</tbody>
+                                </table>
+                                <p class="percentage-info">Each week changes rep targets for continued progress.</p>`;
+                        }
+                        
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div>`;
+                    
+                    // Render T3 exercises
+                    html += `<div class="tier-card t3">
+                        <div class="tier-header">Tier 3 (Accessory/Isolation) - High Volume (≤65%)</div>`;
+                    
+                    day.exercises.t3.forEach(exercise => {
+                        html += `<div class="exercise-card">
+                            <h4>${exercise.name}</h4>`;
+                            
+                        if (programType === 'gzclp') {
+                            html += `<table class="exercise-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sets</th>
+                                        <th>Reps</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>3</td>
+                                        <td>15</td>
+                                        <td class="amrap-set">Last set AMRAP (aim for 25+ reps)</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p class="percentage-info">When you can do 25+ reps on last set, increase weight next session.</p>`;
+                        } else if (programType === 'rippler') {
+                            html += `<table class="exercise-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sets</th>
+                                        <th>Reps</th>
+                                        <th>Notes</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                                    
+                            for (let i = 0; i < 4; i++) {
+                                html += `<tr>
+                                    <td>4</td>
+                                    <td>Max Reps (18 target)</td>
+                                    <td class="amrap-set">Last set AMRAP (aim for 20+ reps)</td>
+                                </tr>`;
+                            }
+                                    
+                            html += `</tbody>
+                            </table>
+                            <p class="percentage-info">Increase weight when you can do 20+ reps on last set.</p>`;
+                        } else if (programType === 'jacked') {
+                            html += `<table class="exercise-table">
+                                <thead>
+                                    <tr>
+                                        <th>Sets</th>
+                                        <th>Reps</th>
+                                        <th>Rest</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                                    
+                            for (let i = 0; i < 4; i++) {
+                                html += `<tr>
+                                    <td>4</td>
+                                    <td>Max Reps (18 target)</td>
+                                    <td>60-90s</td>
+                                </tr>`;
+                            }
+                                    
+                            html += `</tbody>
+                            </table>
+                            <p class="percentage-info">Increase weight when target reps are achieved easily.</p>`;
+                        }
+                        
+                        html += `</div>`;
+                    });
+                    
+                    html += `</div>`;
+                    
+                    // Add general notes based on program type
+                    html += `<div class="notes">`;
+                    
+                    if (programType === 'gzclp') {
+                        html += `<p><strong>GZCLP Notes:</strong> Linear progression program. If you fail a rep scheme, move to the next progression (T1: 5×3 → 6×2 → 10×1 → reset). Increase weights weekly (5-10 lbs for lower body, 2.5-5 lbs for upper body).</p>`;
+                    } else if (programType === 'rippler') {
+                        html += `<p><strong>Rippler Notes:</strong> 12-week program with defined progression. Weights increase each week while volume adjusts. Finish with AMRAP tests to gauge progress.</p>`;
+                    } else if (programType === 'jacked') {
+                        html += `<p><strong>Jacked & Tan 2.0 Notes:</strong> 12-week program divided into two 6-week blocks. First block focuses on rep maxes and volume, second block shifts toward strength and intensity. Work up to rep max, then do back-off sets.</p>`;
+                    }
+                    
+                    html += `</div>`;
+                    
+                    html += `</div>`;
+                });
+                
+                resultsContainer.innerHTML = html;
+                
+                // Show first day by default
+                if (workoutPlan.days.length > 0) {
+                    showDayContent(workoutPlan.days[0].day);
+                }
+            }
+            
+            // Function to show content for a specific day
+            function showDayContent(dayNumber) {
+                document.querySelectorAll('.day-content').forEach(content => {
+                    content.classList.remove('active');
+                });
+                
+                const targetContent = document.querySelector(`.day-content[data-day="${dayNumber}"]`);
+                if (targetContent) {
+                    targetContent.classList.add('active');
+                }
+            }
+        });
+    </script>
+</body>
+</html>

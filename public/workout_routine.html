@@ -70,6 +70,19 @@
             font-size: 1.2em;
             cursor: pointer;
         }
+        .predefined-button {
+            padding: 10px 15px;
+            background-color: #2196F3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        .predefined-button:hover {
+            background-color: #0b7dda;
+        }
     </style>
 </head>
 <body>
@@ -86,6 +99,7 @@
             <input type="text" id="routine-name" placeholder="Enter workout routine name" onkeydown="if (event.keyCode === 13) addRoutine()">
             <button onclick="addRoutine()">ADD</button>
         </div>
+        <button id="addPredefinedBtn" class="predefined-button">Add Predefined Routines</button>
         <div id="routine-list">
             <!-- Workout routines will be listed here -->
         </div>
@@ -107,6 +121,136 @@
             routineNameInput.value = ''; // Clear the input field
         }
 
+        // Function to add predefined workout routines
+        function addPredefinedRoutines() {
+            const confirmAdd = confirm('This will add several predefined workout routines. Continue?');
+            if (!confirmAdd) return;
+
+            // Get user profile data
+            const profileData = JSON.parse(localStorage.getItem('profileStatistics')) || null;
+            if (!profileData || !profileData.weight || !profileData.gender || !profileData.bodyFatPercent) {
+                alert('Please complete your profile with weight, gender, and body fat percentage before adding predefined routines.');
+                window.location.href = 'profile.html';
+                return;
+            }
+
+            // Get user's preferred weight unit
+            const userWeightUnit = profileData.weightUnit || 'lbs';
+            
+            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            
+            // Calculate appropriate weights based on user profile
+            const calculateWeight = (baseWeight, exerciseType) => {
+                // Convert weight to pounds if stored in kg
+                let userWeightLbs = userWeightUnit === 'kg' 
+                    ? profileData.weight * 2.20462  // Convert kg to lbs
+                    : profileData.weight;
+                
+                // Calculate lean body mass (in pounds)
+                const leanBodyMass = userWeightLbs * (1 - (profileData.bodyFatPercent / 100));
+                
+                // Different multipliers based on exercise type and gender
+                let multiplier = 0;
+                
+                if (exerciseType === 'bench') {
+                    multiplier = profileData.gender === 'Male' ? 0.75 : 0.5;
+                } else if (exerciseType === 'squat') {
+                    multiplier = profileData.gender === 'Male' ? 1.0 : 0.75;
+                } else if (exerciseType === 'deadlift') {
+                    multiplier = profileData.gender === 'Male' ? 1.2 : 0.9;
+                } else if (exerciseType === 'overhead') {
+                    multiplier = profileData.gender === 'Male' ? 0.45 : 0.3;
+                } else if (exerciseType === 'curl') {
+                    multiplier = profileData.gender === 'Male' ? 0.2 : 0.15;
+                } else if (exerciseType === 'tricep') {
+                    multiplier = profileData.gender === 'Male' ? 0.2 : 0.15;
+                } else if (exerciseType === 'legpress') {
+                    multiplier = profileData.gender === 'Male' ? 1.5 : 1.2;
+                } else if (exerciseType === 'calf') {
+                    multiplier = profileData.gender === 'Male' ? 0.5 : 0.4;
+                } else if (exerciseType === 'lunge') {
+                    multiplier = profileData.gender === 'Male' ? 0.3 : 0.25;
+                } else if (exerciseType === 'facepull') {
+                    multiplier = profileData.gender === 'Male' ? 0.25 : 0.2;
+                } else if (exerciseType === 'twist') {
+                    multiplier = profileData.gender === 'Male' ? 0.1 : 0.08;
+                } else {
+                    // Default case - use the base weight
+                    return baseWeight;
+                }
+                
+                // Calculate weight based on lean body mass and round to nearest 5
+                let calculatedWeight = Math.round((leanBodyMass * multiplier) / 5) * 5;
+                
+                // Convert back to kg if that's the user's preferred unit
+                if (userWeightUnit === 'kg') {
+                    calculatedWeight = Math.round((calculatedWeight / 2.20462) * 2) / 2; // Convert to kg and round to nearest 0.5
+                }
+                
+                return calculatedWeight;
+            };
+            
+            // Upper Body Routine
+            if (!routines['Upper Body']) {
+                routines['Upper Body'] = [
+                    { name: 'Bench Press', reps: '8', weight: calculateWeight(135, 'bench'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Overhead Press', reps: '8', weight: calculateWeight(95, 'overhead'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Dumbbell Curl', reps: '12', weight: calculateWeight(25, 'curl'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Tricep Extension', reps: '12', weight: calculateWeight(30, 'tricep'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Pull-ups', reps: '8', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Face Pull', reps: '15', weight: calculateWeight(50, 'facepull'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' }
+                ];
+            }
+            
+            // Lower Body Routine
+            if (!routines['Lower Body']) {
+                routines['Lower Body'] = [
+                    { name: 'Squat', reps: '8', weight: calculateWeight(185, 'squat'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Deadlift', reps: '6', weight: calculateWeight(225, 'deadlift'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Leg Press', reps: '12', weight: calculateWeight(250, 'legpress'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Lunges', reps: '10', weight: calculateWeight(30, 'lunge'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Calf Raise', reps: '15', weight: calculateWeight(100, 'calf'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' }
+                ];
+            }
+            
+            // Core Workout
+            if (!routines['Core Workout']) {
+                routines['Core Workout'] = [
+                    { name: 'Plank', reps: '', weight: '', time: '60', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Russian Twist', reps: '20', weight: calculateWeight(15, 'twist'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Crunches', reps: '20', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Leg Raises', reps: '15', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Mountain Climbers', reps: '', weight: '', time: '45', weightUnit: userWeightUnit, timeUnit: 'sec' }
+                ];
+            }
+            
+            // Cardio Session
+            if (!routines['Cardio Session']) {
+                routines['Cardio Session'] = [
+                    { name: 'Running', reps: '', weight: '', time: '20', weightUnit: userWeightUnit, timeUnit: 'min' },
+                    { name: 'Jump Rope', reps: '', weight: '', time: '5', weightUnit: userWeightUnit, timeUnit: 'min' },
+                    { name: 'Burpees', reps: '15', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Cycling', reps: '', weight: '', time: '15', weightUnit: userWeightUnit, timeUnit: 'min' }
+                ];
+            }
+            
+            // Full Body Workout
+            if (!routines['Full Body Workout']) {
+                routines['Full Body Workout'] = [
+                    { name: 'Squat', reps: '10', weight: calculateWeight(155, 'squat'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Push-ups', reps: '15', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Deadlift', reps: '8', weight: calculateWeight(185, 'deadlift'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Pull-ups', reps: '8', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Plank', reps: '', weight: '', time: '45', weightUnit: userWeightUnit, timeUnit: 'sec' },
+                    { name: 'Burpees', reps: '10', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' }
+                ];
+            }
+            
+            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            displayRoutines();
+            alert('Predefined workout routines have been added with weights calculated based on your profile!');
+        }
+
         // Function to display workout routines
         function displayRoutines() {
             const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
@@ -120,7 +264,8 @@
                 };
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = '❌';
-                deleteButton.onclick = function() {
+                deleteButton.onclick = function(e) {
+                    e.stopPropagation(); // Prevent event from bubbling up to the parent div
                     deleteRoutine(routineName);
                 };
                 routineElement.appendChild(deleteButton);
@@ -129,7 +274,7 @@
         }
 
         // Function to delete a workout routine
-		function deleteRoutine(routineName, event) {
+		function deleteRoutine(routineName) {
 			const confirmDelete = confirm('Are you sure you want to delete this workout routine?');
 			if (confirmDelete) {
 				const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
@@ -139,9 +284,33 @@
 			}
 		}
 
-
         // Display routines on page load
-        window.onload = displayRoutines;
+        window.onload = function() {
+            displayRoutines();
+            document.getElementById('addPredefinedBtn').addEventListener('click', addPredefinedRoutines);
+            checkUserProfile();
+        };
+
+        // Function to check if user has a complete profile
+        function checkUserProfile() {
+            const profileData = JSON.parse(localStorage.getItem('profileStatistics')) || null;
+            const addPredefinedBtn = document.getElementById('addPredefinedBtn');
+            
+            if (!profileData || !profileData.weight || !profileData.gender || !profileData.bodyFatPercent) {
+                // Add a message above the button
+                const messageDiv = document.createElement('div');
+                messageDiv.id = 'profile-message';
+                messageDiv.style.color = '#ff9800';
+                messageDiv.style.marginBottom = '10px';
+                messageDiv.innerHTML = 'Complete your <a href="profile.html" style="color: #2196F3; text-decoration: underline;">profile</a> to get personalized workout weights.';
+                
+                // Insert the message before the button
+                addPredefinedBtn.parentNode.insertBefore(messageDiv, addPredefinedBtn);
+                
+                // Add a tooltip to the button
+                addPredefinedBtn.title = 'Complete your profile first to get personalized weights';
+            }
+        }
     </script>
 </body>
 </html>

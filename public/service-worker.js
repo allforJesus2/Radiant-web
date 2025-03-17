@@ -15,7 +15,8 @@ const FILES_TO_CACHE = [
   '/workout.html',
   '/set_workout_day.html',
   '/workout_routine.html',
-  '/edit_workout_routine.html'
+  '/edit_workout_routine.html',
+  '/workout/531.html',
 ];
 
 // Install event - cache all initial resources
