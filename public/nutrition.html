@@ -12,6 +12,7 @@ how can we add spacing between suggestions
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="dark-theme.css">
 
@@ -71,6 +72,16 @@ how can we add spacing between suggestions
         </div>
 
         <div>
+            <select id="mealFilter" class="btn" style="margin-bottom: 10px;">
+                <option value="All">All Meals</option>
+                <option value="Breakfast">Breakfast</option>
+                <option value="Lunch">Lunch</option>
+                <option value="Dinner">Dinner</option>
+                <option value="Snack">Snack</option>
+            </select>
+        </div>
+
+        <div>
             <input type="text" class="food" placeholder="Food name...">
             <input class="grams" type="number" inputmode="numeric" placeholder="Grams">
             <button class="btn" id="addBtn">Add</button>
@@ -94,6 +105,7 @@ how can we add spacing between suggestions
 			<div id="settingsPanel" class="settings-panel" style="display: none;">
 				<button class="btn" id="fetchCSVBtn">Fetch and Store CSV Data</button>
 				<button class="btn" onclick="window.location.href='set_time.html'">Log Reset Time</button>
+				<button class="btn" onclick="window.location.href='set_meal_times.html'">Meal Times</button>
 				<button class="btn" id="createRecipe">Create Recipe</button>
 				<button class="btn" id="clearLocalStorage">Clear Local Storage</button>
 				<button class="btn" onclick="window.location.href='profile.html'">Profile</button>
@@ -654,8 +666,163 @@ function calculateTotals() {
     };
 }
 
+// Function to determine meal type based on time
+function getMealType(timeStr) {
+    // timeStr is in "HH:MM" format
+    const [hour, minute] = timeStr.split(':').map(Number);
+    const totalMinutes = hour * 60 + minute;
+    
+    // Load user-configured meal times or use defaults
+    const mealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
+        breakfast: { start: '06:00', end: '10:00' },
+        lunch: { start: '11:00', end: '14:00' },
+        dinner: { start: '17:00', end: '21:00' }
+    };
 
+    // Convert meal times to minutes for comparison
+    function timeToMinutes(timeStr) {
+        const [h, m] = timeStr.split(':').map(Number);
+        return h * 60 + m;
+    }
 
+    const breakfastStart = timeToMinutes(mealTimes.breakfast.start);
+    const breakfastEnd = timeToMinutes(mealTimes.breakfast.end);
+    const lunchStart = timeToMinutes(mealTimes.lunch.start);
+    const lunchEnd = timeToMinutes(mealTimes.lunch.end);
+    const dinnerStart = timeToMinutes(mealTimes.dinner.start);
+    const dinnerEnd = timeToMinutes(mealTimes.dinner.end);
+
+    // Check if time falls within breakfast range
+    if (breakfastStart <= breakfastEnd) {
+        // Normal case: start < end (e.g., 06:00-10:00)
+        if (totalMinutes >= breakfastStart && totalMinutes < breakfastEnd) {
+            return 'Breakfast';
+        }
+    } else {
+        // Wraps around midnight (e.g., 22:00-06:00)
+        if (totalMinutes >= breakfastStart || totalMinutes < breakfastEnd) {
+            return 'Breakfast';
+        }
+    }
+
+    // Check if time falls within lunch range
+    if (lunchStart <= lunchEnd) {
+        if (totalMinutes >= lunchStart && totalMinutes < lunchEnd) {
+            return 'Lunch';
+        }
+    } else {
+        if (totalMinutes >= lunchStart || totalMinutes < lunchEnd) {
+            return 'Lunch';
+        }
+    }
+
+    // Check if time falls within dinner range
+    if (dinnerStart <= dinnerEnd) {
+        if (totalMinutes >= dinnerStart && totalMinutes < dinnerEnd) {
+            return 'Dinner';
+        }
+    } else {
+        if (totalMinutes >= dinnerStart || totalMinutes < dinnerEnd) {
+            return 'Dinner';
+        }
+    }
+
+    // If time doesn't fall within any configured range, categorize as snack
+    return 'Snack';
+}
+
+// Function to calculate totals for a specific meal
+function calculateMealTotals(foodItems, mealType) {
+    if (mealType === 'All') {
+        return calculateTotals();
+    }
+    
+    const mealItems = foodItems.filter(item => getMealType(item.timeAdded) === mealType);
+    var totalProtein = 0;
+    var totalCarbs = 0;
+    var totalFat = 0;
+    var totalCalories = 0;
+
+    mealItems.forEach(function(item) {
+        totalProtein += item.protein;
+        totalCarbs += item.carbs;
+        totalFat += item.fat;
+        totalCalories += item.calories;
+    });
+
+    return {
+        protein: Math.round(totalProtein),
+        carbs: Math.round(totalCarbs),
+        fat: Math.round(totalFat),
+        calories: Math.round(totalCalories)
+    };
+}
+
+// Function to get meal time range as a formatted string
+function getMealTimeRange(mealType) {
+    const mealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
+        breakfast: { start: '06:00', end: '10:00' },
+        lunch: { start: '11:00', end: '14:00' },
+        dinner: { start: '17:00', end: '21:00' }
+    };
+
+    function formatTimeForDisplay(timeStr) {
+        const [hour, minute] = timeStr.split(':').map(Number);
+        const date = new Date();
+        date.setHours(hour, minute, 0);
+        return date.toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+        });
+    }
+
+    switch(mealType) {
+        case 'Breakfast':
+            return `${formatTimeForDisplay(mealTimes.breakfast.start)} - ${formatTimeForDisplay(mealTimes.breakfast.end)}`;
+        case 'Lunch':
+            return `${formatTimeForDisplay(mealTimes.lunch.start)} - ${formatTimeForDisplay(mealTimes.lunch.end)}`;
+        case 'Dinner':
+            return `${formatTimeForDisplay(mealTimes.dinner.start)} - ${formatTimeForDisplay(mealTimes.dinner.end)}`;
+        case 'Snack':
+            return 'Throughout the day';
+        default:
+            return '';
+    }
+}
+
+// Function to calculate totals for a specific meal type
+function calculateMealTypeTotals(foodItems, mealType) {
+    const mealItems = foodItems.filter(item => getMealType(item.timeAdded) === mealType);
+    var totalProtein = 0;
+    var totalCarbs = 0;
+    var totalFat = 0;
+    var totalCalories = 0;
+
+    mealItems.forEach(function(item) {
+        totalProtein += item.protein;
+        totalCarbs += item.carbs;
+        totalFat += item.fat;
+        totalCalories += item.calories;
+    });
+
+    return {
+        protein: Math.round(totalProtein),
+        carbs: Math.round(totalCarbs),
+        fat: Math.round(totalFat),
+        calories: Math.round(totalCalories)
+    };
+}
+
+// Function to group food items by meal
+function groupByMeal(foodItems) {
+    const meals = { Breakfast: [], Lunch: [], Dinner: [], Snack: [] };
+    foodItems.forEach(item => {
+        const meal = getMealType(item.timeAdded);
+        meals[meal].push(item);
+    });
+    return meals;
+}
 
 function updateProgressBars(totals) {
     // Load saved macros from local storage
@@ -719,6 +886,13 @@ function timeToMinutes(time) {
 }
 
 
+// Add event listener for meal filter dropdown
+document.getElementById('mealFilter').addEventListener('change', function() {
+    var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    var foodItems = foodLog[today] || [];
+    displayFoodItems(foodItems);
+});
+
 document.getElementById('addBtn').addEventListener('click', function() {
     var foodName = document.querySelector('.food').value;
     var grams = parseFloat(document.querySelector('.grams').value);
@@ -781,15 +955,13 @@ document.getElementById('addBtn').addEventListener('click', function() {
             existingData.push(foodItem);
             localStorage.setItem('foodLog', JSON.stringify(foodLog));
             console.log('Food item added to localStorage');
-            console.log(foodItem);
+            console.log(foodLog);
             displayFoodItems(existingData);
         }
     });
 
     document.querySelector('.food').value = '';
     document.querySelector('.grams').value = '';
-    var totals = calculateTotals();
-    updateProgressBars(totals);
 });
 
 
@@ -806,52 +978,140 @@ function displayFoodItems(foodItems) {
     var scrollableWindow = document.getElementById('scrollableWindow');
     var foodInput = document.querySelector('.food');
     var gramsInput = document.querySelector('.grams');
+    var selectedMeal = document.getElementById('mealFilter').value;
 
     scrollableWindow.innerHTML = '';
 
-    foodItems.forEach(function(item, index) {
-        var listItem = document.createElement('div');
-        listItem.className = 'list-item';
-        listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protein ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
+    // Filter items based on selected meal
+    let itemsToDisplay = foodItems;
+    if (selectedMeal !== 'All') {
+        itemsToDisplay = foodItems.filter(item => getMealType(item.timeAdded) === selectedMeal);
+    }
 
-        var deleteButton = document.createElement('button');
-        deleteButton.textContent = '❌';
-        deleteButton.className = 'delete-btn';
-        deleteButton.style.float = 'right';
-        deleteButton.addEventListener('click', function(e) {
-            e.stopPropagation(); // Prevent the listItem click from firing
-            foodItems.splice(index, 1);
+    // Group items by meal if showing all meals
+    if (selectedMeal === 'All') {
+        const meals = groupByMeal(itemsToDisplay);
+        const mealOrder = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+        
+        mealOrder.forEach(mealType => {
+            if (meals[mealType].length > 0) {
+                // Add meal header with emoji
+                var mealHeader = document.createElement('div');
+                mealHeader.className = 'meal-header';
+                
+                // Add emoji based on meal type
+                let emoji = '';
+                switch(mealType) {
+                    case 'Breakfast':
+                        emoji = '🌅';
+                        break;
+                    case 'Lunch':
+                        emoji = '☀️';
+                        break;
+                    case 'Dinner':
+                        emoji = '🌙';
+                        break;
+                    case 'Snack':
+                        emoji = '🍎';
+                        break;
+                }
+                
+                // Calculate meal totals and get time range
+                const mealTotals = calculateMealTypeTotals(foodItems, mealType);
+                const timeRange = getMealTimeRange(mealType);
+                
+                mealHeader.innerHTML = `<span>${emoji} ${mealType} ${timeRange} -- Calories: ${mealTotals.calories}</span>`;
+                mealHeader.style.backgroundColor = 'var(--background-color)';
+                mealHeader.style.padding = '6px 10px';
+                mealHeader.style.marginTop = '8px';
+                mealHeader.style.borderBottom = '1px solid var(--border-color)';
+                mealHeader.style.fontWeight = 'bold';
+                mealHeader.style.fontSize = '14px';
+                mealHeader.style.color = 'var(--text-color)';
+                mealHeader.style.opacity = '0.8';
+                
+                // Add special styling for snack header
+                if (mealType === 'Snack') {
+                    mealHeader.style.borderLeft = '3px solid #6f42c1';
+                    mealHeader.style.backgroundColor = 'rgba(111, 66, 193, 0.1)';
+                }
+                
+                scrollableWindow.appendChild(mealHeader);
+
+                // Display items for this meal
+                meals[mealType].forEach(function(item, index) {
+                    displayFoodItem(item, foodItems, scrollableWindow, foodInput, gramsInput);
+                });
+            }
+        });
+    } else {
+        // Display filtered items without meal headers
+        itemsToDisplay.forEach(function(item, index) {
+            displayFoodItem(item, foodItems, scrollableWindow, foodInput, gramsInput);
+        });
+    }
+
+    // Calculate and update totals based on selected meal
+    var totals = calculateMealTotals(foodItems, selectedMeal);
+    updateProgressBars(totals);
+}
+
+function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsInput) {
+    var listItem = document.createElement('div');
+    listItem.className = 'list-item';
+    listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protein ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
+
+    var deleteButton = document.createElement('button');
+    deleteButton.textContent = '❌';
+    deleteButton.className = 'delete-btn';
+    deleteButton.style.float = 'right';
+    deleteButton.addEventListener('click', function(e) {
+        e.stopPropagation(); // Prevent the listItem click from firing
+        
+        // Store the deleted food name to repopulate the input field
+        var deletedFoodName = item.name;
+        var deletedGrams = item.grams;
+        
+        // Remove the item directly from the array
+        var itemIndex = allFoodItems.indexOf(item);
+        if (itemIndex !== -1) {
+            allFoodItems.splice(itemIndex, 1);
             var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
-            foodLog[today] = foodItems;
+            foodLog[today] = allFoodItems;
             localStorage.setItem('foodLog', JSON.stringify(foodLog));
-            displayFoodItems(foodItems);
-        });
-
-        listItem.appendChild(deleteButton);
-
-        listItem.addEventListener('click', function() {
-            foodInput.value = item.name;
-            
-            // Focus and select grams input immediately
-            gramsInput.focus();
-            gramsInput.select();
-            
-            // Fetch serving weight and description
-            fetchValueForKey(item.name, 'servingWeight1', function(value) {
-                gramsInput.value = value;
-                gramsInput.select();
-            });
-            
-            fetchValueForKey(item.name, 'servingDescription1', function(description) {
-                showServingBubble(description, gramsInput);
-            });
-        });
-
-        scrollableWindow.insertBefore(listItem, scrollableWindow.firstChild);
+            displayFoodItems(allFoodItems);
+        }
+        
+        // Repopulate the input fields with the deleted food info
+        foodInput.value = deletedFoodName;
+        gramsInput.value = deletedGrams;
+        
+        // Focus on the grams input for quick editing
+        gramsInput.focus();
+        gramsInput.select();
     });
 
-    var totals = calculateTotals();
-    updateProgressBars(totals);
+    listItem.appendChild(deleteButton);
+
+    listItem.addEventListener('click', function() {
+        foodInput.value = item.name;
+        
+        // Focus and select grams input immediately
+        gramsInput.focus();
+        gramsInput.select();
+        
+        // Fetch serving weight and description
+        fetchValueForKey(item.name, 'servingWeight1', function(value) {
+            gramsInput.value = value;
+            gramsInput.select();
+        });
+        
+        fetchValueForKey(item.name, 'servingDescription1', function(description) {
+            showServingBubble(description, gramsInput);
+        });
+    });
+
+    scrollableWindow.appendChild(listItem);
 }
 
 

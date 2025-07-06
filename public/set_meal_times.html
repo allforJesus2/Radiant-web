@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="dark-theme.css">
+    <title>Set Meal Times</title>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Configure Meal Times</h1>
+            <p>Set your preferred time windows for breakfast, lunch, and dinner.</p>
+        </header>
+
+        <div class="meal-time-config">
+            <div class="meal-section">
+                <h2>🌅 Breakfast</h2>
+                <div class="time-inputs">
+                    <label>Start Time:</label>
+                    <input type="time" id="breakfastStart" class="time-input">
+                    <label>End Time:</label>
+                    <input type="time" id="breakfastEnd" class="time-input">
+                </div>
+            </div>
+
+            <div class="meal-section">
+                <h2>☀️ Lunch</h2>
+                <div class="time-inputs">
+                    <label>Start Time:</label>
+                    <input type="time" id="lunchStart" class="time-input">
+                    <label>End Time:</label>
+                    <input type="time" id="lunchEnd" class="time-input">
+                </div>
+            </div>
+
+            <div class="meal-section">
+                <h2>🌙 Dinner</h2>
+                <div class="time-inputs">
+                    <label>Start Time:</label>
+                    <input type="time" id="dinnerStart" class="time-input">
+                    <label>End Time:</label>
+                    <input type="time" id="dinnerEnd" class="time-input">
+                </div>
+            </div>
+
+            <div class="meal-section snack-info">
+                <h2>🍎 Snacks</h2>
+                <p>Snacks are automatically assigned to any time outside your configured meal windows.</p>
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn" id="saveMealTimes">Save Meal Times</button>
+            <button class="btn" id="resetToDefaults">Reset to Defaults</button>
+            <button class="btn" onclick="window.location.href='nutrition.html'">Back to Nutrition</button>
+        </div>
+
+        <div class="preview-section">
+            <h3>Preview</h3>
+            <div id="mealPreview">
+                <p>Configure your meal times to see a preview here.</p>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .meal-time-config {
+            margin: 20px 0;
+        }
+
+        .meal-section {
+            background: var(--background-color);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 15px;
+        }
+
+        .meal-section h2 {
+            margin-top: 0;
+            margin-bottom: 15px;
+            color: var(--text-color);
+        }
+
+        .time-inputs {
+            display: grid;
+            grid-template-columns: auto 1fr auto 1fr;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .time-inputs label {
+            color: var(--text-color);
+            font-weight: bold;
+        }
+
+        .time-input {
+            padding: 8px 12px;
+            border: 1px solid var(--border-color, #444);
+            border-radius: 4px;
+            background: var(--background-color);
+            color: var(--text-color);
+            font-size: 16px;
+        }
+
+        .time-input:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            flex-wrap: wrap;
+        }
+
+        .button-group .btn {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .preview-section {
+            background: var(--background-color);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .preview-section h3 {
+            margin-top: 0;
+            color: var(--text-color);
+        }
+
+        .meal-preview-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 4px;
+            border-left: 4px solid #007bff;
+        }
+
+        .meal-preview-item.breakfast {
+            border-left-color: #ffc107;
+        }
+
+        .meal-preview-item.lunch {
+            border-left-color: #28a745;
+        }
+
+        .meal-preview-item.dinner {
+            border-left-color: #dc3545;
+        }
+
+        .meal-preview-item.snack {
+            border-left-color: #6f42c1;
+        }
+
+        .snack-info {
+            background: rgba(111, 66, 193, 0.1);
+            border-color: #6f42c1;
+        }
+
+        .snack-info p {
+            margin: 0;
+            color: var(--text-color);
+            opacity: 0.8;
+            font-style: italic;
+        }
+
+        .meal-name {
+            font-weight: bold;
+            color: var(--text-color);
+        }
+
+        .meal-time {
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+
+        .error-message {
+            color: #dc3545;
+            background: rgba(220, 53, 69, 0.1);
+            border: 1px solid #dc3545;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        .success-message {
+            color: #28a745;
+            background: rgba(40, 167, 69, 0.1);
+            border: 1px solid #28a745;
+            border-radius: 4px;
+            padding: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        @media (max-width: 600px) {
+            .time-inputs {
+                grid-template-columns: 1fr;
+                gap: 5px;
+            }
+            
+            .time-inputs label {
+                margin-top: 10px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+        }
+    </style>
+
+    <script>
+        // Default meal times
+        const defaultMealTimes = {
+            breakfast: { start: '06:00', end: '10:00' },
+            lunch: { start: '11:00', end: '14:00' },
+            dinner: { start: '17:00', end: '21:00' }
+        };
+
+        // Load saved meal times or use defaults
+        function loadMealTimes() {
+            const savedTimes = JSON.parse(localStorage.getItem('mealTimes')) || defaultMealTimes;
+            
+            document.getElementById('breakfastStart').value = savedTimes.breakfast.start;
+            document.getElementById('breakfastEnd').value = savedTimes.breakfast.end;
+            document.getElementById('lunchStart').value = savedTimes.lunch.start;
+            document.getElementById('lunchEnd').value = savedTimes.lunch.end;
+            document.getElementById('dinnerStart').value = savedTimes.dinner.start;
+            document.getElementById('dinnerEnd').value = savedTimes.dinner.end;
+            
+            updatePreview();
+        }
+
+        // Save meal times to localStorage
+        function saveMealTimes() {
+            const mealTimes = {
+                breakfast: {
+                    start: document.getElementById('breakfastStart').value,
+                    end: document.getElementById('breakfastEnd').value
+                },
+                lunch: {
+                    start: document.getElementById('lunchStart').value,
+                    end: document.getElementById('lunchEnd').value
+                },
+                dinner: {
+                    start: document.getElementById('dinnerStart').value,
+                    end: document.getElementById('dinnerEnd').value
+                }
+            };
+
+            // Validate times
+            if (!validateMealTimes(mealTimes)) {
+                return;
+            }
+
+            localStorage.setItem('mealTimes', JSON.stringify(mealTimes));
+            showMessage('Meal times saved successfully!', 'success');
+            updatePreview();
+        }
+
+        // Validate meal times
+        function validateMealTimes(mealTimes) {
+            const meals = ['breakfast', 'lunch', 'dinner'];
+            
+            for (let meal of meals) {
+                const start = mealTimes[meal].start;
+                const end = mealTimes[meal].end;
+                
+                if (!start || !end) {
+                    showMessage(`Please set both start and end times for ${meal}.`, 'error');
+                    return false;
+                }
+                
+                if (start >= end) {
+                    showMessage(`${meal.charAt(0).toUpperCase() + meal.slice(1)} end time must be after start time.`, 'error');
+                    return false;
+                }
+            }
+
+            // Check for overlaps
+            const timeRanges = [
+                { meal: 'breakfast', start: mealTimes.breakfast.start, end: mealTimes.breakfast.end },
+                { meal: 'lunch', start: mealTimes.lunch.start, end: mealTimes.lunch.end },
+                { meal: 'dinner', start: mealTimes.dinner.start, end: mealTimes.dinner.end }
+            ];
+
+            for (let i = 0; i < timeRanges.length; i++) {
+                for (let j = i + 1; j < timeRanges.length; j++) {
+                    const range1 = timeRanges[i];
+                    const range2 = timeRanges[j];
+                    
+                    if (range1.start < range2.end && range1.end > range2.start) {
+                        showMessage(`${range1.meal} and ${range2.meal} times overlap. Please adjust.`, 'error');
+                        return false;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        // Update preview
+        function updatePreview() {
+            const preview = document.getElementById('mealPreview');
+            const mealTimes = {
+                breakfast: {
+                    start: document.getElementById('breakfastStart').value,
+                    end: document.getElementById('breakfastEnd').value
+                },
+                lunch: {
+                    start: document.getElementById('lunchStart').value,
+                    end: document.getElementById('lunchEnd').value
+                },
+                dinner: {
+                    start: document.getElementById('dinnerStart').value,
+                    end: document.getElementById('dinnerEnd').value
+                }
+            };
+
+            let previewHTML = '';
+            
+            if (mealTimes.breakfast.start && mealTimes.breakfast.end) {
+                previewHTML += `
+                    <div class="meal-preview-item breakfast">
+                        <span class="meal-name">🌅 Breakfast</span>
+                        <span class="meal-time">${mealTimes.breakfast.start} - ${mealTimes.breakfast.end}</span>
+                    </div>
+                `;
+            }
+            
+            if (mealTimes.lunch.start && mealTimes.lunch.end) {
+                previewHTML += `
+                    <div class="meal-preview-item lunch">
+                        <span class="meal-name">☀️ Lunch</span>
+                        <span class="meal-time">${mealTimes.lunch.start} - ${mealTimes.lunch.end}</span>
+                    </div>
+                `;
+            }
+            
+            if (mealTimes.dinner.start && mealTimes.dinner.end) {
+                previewHTML += `
+                    <div class="meal-preview-item dinner">
+                        <span class="meal-name">🌙 Dinner</span>
+                        <span class="meal-time">${mealTimes.dinner.start} - ${mealTimes.dinner.end}</span>
+                    </div>
+                `;
+            }
+            
+            previewHTML += `
+                <div class="meal-preview-item snack">
+                    <span class="meal-name">🍎 Snacks</span>
+                    <span class="meal-time">Outside meal windows</span>
+                </div>
+            `;
+
+            if (!previewHTML) {
+                previewHTML = '<p>Configure your meal times to see a preview here.</p>';
+            }
+
+            preview.innerHTML = previewHTML;
+        }
+
+        // Reset to defaults
+        function resetToDefaults() {
+            if (confirm('Are you sure you want to reset to default meal times?')) {
+                localStorage.removeItem('mealTimes');
+                loadMealTimes();
+                showMessage('Reset to default meal times.', 'success');
+            }
+        }
+
+        // Show message
+        function showMessage(message, type) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'error' ? 'error-message' : 'success-message';
+            messageDiv.textContent = message;
+            messageDiv.style.display = 'block';
+            
+            const container = document.querySelector('.container');
+            container.insertBefore(messageDiv, container.firstChild);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 5000);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            loadMealTimes();
+            
+            // Add event listeners for time inputs
+            const timeInputs = document.querySelectorAll('.time-input');
+            timeInputs.forEach(input => {
+                input.addEventListener('change', updatePreview);
+            });
+            
+            // Add event listeners for buttons
+            document.getElementById('saveMealTimes').addEventListener('click', saveMealTimes);
+            document.getElementById('resetToDefaults').addEventListener('click', resetToDefaults);
+        });
+    </script>
+</body>
+</html> 
