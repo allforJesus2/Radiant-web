@@ -23,10 +23,17 @@ how can we add spacing between suggestions
  
  </header>
  
+
+ 
  
  
 	<div class="container">
         
+        <div id="welcomeMessage" class="welcome-message" style="display: none;">
+            <h2>🎉 Welcome to Radiant!</h2>
+            <p>Your profile setup is complete. You can now start tracking your nutrition and fitness journey.</p>
+            <button class="btn" onclick="hideWelcomeMessage()">Get Started</button>
+        </div>
 
         <div class="top container" style="display: flex;">
 		
@@ -71,21 +78,12 @@ how can we add spacing between suggestions
 
         </div>
 
-        <div>
-            <select id="mealFilter" class="btn" style="margin-bottom: 10px;">
-                <option value="All">All Meals</option>
-                <option value="Breakfast">Breakfast</option>
-                <option value="Lunch">Lunch</option>
-                <option value="Dinner">Dinner</option>
-                <option value="Snack">Snack</option>
-            </select>
-        </div>
+
 
         <div>
             <input type="text" class="food" placeholder="Food name...">
             <input class="grams" type="number" inputmode="numeric" placeholder="Grams">
             <button class="btn" id="addBtn">Add</button>
-            <button class="btn" id="refreshFoodDb" title="Refresh food database">🔄</button>
         </div>
 
         <div id="autocompleteList">
@@ -100,25 +98,45 @@ how can we add spacing between suggestions
 		
 
 
-		<div class="settings-container">
+		        <div class="settings-container">
 			<button class="btn" id="settingsToggle">⚙️ Settings</button>
+			<div style="display: flex; gap: 10px; margin-top: 10px;">
+				<button class="btn" id="refreshFoodDb" title="Refresh food database" style="flex: 1;">🔄 Refresh Database</button>
+				<select id="mealFilter" class="btn" style="flex: 1;">
+					<option value="All">Show All Meals</option>
+					<option value="Breakfast">Breakfast</option>
+					<option value="Lunch">Lunch</option>
+					<option value="Dinner">Dinner</option>
+					<option value="Snack">Snack</option>
+				</select>
+			</div>
 			<div id="settingsPanel" class="settings-panel" style="display: none;">
 				<button class="btn" id="fetchCSVBtn">Fetch and Store CSV Data</button>
-				<button class="btn" onclick="window.location.href='set_time.html'">Log Reset Time</button>
 				<button class="btn" onclick="window.location.href='set_meal_times.html'">Meal Times</button>
 				<button class="btn" id="createRecipe">Create Recipe</button>
 				<button class="btn" id="clearLocalStorage">Clear Local Storage</button>
 				<button class="btn" onclick="window.location.href='profile.html'">Profile</button>
-				<button class="btn" onclick="window.location.href='set_macros.html'">Macros</button>
-				<button class="btn" onclick="window.location.href='set_activity_level.html'">Activity Level</button>
 				<button class="btn" id="nutrientAnalysis">Nutrient Analysis</button>
 				<button class="btn" onclick="window.location.href='debug.html'">Debug</button>
 				<button class="btn" id="deleteDBButton">Delete 'csvDB' IndexedDB</button>
 				<button class="btn" id="downloadCSV">Download Food Data</button>
 				<div class="file-upload">
-					<label>Select Database File</label>        
+					<label>Select Custom Food Database File</label>        
 					<input class="btn" type="file" id="csvFile" accept=".csv">
 				</div>
+			</div>
+		</div>
+
+		<!-- Progress Indicator Modal -->
+		<div id="progressModal" class="progress-modal" style="display: none;">
+			<div class="progress-content">
+				<h3 id="progressTitle">Processing...</h3>
+				<div class="modal-progress-container">
+					<div class="modal-progress-bar">
+						<div class="modal-progress-fill" id="progressFill"></div>
+					</div>
+				</div>
+				<p id="progressText">Starting...</p>
 			</div>
 		</div>
 
@@ -185,12 +203,150 @@ how can we add spacing between suggestions
             from { opacity: 0; transform: translateY(-10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+
+
+        .welcome-message {
+            background: linear-gradient(135deg, #007BFF, #28a745);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .welcome-message h2 {
+            margin: 0 0 10px 0;
+            font-size: 1.5em;
+        }
+
+        .welcome-message p {
+            margin: 0 0 15px 0;
+            opacity: 0.9;
+        }
+
+        .welcome-message .btn {
+            background: rgba(255,255,255,0.2);
+            border: 1px solid rgba(255,255,255,0.3);
+            color: white;
+        }
+
+        .welcome-message .btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        /* Progress Modal Styles */
+        .progress-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+        }
+
+        .progress-content {
+            background: var(--background-color);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .progress-content h3 {
+            margin: 0 0 20px 0;
+            color: var(--text-color);
+        }
+
+        .progress-content p {
+            margin: 15px 0 0 0;
+            color: var(--text-color);
+            opacity: 0.8;
+        }
+
+        .modal-progress-container {
+            width: 100%;
+            height: 20px;
+            background-color: var(--border-color, #444);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .modal-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #007BFF, #28a745);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
     </style>
 
     <script>
 	
 	// Define the 'today' variable globally
 	var today;
+
+	// Progress indicator functions
+	function showProgress(title, text) {
+		document.getElementById('progressTitle').textContent = title;
+		document.getElementById('progressText').textContent = text;
+		document.getElementById('progressModal').style.display = 'flex';
+	}
+
+	function updateProgress(percentage, text) {
+		document.getElementById('progressFill').style.width = percentage + '%';
+		if (text) {
+			document.getElementById('progressText').textContent = text;
+		}
+	}
+
+	function hideProgress() {
+		document.getElementById('progressModal').style.display = 'none';
+		document.getElementById('progressFill').style.width = '0%';
+	}
+
+	// Function to check if user just completed profile creation flow
+	function checkProfileCompletion() {
+		const profileData = localStorage.getItem('profileStatistics');
+		const userTime = localStorage.getItem('userTime');
+		const macros = localStorage.getItem('macros');
+		
+		if (profileData && userTime && macros) {
+			// Check if this is the first time visiting nutrition page after completion
+			const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
+			if (!hasSeenWelcome) {
+				document.getElementById('welcomeMessage').style.display = 'block';
+				localStorage.setItem('hasSeenWelcome', 'true');
+			}
+		}
+	}
+
+	// Function to hide welcome message
+	function hideWelcomeMessage() {
+		document.getElementById('welcomeMessage').style.display = 'none';
+	}
+
+	// Function to reset profile and start over
+	function resetProfile() {
+		if (confirm('Are you sure you want to start over? This will clear all your profile data.')) {
+			localStorage.removeItem('profileStatistics');
+			localStorage.removeItem('userTime');
+			localStorage.removeItem('macros');
+			localStorage.removeItem('activityLevels');
+			localStorage.removeItem('hasSeenWelcome');
+			alert('Profile reset. You will be redirected to the profile setup.');
+			window.location.href = 'profile.html';
+		}
+	}
 	
 	var scrollableWindow = document.getElementById('scrollableWindow');
 	var buttonHeight = document.getElementsByClassName('btn')[0].clientHeight * 4; // Height of two buttons
@@ -205,13 +361,24 @@ how can we add spacing between suggestions
 
 
 	document.getElementById('fetchCSVBtn').addEventListener('click', function() {
+		showProgress('Fetching Food Database', 'Downloading CSV file...');
+		updateProgress(10, 'Starting download...');
+		
 		fetch('assets/FoodData.csv')
-			.then(response => response.text())
+			.then(response => {
+				updateProgress(30, 'File downloaded, processing data...');
+				return response.text();
+			})
 			.then(csvData => {
+				updateProgress(50, 'Storing data in database...');
 				// Process and store the CSV data
 				parseAndStoreCSV(csvData);
 			})
-			.catch(error => console.error('Error fetching CSV:', error));
+			.catch(error => {
+				console.error('Error fetching CSV:', error);
+				hideProgress();
+				alert('Error downloading food database. Please try again.');
+			});
 	});
 
 
@@ -220,6 +387,9 @@ how can we add spacing between suggestions
 
 
 document.addEventListener('DOMContentLoaded', function() {
+    // Check if user just completed profile creation flow
+    checkProfileCompletion();
+    
     const deleteDBButton = document.getElementById('deleteDBButton');
 
     deleteDBButton.addEventListener('click', function() {
@@ -279,10 +449,20 @@ document.addEventListener('DOMContentLoaded', function() {
     // Function to handle file upload
     function handleFileUpload(evt) {
         const file = evt.target.files[0];
+        if (!file) return;
+        
+        showProgress('Uploading Custom Database', 'Reading file...');
+        updateProgress(10, 'File selected, processing...');
+        
         const reader = new FileReader();
         reader.onload = function(e) {
+            updateProgress(40, 'File read, storing data...');
             const csvData = e.target.result;
             parseAndStoreCSV(csvData);
+        };
+        reader.onerror = function() {
+            hideProgress();
+            alert('Error reading file. Please try again.');
         };
         reader.readAsText(file);
     }
@@ -291,17 +471,13 @@ document.addEventListener('DOMContentLoaded', function() {
 	
 // Function to parse and store CSV data in IndexedDB
 function parseAndStoreCSV(csvData) {
-	alert('parse and StoreCSV called');
     console.log('parseAndStoreCSV called'); // Log to confirm function call
     const lines = csvData.split('\n');
     const dbName = 'csvDB';
     const storeName = 'csvStore';
+    const totalLines = lines.length;
 
-    // Attempt to delete the existing database if it exists
-    // This step is commented out in your original code, but it's useful for debugging
-    // indexedDB.deleteDatabase(dbName).onsuccess = function() {
-    //     console.log("Old indexedDB deleted");
-    // };
+    updateProgress(60, 'Opening database...');
 
     // Open the database with version 1
     const dbRequest = indexedDB.open(dbName, 1);
@@ -322,35 +498,52 @@ function parseAndStoreCSV(csvData) {
         const db = event.target.result;
         console.log('Database object:', db); // Log the database object
 
+        updateProgress(70, 'Starting data storage...');
+
         const transaction = db.transaction([storeName], 'readwrite');
         console.log('Transaction started'); // Log to confirm transaction start
 
         const store = transaction.objectStore(storeName);
         console.log('Object store accessed'); // Log to confirm object store access
 
+        let processedLines = 0;
         lines.forEach(function(line, index) {
             const columns = line.split(',');
             console.log('Storing line:', index, columns); // Log each line being stored
             store.put({id: index, data: columns});
+            
+            processedLines++;
+            // Update progress every 100 lines or at the end
+            if (processedLines % 100 === 0 || processedLines === totalLines) {
+                const progress = 70 + (processedLines / totalLines) * 25; // 70% to 95%
+                updateProgress(Math.round(progress), `Storing data... ${processedLines}/${totalLines} lines`);
+            }
         });
 
         transaction.oncomplete = function() {
             console.log('Transaction complete'); // Log to confirm transaction completion
             db.close();
             console.log('Database closed'); // Log to confirm database closure
-            alert('CSV data stored in IndexedDB');
-            initializeFoodList(); // Assuming this function is defined elsewhere
+            updateProgress(100, 'Database setup complete!');
+            
+            setTimeout(() => {
+                hideProgress();
+                alert('CSV data stored in IndexedDB');
+                initializeFoodList(); // Assuming this function is defined elsewhere
+            }, 500);
         };
 
         // Add an onerror event listener to the transaction
         transaction.onerror = function(event) {
             console.error('Transaction failed:', event.target.error); // Log the error
+            hideProgress();
             alert('An error occurred while storing the CSV data in IndexedDB.');
         };
     };
 
     dbRequest.onerror = function(event) {
         console.error('Database request failed:', event.target.error); // Log the error
+        hideProgress();
         alert('An error occurred while opening the IndexedDB.');
     };
 }
@@ -1135,17 +1328,35 @@ document.addEventListener('DOMContentLoaded', function() {
 		const dbExists = databases.some(db => db.name === 'csvDB');
 
 		if (!dbExists) {
-			// 'csvDB' does not exist, handle accordingly
+			// 'csvDB' does not exist, ask user if they want to download the database
 			console.log('csvDB does not exist.');
-			alert('downloading food database');
-			fetch('assets/FoodData.csv')
-				.then(response => response.text())
-				.then(csvData => {
-					// Process and store the CSV data
-					parseAndStoreCSV(csvData);
-				})
-				.catch(error => console.error('Error fetching CSV:', error));
-			// You can proceed with creating the database or other actions here
+			const userWantsToDownload = confirm('No food database found. Would you like to download the food database now? This will enable food search and nutritional information.');
+			
+			if (userWantsToDownload) {
+				// Show progress indicator
+				showProgress('Initial Database Setup', 'Downloading food database...');
+				updateProgress(10, 'Starting download...');
+				
+				fetch('assets/FoodData.csv')
+					.then(response => {
+						updateProgress(30, 'File downloaded, processing data...');
+						return response.text();
+					})
+					.then(csvData => {
+						updateProgress(50, 'Storing data in database...');
+						// Process and store the CSV data
+						parseAndStoreCSV(csvData);
+					})
+					.catch(error => {
+						console.error('Error fetching CSV:', error);
+						hideProgress();
+						alert('Error downloading food database. Please try again later.');
+					});
+			} else {
+				console.log('User chose not to download the database.');
+				// Optionally show a message that they can download it later from settings
+				alert('You can download the food database later from the Settings menu (⚙️) by clicking "Fetch and Store CSV Data".');
+			}
 		} else {
 			// 'csvDB' exists, you can proceed with opening it or other actions
 			console.log('csvDB exists.');
@@ -1222,18 +1433,27 @@ function refreshFoodDatabase() {
     // Clear the current foodList
     foodList = [];
     
+    showProgress('Refreshing Database', 'Reloading food data...');
+    updateProgress(20, 'Clearing old data...');
+    
     // Show loading indicator
     const originalPlaceholder = document.querySelector('.food').placeholder;
     document.querySelector('.food').placeholder = "Refreshing food database...";
     
-    // Call initializeFoodList again
-    initializeFoodList();
-    
-    // Set a timeout to restore the placeholder
-    setTimeout(function() {
-        document.querySelector('.food').placeholder = originalPlaceholder;
-        alert("Food database refreshed. New recipes should now appear in search.");
-    }, 1000);
+    setTimeout(() => {
+        updateProgress(50, 'Reloading database...');
+        // Call initializeFoodList again
+        initializeFoodList();
+        
+        setTimeout(() => {
+            updateProgress(100, 'Database refreshed!');
+            setTimeout(() => {
+                hideProgress();
+                document.querySelector('.food').placeholder = originalPlaceholder;
+                alert("Food database refreshed. New recipes should now appear in search.");
+            }, 500);
+        }, 500);
+    }, 300);
 }
 </script>
 	

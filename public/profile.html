@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile Statistics</title>
     <link rel="stylesheet" href="dark-theme.css">
+    <link rel="stylesheet" href="navigation.css">
+    <script src="navigation.js"></script>
     <style>
         .profile-container {
             max-width: 600px;
@@ -49,6 +51,38 @@
             flex: 1;
         }
 
+        .feet-inches-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex: 2;
+        }
+
+        .feet-inches-group input {
+            flex: 1;
+            min-width: 60px;
+        }
+
+        .metric-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            flex: 2;
+        }
+
+        .unit-label {
+            color: var(--text, #fff);
+            font-size: 0.9em;
+            white-space: nowrap;
+        }
+
+        .input-tip {
+            margin-top: 5px;
+            font-size: 0.85em;
+            color: #888;
+            font-style: italic;
+        }
+
         .button-group {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -69,10 +103,15 @@
         .btn:hover {
             background-color: var(--button-hover, #555);
         }
+
+
     </style>
 </head>
 <body>
     <div class="profile-container">
+        <div class="progress-indicator">
+            <!-- Progress indicator will be rendered by navigation.js -->
+        </div>
         <h1>Profile Statistics</h1>
         <form id="profileForm">
             <div class="form-group">
@@ -92,10 +131,19 @@
             <div class="form-group">
                 <label for="height">Height:</label>
                 <div class="unit-group">
-                    <input type="number" id="height" name="height" required>
-                    <select id="heightUnit" name="heightUnit">
+                    <div class="feet-inches-group" id="feetInchesGroup">
+                        <input type="number" id="heightFeet" name="heightFeet" placeholder="Feet" min="0" max="10">
+                        <span class="unit-label">ft</span>
+                        <input type="number" id="heightInches" name="heightInches" placeholder="Inches" min="0" max="11">
+                        <span class="unit-label">in</span>
+                    </div>
+                    <div class="metric-group" id="metricGroup" style="display: none;">
+                        <input type="number" id="height" name="height" placeholder="Centimeters">
+                        <span class="unit-label">cm</span>
+                    </div>
+                    <select id="heightUnit" name="heightUnit" onchange="toggleHeightInput()">
+                        <option value="ft-in" selected>ft & in</option>
                         <option value="cm">cm</option>
-                        <option value="in" selected>in</option>
                     </select>
                 </div>
             </div>
@@ -114,13 +162,14 @@
             <div class="form-group">
                 <label for="bodyFatPercent">Body Fat Percent:</label>
                 <input type="number" id="bodyFatPercent" name="bodyFatPercent" required>
+                <div class="input-tip">💡 Tip: Enter a whole number (e.g., 15 for 15%)</div>
             </div>
 
             <div class="button-group">
                 <button type="submit" class="btn">Save Profile</button>
-                <button type="button" class="btn" onclick="window.location.href='calculate_bmr.html'">Download Profile</button>
-                <button type="button" class="btn" onclick="window.location.href='calculate_bmr.html'">Upload Profile</button>
-                <button type="button" class="btn" onclick="window.location.href='calculate_bmr.html'" style="background-color: #007BFF; color: #fff;">NEXT: Set BMR</button>
+                <button type="button" class="btn" onclick="downloadProfile()">Download Profile</button>
+                <button type="button" class="btn" onclick="uploadProfile()">Upload Profile</button>
+                <button type="button" class="btn" id="nextButton" onclick="validateAndNavigate()" style="background-color: #007BFF; color: #fff;">NEXT: Set BMR</button>
             </div>
         </form>
     </div>
@@ -138,13 +187,24 @@
                 document.getElementById('age').value = data.age;
                 // Convert height and weight back to original units for display
                 let height = data.height;
-                let heightUnit = 'cm';
-                if (data.heightUnit === 'in') {
+                let heightUnit = data.heightUnit || 'cm';
+                
+                if (heightUnit === 'ft-in') {
+                    const totalInches = data.height / 2.54; // Convert cm to inches
+                    const heightFeet = Math.floor(totalInches / 12);
+                    const heightInches = Math.round(totalInches % 12);
+                    document.getElementById('heightFeet').value = heightFeet;
+                    document.getElementById('heightInches').value = heightInches;
+                } else if (heightUnit === 'in') {
                     height = (data.height / 2.54).toFixed(2); // Convert cm to inches
-                    heightUnit = 'in';
+                    heightUnit = 'cm'; // Default to cm for old data
+                    document.getElementById('height').value = height;
+                } else {
+                    document.getElementById('height').value = height;
                 }
-                document.getElementById('height').value = height;
+                
                 document.getElementById('heightUnit').value = heightUnit;
+                toggleHeightInput(); // Show the correct input fields
 
                 let weight = data.weight;
                 let weightUnit = 'kg';
@@ -165,12 +225,27 @@
 
     form.addEventListener('submit', function(event) {
         event.preventDefault(); // Prevent the form from submitting normally
+        saveProfileData();
+    });
 
+    });
+
+    // Function to save profile data
+    function saveProfileData() {
         // Convert height and weight if necessary
-        let height = document.getElementById('height').value;
+        let height;
         const heightUnit = document.getElementById('heightUnit').value;
-        if (heightUnit === 'in') {
-            height = (height * 2.54).toFixed(2); // Convert inches to centimeters
+        
+        if (heightUnit === 'ft-in') {
+            const heightFeet = parseFloat(document.getElementById('heightFeet').value) || 0;
+            const heightInches = parseFloat(document.getElementById('heightInches').value) || 0;
+            const totalInches = (heightFeet * 12) + heightInches;
+            height = (totalInches * 2.54).toFixed(2); // Convert to centimeters
+        } else {
+            height = document.getElementById('height').value;
+            if (heightUnit === 'cm') {
+                height = parseFloat(height).toFixed(2);
+            }
         }
 
         let weight = document.getElementById('weight').value;
@@ -178,9 +253,6 @@
         if (weightUnit === 'lbs') {
             weight = (weight * 0.453592).toFixed(2); // Convert pounds to kilograms
         }
-
-        // Debugging: Log the converted weight
-        console.log("Converted Weight:", weight);
 
         const profileData = {
             gender: document.getElementById('gender').value,
@@ -195,19 +267,14 @@
         // Retrieve the existing profileStatistics from localStorage
         let existingProfileData = localStorage.getItem('profileStatistics');
         if (existingProfileData) {
-            // Parse the existing data
             existingProfileData = JSON.parse(existingProfileData);
-            // Merge the existing data with the new data
-            // This assumes that the existing data is an object. If it's not, you might need to adjust this logic.
             Object.assign(existingProfileData, profileData);
-            // Stringify the updated object and save it back to localStorage
             localStorage.setItem('profileStatistics', JSON.stringify(existingProfileData));
         } else {
-            // If there's no existing data, just save the new data
             localStorage.setItem('profileStatistics', JSON.stringify(profileData));
         }
 
-        // The rest of your code for handling weightAndBodyFatData remains unchanged
+        // Handle weight and body fat tracking
         let weightAndBodyFatData = localStorage.getItem('weightAndBodyFatData');
         if (!weightAndBodyFatData) {
             weightAndBodyFatData = {};
@@ -215,24 +282,103 @@
             weightAndBodyFatData = JSON.parse(weightAndBodyFatData);
         }
 
-        // Format the current date
         const currentDate = new Date();
-        const formattedDate = currentDate.toISOString().split('T')[0]; // Format as yyyy-mm-dd
+        const formattedDate = currentDate.toISOString().split('T')[0];
 
-        // Append the data
         weightAndBodyFatData[formattedDate] = {
             weight: weight,
             bodyFatPercent: document.getElementById('bodyFatPercent').value
         };
 
-        // Save the updated dictionary back to local storage
         localStorage.setItem('weightAndBodyFatData', JSON.stringify(weightAndBodyFatData));
+    }
 
-        alert('Profile saved successfully!');
-    });
+    // Function to toggle height input between feet/inches and centimeters
+    function toggleHeightInput() {
+        const heightUnit = document.getElementById('heightUnit').value;
+        const feetInchesGroup = document.getElementById('feetInchesGroup');
+        const metricGroup = document.getElementById('metricGroup');
+        
+        if (heightUnit === 'ft-in') {
+            feetInchesGroup.style.display = 'flex';
+            metricGroup.style.display = 'none';
+        } else {
+            feetInchesGroup.style.display = 'none';
+            metricGroup.style.display = 'flex';
+        }
+    }
+
+    // Function to validate form and navigate
+    function validateAndNavigate() {
+        const gender = document.getElementById('gender').value;
+        const age = document.getElementById('age').value;
+        const heightUnit = document.getElementById('heightUnit').value;
+        const weight = document.getElementById('weight').value;
+        const bodyFatPercent = document.getElementById('bodyFatPercent').value;
+
+        // Check height based on unit
+        let heightValid = false;
+        if (heightUnit === 'ft-in') {
+            const heightFeet = document.getElementById('heightFeet').value;
+            const heightInches = document.getElementById('heightInches').value;
+            heightValid = heightFeet && heightInches;
+        } else {
+            const height = document.getElementById('height').value;
+            heightValid = height;
+        }
+
+        if (!gender || !age || !heightValid || !weight || !bodyFatPercent) {
+            alert('Please fill in all required fields before proceeding.');
+            return;
+        }
+
+        // Save data before navigating
+        saveProfileData();
+        window.location.href = 'calculate_bmr.html';
+    }
+
+    // Function to download profile
+    function downloadProfile() {
+        const profileData = localStorage.getItem('profileStatistics');
+        if (profileData) {
+            const blob = new Blob([profileData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'profile-data.json';
+            a.click();
+            URL.revokeObjectURL(url);
+        } else {
+            alert('No profile data to download.');
+        }
+    }
+
+    // Function to upload profile
+    function uploadProfile() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = '.json';
+        input.onchange = function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = JSON.parse(e.target.result);
+                        localStorage.setItem('profileStatistics', JSON.stringify(data));
+                        prepopulateForm();
+                        alert('Profile uploaded successfully!');
+                    } catch (error) {
+                        alert('Invalid file format.');
+                    }
+                };
+                reader.readAsText(file);
+            }
+        };
+        input.click();
+    }
 
 
-    });
 
 
     </script>

@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Activity Level</title>
     <link rel="stylesheet" href="dark-theme.css">
+    <link rel="stylesheet" href="navigation.css">
+    <script src="navigation.js"></script>
     <style>
         .activity-container {
             max-width: 800px;
@@ -19,7 +21,7 @@
 
         .activity {
             display: grid;
-            grid-template-columns: 2fr 1fr 1fr auto;
+            grid-template-columns: 2fr 1.5fr 1fr auto;
             gap: 10px;
             margin-bottom: 15px;
             align-items: center;
@@ -73,37 +75,145 @@
         #activityList {
             margin: 20px 0;
         }
+
+
+
+        .activity-container {
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            padding-bottom: 100px; /* Space for bottom buttons */
+        }
+
+        .bottom-buttons {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: var(--background, #222);
+            border-top: 1px solid var(--input, #555);
+            padding: 15px 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+            z-index: 1000;
+        }
+
+        .bottom-buttons .btn {
+            flex: 1;
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            .activity-container {
+                max-width: 100%;
+                padding: 15px 10px 80px 10px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+                margin-bottom: 20px;
+            }
+            
+            .progress-indicator {
+                flex-wrap: wrap;
+                gap: 5px;
+                margin-bottom: 20px;
+                padding: 15px 0;
+            }
+            
+            .step {
+                font-size: 0.8em;
+                padding: 8px 5px;
+                min-width: 60px;
+            }
+            
+            .activity {
+                grid-template-columns: 1fr;
+                gap: 10px;
+                margin-bottom: 20px;
+                padding: 15px;
+                border: 1px solid var(--input, #555);
+                border-radius: 8px;
+                background-color: rgba(0, 123, 255, 0.05);
+            }
+            
+            .activity > * {
+                width: 100%;
+            }
+            
+            .activity select,
+            .activity input {
+                font-size: 16px; /* Prevents zoom on iOS */
+                padding: 12px 8px;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                gap: 10px;
+                margin: 15px 0;
+            }
+            
+            .button-group .btn {
+                width: 100%;
+                padding: 12px;
+                font-size: 16px;
+            }
+            
+            .bottom-buttons {
+                padding: 10px 15px;
+            }
+            
+            .bottom-buttons .btn {
+                padding: 12px;
+                font-size: 16px;
+            }
+        }
+        
+        /* Extra small screens */
+        @media (max-width: 480px) {
+            .activity-container {
+                padding: 10px 5px 80px 5px;
+            }
+            
+            .activity {
+                padding: 12px;
+                gap: 8px;
+            }
+            
+            .step {
+                font-size: 0.75em;
+                padding: 6px 3px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="activity-container">
+        <div class="progress-indicator">
+            <!-- Progress indicator will be rendered by navigation.js -->
+        </div>
         <h1>Set Activity Level</h1>
         
         <div class="button-group">
             <button id="addActivity" class="btn">Add Activity</button>
             <button id="saveActivityLevels" class="btn">Save Activity Levels</button>
-            <button class="btn btn-primary" onclick="window.location.href='set_macros.html'">NEXT: Set Macros</button>
         </div>
 
         <div id="activityList"></div>
+        
+        <div class="bottom-buttons">
+            <button class="btn" onclick="window.location.href='calculate_bmr.html'">← Back</button>
+            <button class="btn btn-primary" id="nextButton" onclick="validateAndNavigate()">NEXT: Set Macros</button>
+        </div>
     </div>
 
     <script>
 
-document.addEventListener('DOMContentLoaded', function() {
-    const addActivityButton = document.getElementById('addActivity');
-    const activityList = document.getElementById('activityList');
-    const saveActivityLevelsButton = document.getElementById('saveActivityLevels');
+// Global variables
+let activityLevels = [];
+let profileStatistics = {};
 
-    const savedProfileStatistics = localStorage.getItem('profileStatistics');
-    if (savedProfileStatistics) {
-        profileStatistics = JSON.parse(savedProfileStatistics);
-    }
-
-
-    let activityLevels = [];
-
-    // Define an array of activity options
 // Define an array of activity options
 const activityOptions = [
     'Heavy Weight Exercise: 8.5',
@@ -130,16 +240,123 @@ const activityOptions = [
     'Jogging, 7 mph (11 km/h): 11.2'
 ];
 
+// Function to load profile data
+function loadProfileData() {
+    // Simulate loading data from local storage
+    const savedData = localStorage.getItem('activityLevels');
+    if (savedData) {
+        activityLevels = JSON.parse(savedData);
+        renderActivityLevels();
+    }
+}
 
-    function loadProfileData() {
-        // Simulate loading data from local storage
-        const savedData = localStorage.getItem('activityLevels');
-        if (savedData) {
-            activityLevels = JSON.parse(savedData);
+// Function to render activity levels
+function renderActivityLevels() {
+    const activityList = document.getElementById('activityList');
+    activityList.innerHTML = '';
+    activityLevels.forEach((activity, index) => {
+        const activityDiv = document.createElement('div');
+        activityDiv.className = 'activity';
+
+        const activitySelect = document.createElement('select');
+        // Use the activityOptions array to populate the select element
+        activityOptions.forEach(option => {
+            const optionElement = document.createElement('option');
+            optionElement.value = option;
+            optionElement.textContent = option;
+            if (option === activity.activity) {
+                optionElement.selected = true;
+            }
+            activitySelect.appendChild(optionElement);
+        });
+        activitySelect.onchange = function() {
+            activity.activity = this.value;
+        };
+
+        // Create a wrapper div for duration input and label
+        const durationWrapper = document.createElement('div');
+        durationWrapper.style.display = 'flex';
+        durationWrapper.style.alignItems = 'center';
+        durationWrapper.style.gap = '5px';
+
+        const durationInput = document.createElement('input');
+        durationInput.type = 'number';
+        durationInput.value = activity.duration;
+        durationInput.onchange = function() {
+            activity.duration = this.value;
+        };
+
+        const durationLabel = document.createElement('span');
+        durationLabel.textContent = 'mins';
+        durationLabel.style.color = 'var(--text, #fff)';
+        durationLabel.style.fontSize = '0.9em';
+        durationLabel.style.whiteSpace = 'nowrap';
+
+        durationWrapper.appendChild(durationInput);
+        durationWrapper.appendChild(durationLabel);
+
+        const perWeekSelect = document.createElement('select');
+        perWeekSelect.innerHTML = '<option value="1x per week">1x per week</option><option value="2x per week">2x per week</option><option value="3x per week">3x per week</option><option value="4x per week">4x per week</option><option value="5x per week">5x per week</option><option value="6x per week">6x per week</option><option value="7x per week">7x per week</option>';
+        perWeekSelect.value = activity.perWeek;
+        perWeekSelect.onchange = function() {
+            activity.perWeek = this.value;
+        };
+
+        activityDiv.appendChild(activitySelect);
+        activityDiv.appendChild(durationWrapper);
+        activityDiv.appendChild(perWeekSelect);
+
+        // Create and append the delete button
+        const deleteButton = document.createElement('button');
+        deleteButton.textContent = '❌';
+        deleteButton.style.color = 'white';
+        deleteButton.style.padding = '5px';
+        deleteButton.style.marginLeft = '10px';
+        deleteButton.onclick = function() {
+            activityLevels.splice(index, 1);
             renderActivityLevels();
-        }
+        };
+        activityDiv.appendChild(deleteButton);
+
+        activityList.appendChild(activityDiv);
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const addActivityButton = document.getElementById('addActivity');
+    const activityList = document.getElementById('activityList');
+    const saveActivityLevelsButton = document.getElementById('saveActivityLevels');
+
+    const savedProfileStatistics = localStorage.getItem('profileStatistics');
+    if (savedProfileStatistics) {
+        profileStatistics = JSON.parse(savedProfileStatistics);
     }
 
+
+
+
+
+
+
+
+
+
+
+    addActivityButton.addEventListener('click', function() {
+        activityLevels.push({
+            activity: 'Heavy Weight Exercise',
+            duration: '30',
+            perWeek: '1x per week'
+        });
+        renderActivityLevels();
+    });
+
+    saveActivityLevelsButton.addEventListener('click', saveProfileData);
+
+    loadProfileData();
+});
+
+// Function to save profile data
 function saveProfileData() {
     // Calculate Daily Caloric Expenditure
     let totalCaloriesBurned = 0;
@@ -170,95 +387,23 @@ function saveProfileData() {
     // Save updated profileStatistics to local storage
     localStorage.setItem('profileStatistics', JSON.stringify(profileStatistics));
 
-    // Save activityLevels to local storage
-    localStorage.setItem('activityLevels', JSON.stringify(activityLevels));
-
-    alert('Activity Levels and Profile Statistics Saved');
+            // Save activityLevels to local storage
+        localStorage.setItem('activityLevels', JSON.stringify(activityLevels));
 }
 
 
-    function renderActivityLevels() {
-        activityList.innerHTML = '';
-        activityLevels.forEach((activity, index) => {
-            const activityDiv = document.createElement('div');
-            activityDiv.className = 'activity';
 
-            const activitySelect = document.createElement('select');
-            // Use the activityOptions array to populate the select element
-            activityOptions.forEach(option => {
-                const optionElement = document.createElement('option');
-                optionElement.value = option;
-                optionElement.textContent = option;
-                if (option === activity.activity) {
-                    optionElement.selected = true;
-                }
-                activitySelect.appendChild(optionElement);
-            });
-            activitySelect.onchange = function() {
-                activity.activity = this.value;
-            };
-
-            // Create a wrapper div for duration input and label
-            const durationWrapper = document.createElement('div');
-            durationWrapper.style.display = 'flex';
-            durationWrapper.style.alignItems = 'center';
-            durationWrapper.style.gap = '5px';
-
-            const durationInput = document.createElement('input');
-            durationInput.type = 'number';
-            durationInput.value = activity.duration;
-            durationInput.style.width = '80%';
-            durationInput.onchange = function() {
-                activity.duration = this.value;
-            };
-
-            const durationLabel = document.createElement('span');
-            durationLabel.textContent = 'mins';
-            durationLabel.style.color = 'var(--text, #fff)';
-
-            durationWrapper.appendChild(durationInput);
-            durationWrapper.appendChild(durationLabel);
-
-            const perWeekSelect = document.createElement('select');
-            perWeekSelect.innerHTML = '<option value="1x per week">1x per week</option><option value="2x per week">2x per week</option><option value="3x per week">3x per week</option><option value="4x per week">4x per week</option><option value="5x per week">5x per week</option><option value="6x per week">6x per week</option><option value="7x per week">7x per week</option>';
-            perWeekSelect.value = activity.perWeek;
-            perWeekSelect.onchange = function() {
-                activity.perWeek = this.value;
-            };
-
-            activityDiv.appendChild(activitySelect);
-            activityDiv.appendChild(durationWrapper);
-            activityDiv.appendChild(perWeekSelect);
-
-            // Create and append the delete button
-            const deleteButton = document.createElement('button');
-            deleteButton.textContent = '❌';
-            deleteButton.style.color = 'white';
-            deleteButton.style.padding = '5px';
-            deleteButton.style.marginLeft = '10px';
-            deleteButton.onclick = function() {
-                activityLevels.splice(index, 1);
-                renderActivityLevels();
-            };
-            activityDiv.appendChild(deleteButton);
-
-            activityList.appendChild(activityDiv);
-        });
+// Function to validate and navigate
+function validateAndNavigate() {
+    if (activityLevels.length === 0) {
+        alert('Please add at least one activity before proceeding.');
+        return;
     }
-
-    addActivityButton.addEventListener('click', function() {
-        activityLevels.push({
-            activity: 'Heavy Weight Exercise',
-            duration: '30',
-            perWeek: '1x per week'
-        });
-        renderActivityLevels();
-    });
-
-    saveActivityLevelsButton.addEventListener('click', saveProfileData);
-
-    loadProfileData();
-});
+    
+    // Save data before navigating
+    saveProfileData();
+    window.location.href = 'set_macros.html';
+}
 
 
 </script>

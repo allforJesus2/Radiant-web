@@ -4,18 +4,89 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Time for Food Log Reset</title>
-	    <link rel="stylesheet" href="dark-theme.css">
+    <link rel="stylesheet" href="dark-theme.css">
+    <link rel="stylesheet" href="navigation.css">
+    <script src="navigation.js"></script>
+    <style>
+        .time-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
 
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input[type="time"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--input, #555);
+            border-radius: 4px;
+            background-color: var(--background, #222);
+            color: var(--text, #fff);
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 10px;
+            border: none;
+            border-radius: 4px;
+            background-color: var(--button, #444);
+            color: var(--text, #fff);
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: var(--button-hover, #555);
+        }
+
+        .btn-primary {
+            background-color: #007BFF;
+        }
+
+
+    </style>
 </head>
 <body>
-    <h1>Set Time for Food Log Reset</h1>
-    <form id="timeForm">
-        <label for="timeInput">Time (12 AM - 12 PM):</label>
-        <input type="time" id="timeInput" name="timeInput" required>
-        <button type="submit">Submit</button>
-		<button class="btn" onclick="window.location.href='nutrition.html'">Daily Food Log</button>
-
-    </form>
+    <div class="time-container">
+        <div class="progress-indicator">
+            <!-- Progress indicator will be rendered by navigation.js -->
+        </div>
+        <h1>Set Time for Food Log Reset</h1>
+        <form id="timeForm">
+            <div class="form-group">
+                <label for="timeInput">Daily Reset Time:</label>
+                <input type="time" id="timeInput" name="timeInput" required>
+            </div>
+            <div class="button-group">
+                <button type="submit" class="btn" style="background-color: var(--button, #444);">Save Time</button>
+            </div>
+            
+            <div class="button-group">
+                <button type="button" class="btn" onclick="window.location.href='set_macros.html'">← Back</button>
+                <button type="button" class="btn btn-primary" id="nextButton" onclick="validateAndNavigate()" style="background-color: #007BFF;">DONE: Go to Daily Food Log</button>
+            </div>
+        </form>
+    </div>
 	
 	
 <script>
@@ -25,14 +96,39 @@ document.addEventListener('DOMContentLoaded', function() {
     if (storedTime) {
         // If there is a stored time, set the value of the time input field to this time
         document.getElementById('timeInput').value = storedTime;
+    } else {
+        // Set default time to 1:00 AM if no time is stored
+        document.getElementById('timeInput').value = '01:00';
     }
 });
 
 document.getElementById('timeForm').addEventListener('submit', function(event) {
     event.preventDefault(); // Prevent the form from submitting normally
-    var timeInput = document.getElementById('timeInput').value;
-    localStorage.setItem('userTime', timeInput); // Store the user's time in localStorage
+    saveTime();
 });
+
+function saveTime() {
+    var timeInput = document.getElementById('timeInput').value;
+    if (!timeInput) {
+        alert('Please select a time.');
+        return;
+    }
+    localStorage.setItem('userTime', timeInput); // Store the user's time in localStorage
+}
+
+
+
+function validateAndNavigate() {
+    var timeInput = document.getElementById('timeInput').value;
+    if (!timeInput) {
+        alert('Please select a reset time before proceeding.');
+        return;
+    }
+    
+    // Save time before navigating
+    saveTime();
+    window.location.href = 'nutrition.html';
+}
 </script>
 
 	

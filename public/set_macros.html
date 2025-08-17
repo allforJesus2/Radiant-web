@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Macros</title>
     <link rel="stylesheet" href="dark-theme.css">
+    <link rel="stylesheet" href="navigation.css">
+    <script src="navigation.js"></script>
     <style>
         .macros-container {
             max-width: 600px;
@@ -66,10 +68,15 @@
         .btn-primary {
             background-color: #007BFF;
         }
+
+
     </style>
 </head>
 <body>
     <div class="macros-container">
+        <div class="progress-indicator">
+            <!-- Progress indicator will be rendered by navigation.js -->
+        </div>
         <h1>Set Your Daily Macros</h1>
         
         <div class="calories-display">
@@ -103,7 +110,11 @@
 
         <div class="button-group">
             <button class="btn" id="saveMacrosBtn">Save Macros</button>
-            <button class="btn btn-primary" onclick="window.location.href='set_time.html'">Set Reset Time</button>
+        </div>
+        
+        <div class="button-group">
+            <button class="btn" onclick="window.location.href='set_activity_level.html'">← Back</button>
+            <button class="btn btn-primary" id="nextButton" onclick="validateAndNavigate()">NEXT: Set Reset Time</button>
         </div>
     </div>
 
@@ -205,9 +216,34 @@
 			};
 
             localStorage.setItem('macros', JSON.stringify(macros));
-            alert('Macros saved!');
         }
+
         document.getElementById('saveMacrosBtn').addEventListener('click', saveMacros);
+    </script>
+
+    <script>
+
+
+        function validateAndNavigate() {
+            const proteinSlider = document.getElementById('proteinSlider');
+            const carbsSlider = document.getElementById('carbsSlider');
+            const fatSlider = document.getElementById('fatSlider');
+            
+            const proteinValue = proteinSlider.value / 4;
+            const carbsValue = carbsSlider.value / 4;
+            const fatValue = fatSlider.value / 8;
+            
+            const totalCalories = parseInt(proteinValue * 4) + parseInt(carbsValue * 4) + parseInt(fatValue * 8);
+            
+            if (totalCalories < dailyCalories * 0.8) {
+                alert('Your total calories are too low. Please adjust your macros to meet at least 80% of your daily calorie target.');
+                return;
+            }
+            
+            // Save macros before navigating
+            saveMacros();
+            window.location.href = 'set_time.html';
+        }
     </script>
 </body>
 </html>

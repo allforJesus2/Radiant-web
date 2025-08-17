@@ -5,29 +5,293 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BMR Calculator</title>
     <link rel="stylesheet" href="dark-theme.css">
+    <link rel="stylesheet" href="navigation.css">
+    <script src="navigation.js"></script>
     <style>
         body {
             display: flex;
             flex-direction: column;
             align-items: center; /* Center horizontally */
-            justify-content: center; /* Center vertically */
-            height: 100vh; /* Full viewport height */
+            min-height: 100vh; /* Minimum viewport height */
             margin: 0; /* Remove default margin */
+            padding: 20px 10px; /* Add padding for mobile */
         }
         #bmrResults {
             text-align: center; /* Center text within the results div */
         }
+
+
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin: 20px 0;
+            justify-content: space-between;
+        }
+
+        .button-group .btn {
+            flex: 1;
+        }
+
+        .bmr-option {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid var(--input, #555);
+            border-radius: 8px;
+            background-color: var(--background, #222);
+            transition: all 0.3s ease;
+        }
+
+        .bmr-option:hover {
+            border-color: #007BFF;
+            background-color: rgba(0, 123, 255, 0.1);
+        }
+
+        .bmr-label {
+            display: flex;
+            align-items: flex-start;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        .bmr-label input[type="radio"] {
+            margin-right: 15px;
+            margin-top: 3px;
+        }
+
+        .bmr-content {
+            flex: 1;
+        }
+
+        .bmr-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+            color: var(--text, #fff);
+        }
+
+        .bmr-description {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: var(--text, #fff);
+            opacity: 0.8;
+        }
+
+        .bmr-option:has(input[type="radio"]:checked) {
+            border-color: #007BFF;
+            background-color: rgba(0, 123, 255, 0.15);
+        }
+
+        .bmr-option:has(input[type="radio"]:checked) .bmr-title {
+            color: #007BFF;
+        }
+
+        .bmr-explanation {
+            max-width: 800px;
+            margin: 0 auto 30px auto;
+            background-color: rgba(0, 123, 255, 0.1);
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            border-radius: 8px;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .explanation-header {
+            padding: 15px 20px;
+            cursor: pointer;
+            background-color: rgba(0, 123, 255, 0.15);
+            transition: background-color 0.3s ease;
+        }
+
+        .explanation-header:hover {
+            background-color: rgba(0, 123, 255, 0.25);
+        }
+
+        .explanation-header h3 {
+            margin: 0;
+            color: var(--text, #fff);
+            font-size: 1.1em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #toggleIcon {
+            font-size: 0.8em;
+            transition: transform 0.3s ease;
+        }
+
+        .explanation-content {
+            padding: 0 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .explanation-content.expanded {
+            padding: 20px;
+            max-height: 300px;
+        }
+
+        .explanation-content p {
+            margin: 0 0 15px 0;
+            line-height: 1.6;
+            color: var(--text, #fff);
+        }
+
+        .explanation-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .explanation-content strong {
+            color: #007BFF;
+        }
+
+        .selection-instruction {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .selection-instruction h3 {
+            color: var(--text, #fff);
+            font-size: 1.2em;
+            margin: 0;
+            font-weight: normal;
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px 5px;
+            }
+            
+            .progress-indicator {
+                flex-wrap: wrap;
+                gap: 5px;
+                margin-bottom: 20px;
+                padding: 15px 0;
+            }
+            
+            .step {
+                font-size: 0.8em;
+                padding: 8px 5px;
+                min-width: 60px;
+            }
+            
+            h1 {
+                font-size: 1.5em;
+                margin: 10px 0;
+            }
+            
+            .bmr-explanation {
+                margin: 0 auto 20px auto;
+            }
+            
+            .explanation-header {
+                padding: 12px 15px;
+            }
+            
+            .explanation-header h3 {
+                font-size: 1em;
+            }
+            
+            .explanation-content.expanded {
+                padding: 15px;
+            }
+            
+            .explanation-content p {
+                font-size: 0.9em;
+            }
+            
+            .bmr-option {
+                margin: 15px 0;
+                padding: 12px;
+            }
+            
+            .bmr-title {
+                font-size: 1em;
+            }
+            
+            .bmr-description {
+                font-size: 0.85em;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .button-group .btn {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
+    <div class="progress-indicator">
+        <!-- Progress indicator will be rendered by navigation.js -->
+    </div>
     <h1>BMR Calculator</h1>
+    <div class="bmr-explanation">
+        <div class="explanation-header" onclick="toggleExplanation()">
+            <h3>What is BMR? <span id="toggleIcon">▼</span></h3>
+        </div>
+        <div class="explanation-content" id="explanationContent">
+            <p><strong>BMR (Basal Metabolic Rate)</strong> is the number of calories your body burns at rest to maintain basic life functions like breathing, circulation, cell production, nutrient processing, protein synthesis, and ion transport. It represents the minimum amount of energy needed to keep your body functioning while completely at rest.</p>
+            <p>Your BMR accounts for approximately 60-75% of your total daily calorie expenditure. The remaining calories are burned through physical activity and the thermic effect of food (digestion).</p>
+        </div>
+    </div>
+    
+    <div class="selection-instruction">
+        <h3>Select one of the following BMR calculation methods:</h3>
+    </div>
 	
 <div id="bmrResults">
-    <p><label><input type="radio" name="bmr" value="harrisBenedict"> Harris-Benedict BMR: <span id="harrisBenedict"></span> kcal/day</label></p>
-    <p><label><input type="radio" name="bmr" value="mifflinStJeor"> Mifflin-St Jeor BMR: <span id="mifflinStJeor"></span> kcal/day</label></p>
-    <p><label><input type="radio" name="bmr" value="katchMcArdle"> Katch-McArdle BMR: <span id="katchMcArdle"></span> kcal/day</label></p>
-	<button class="btn" onclick="window.location.href='set_activity_level.html'">Activity Level</button>
-
+    <div class="bmr-option">
+        <label class="bmr-label">
+            <input type="radio" name="bmr" value="harrisBenedict">
+            <div class="bmr-content">
+                <div class="bmr-title">Harris-Benedict BMR: <span id="harrisBenedict"></span> kcal/day</div>
+                <div class="bmr-description">
+                    The original BMR equation developed in 1919. Uses gender-specific formulas and considers age, height, and weight. 
+                    Generally accurate for most people but may overestimate BMR for very muscular individuals.
+                </div>
+            </div>
+        </label>
+    </div>
+    
+    <div class="bmr-option">
+        <label class="bmr-label">
+            <input type="radio" name="bmr" value="mifflinStJeor">
+            <div class="bmr-content">
+                <div class="bmr-title">Mifflin-St Jeor BMR: <span id="mifflinStJeor"></span> kcal/day</div>
+                <div class="bmr-description">
+                    A more modern equation (1990) that's considered more accurate than Harris-Benedict. 
+                    Uses a single formula for both genders with a gender adjustment factor. 
+                    Recommended by the Academy of Nutrition and Dietetics.
+                </div>
+            </div>
+        </label>
+    </div>
+    
+    <div class="bmr-option">
+        <label class="bmr-label">
+            <input type="radio" name="bmr" value="katchMcArdle">
+            <div class="bmr-content">
+                <div class="bmr-title">Katch-McArdle BMR: <span id="katchMcArdle"></span> kcal/day</div>
+                <div class="bmr-description">
+                    Uses lean body mass (calculated from body fat percentage) instead of total weight. 
+                    Most accurate for athletes and those with known body fat percentage. 
+                    Accounts for the fact that muscle tissue burns more calories than fat.
+                </div>
+            </div>
+        </label>
+    </div>
+    
+    <div class="button-group">
+        <button class="btn" onclick="window.location.href='profile.html'">← Back</button>
+        <button class="btn" id="activityLevelBtn" onclick="validateAndNavigate()" style="background-color: #007BFF; color: #fff;">NEXT: Activity Level</button>
+    </div>
 </div>
 
 
@@ -108,8 +372,33 @@
                 }
             });
         });
-		
-		
+
+    }
+
+    // Function to toggle BMR explanation
+    function toggleExplanation() {
+        const content = document.getElementById('explanationContent');
+        const icon = document.getElementById('toggleIcon');
+        
+        if (content.classList.contains('expanded')) {
+            content.classList.remove('expanded');
+            icon.textContent = '▼';
+        } else {
+            content.classList.add('expanded');
+            icon.textContent = '▲';
+        }
+    }
+
+
+
+    // Function to validate and navigate
+    function validateAndNavigate() {
+        const selectedBMR = document.querySelector('input[name="bmr"]:checked');
+        if (!selectedBMR) {
+            alert('Please select a BMR calculation method before proceeding.');
+            return;
+        }
+        window.location.href = 'set_activity_level.html';
     }
 </script>
 

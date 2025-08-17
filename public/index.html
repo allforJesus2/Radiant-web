@@ -51,7 +51,7 @@
 		
 		<p class="center-text" id="verse"></p>
 		
-        <button class="btn">Nutrition 🍎</button>
+        <button class="btn" onclick="checkProfileAndNavigate()">Nutrition 🍎</button>
         <button class="btn"  onclick="window.location.href='workout/531.html'">Exercise 🏋️‍♀️</button>
         <button class="btn" onclick="window.location.href='sleep.html'">Sleep 💤</button>
         <button class="btn" onclick="window.location.href='profile.html'">Profile 👤</button>
@@ -102,10 +102,25 @@
 		var verseElement = document.getElementById('verse');
 		verseElement.textContent = bibleVerses[currentIndex];
 
-		var nutritionButton = document.querySelector('.btn');
-		nutritionButton.addEventListener('click', function () {
-			window.location.href = 'nutrition.html'; // navigates to the 'nutrition.html' page
-		});
+		// Function to check profile completion and navigate accordingly
+		function checkProfileAndNavigate() {
+			const profileData = localStorage.getItem('profileStatistics');
+			const userTime = localStorage.getItem('userTime');
+			const macros = localStorage.getItem('macros');
+			
+			if (profileData && userTime && macros) {
+				// Profile is complete, go directly to nutrition
+				window.location.href = 'nutrition.html';
+			} else {
+				// Profile is incomplete, ask user what they want to do
+				const choice = confirm('Your profile setup is incomplete. Would you like to complete the setup first? Click OK to go to profile setup, or Cancel to skip to nutrition.');
+				if (choice) {
+					window.location.href = 'profile.html';
+				} else {
+					window.location.href = 'nutrition.html';
+				}
+			}
+		}
 		
 			
 	
