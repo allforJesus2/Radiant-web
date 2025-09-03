@@ -290,6 +290,7 @@ how can we add spacing between suggestions
         }
     </style>
 
+    <script src="database-utils.js"></script>
     <script>
 	
 	// Define the 'today' variable globally
@@ -479,8 +480,8 @@ function parseAndStoreCSV(csvData) {
 
     updateProgress(60, 'Opening database...');
 
-    // Open the database with version 1
-    const dbRequest = indexedDB.open(dbName, 1);
+    // Open the database with version 2 to trigger index creation
+    const dbRequest = indexedDB.open(dbName, 2);
     console.log('Database request made'); // Log to confirm database request
 
     dbRequest.onupgradeneeded = function(event) {
@@ -489,8 +490,12 @@ function parseAndStoreCSV(csvData) {
         console.log('Database object:', db); // Log the database object
 
         // Create the object store
-        db.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
+        const objectStore = db.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
         console.log('Object store created'); // Log to confirm object store creation
+        
+        // Create an index on the name field for fast lookups
+        objectStore.createIndex('nameIndex', 'name', { unique: true });
+        console.log('Name index created for fast lookups');
     };
 
     dbRequest.onsuccess = function(event) {
@@ -510,7 +515,25 @@ function parseAndStoreCSV(csvData) {
         lines.forEach(function(line, index) {
             const columns = line.split(',');
             console.log('Storing line:', index, columns); // Log each line being stored
-            store.put({id: index, data: columns});
+            
+            // Store data with separate properties for better indexing
+            const foodItem = {
+                id: index,
+                name: columns[0], // Food name
+                foodGroup: columns[1],
+                calories: parseFloat(columns[2]) || 0,
+                fat: parseFloat(columns[3]) || 0,
+                protein: parseFloat(columns[4]) || 0,
+                carbohydrate: parseFloat(columns[5]) || 0,
+                sugars: parseFloat(columns[6]) || 0,
+                fiber: parseFloat(columns[7]) || 0,
+                netCarbs: parseFloat(columns[8]) || 0,
+                servingWeight1: parseFloat(columns[9]) || 0,
+                servingDescription1: columns[10] || '',
+
+            };
+            
+            store.put(foodItem);
             
             processedLines++;
             // Update progress every 100 lines or at the end
@@ -549,20 +572,9 @@ function parseAndStoreCSV(csvData) {
 }
    document.getElementById('csvFile').addEventListener('change', handleFileUpload);
 
-// Define a headers dictionary
-const headers = {
-    name: 0,
-    foodGroup: 1,
-    calories: 2,
-    fat: 3,
-    protein: 4,
-    carbohydrate: 5,
-    sugars: 6,
-    fiber: 7,
-    netCarbs: 8,
-    servingWeight1: 9,
-    servingDescription1: 10
-};
+
+
+
 
 
 
@@ -573,13 +585,23 @@ function initializeFoodList() {
     const foodList = [];
 	//db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
 
-    const dbRequest = indexedDB.open(dbName, 1);
+    const dbRequest = indexedDB.open(dbName, 2);
 
     dbRequest.onupgradeneeded = function(event) {
         const db = event.target.result;
         if (!db.objectStoreNames.contains(storeName)) {
             // Create the object store if it doesn't exist
-            db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
+            const objectStore = db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
+            
+                                // Create an index on the name field for fast lookups
+                    objectStore.createIndex('nameIndex', 'name', { unique: true });
+        } else {
+            // Object store exists, check if index exists
+            const objectStore = db.transaction([storeName], 'readwrite').objectStore(storeName);
+            if (!objectStore.indexNames.contains('nameIndex')) {
+                // Create the index if it doesn't exist
+                objectStore.createIndex('nameIndex', 'name', { unique: true });
+            }
         }
     };
 
@@ -592,8 +614,15 @@ function initializeFoodList() {
         request.onsuccess = function(event) {
             const cursor = event.target.result;
             if (cursor) {
-                // Assuming the 'name' is the first element in the 'data' array
-                foodList.push(cursor.value.data[headers.name]);
+                // Check if this record needs migration (has old data array format)
+                if (cursor.value.data && !cursor.value.name) {
+                    // Migrate old format to new format
+                    migrateRecord(db, store, cursor.value);
+                }
+                
+                // Use the new name property (or fallback to data array if still migrating)
+                const name = cursor.value.name || (cursor.value.data ? cursor.value.data[0] : 'Unknown');
+                foodList.push(name);
                 cursor.continue();
             } else {
                 // All records have been processed
@@ -622,153 +651,13 @@ function showServingBubble(description, targetElement) {
     }, 3000);
 }
 
-function setupAutocomplete(foodList) {
-    var foodInput = document.querySelector('.food');
-    var autocompleteList = document.getElementById('autocompleteList');
-    var gramsInput = document.querySelector('.grams');
-
-    foodInput.addEventListener('input', function() {
-        var userInput = this.value;
-
-        if (userInput.length > 1) {
-            // Split the user input into words
-            var inputWords = userInput.toLowerCase().split(' ');
-
-            var filteredFoods = foodList.filter(function(food) {
-                // Convert the food item to lowercase for case-insensitive comparison
-                var foodLowerCase = food.toLowerCase();
-
-                // Check if all words in the user input are present in the food item
-                return inputWords.every(function(word) {
-                    return foodLowerCase.includes(word);
-                });
-            });
-
-            while (autocompleteList.firstChild) {
-                autocompleteList.removeChild(autocompleteList.firstChild);
-            }
-
-            filteredFoods.forEach(function(food) {
-                var listItem = document.createElement('div');
-                listItem.textContent = food;
-                listItem.addEventListener('click', function() {
-                    foodInput.value = this.textContent;
-                    autocompleteList.innerHTML = '';
-                    
-                    // Focus and select grams input immediately after selection
-                    gramsInput.focus();
-                    gramsInput.select();
-                    
-                    // Fetch both serving weight and description
-                    fetchValueForKey(this.textContent, 'servingWeight1', function(value) {
-                        gramsInput.value = value;
-                        gramsInput.select();
-                    });
-                    
-                    fetchValueForKey(this.textContent, 'servingDescription1', function(description) {
-                        showServingBubble(description, gramsInput);
-                    });
-                });
-
-                autocompleteList.appendChild(listItem);
-            });
-        } else {
-            autocompleteList.innerHTML = '';
-        }
-    });
-}
 
 
 
-// Function to fetch a specific value for a given food item based on the header key
-function fetchValueForKey(foodName, headerKey, callback) {
-    const dbName = 'csvDB';
-    const storeName = 'csvStore';
-    console.log('Fetching value for food:', foodName, 'headerKey:', headerKey);
 
-    const dbRequest = indexedDB.open(dbName, 1);
 
-    dbRequest.onerror = function(event) {
-        console.error('Database error:', event.target.error);
-    };
 
-    dbRequest.onsuccess = function(event) {
-        console.log('Database opened successfully');
-        const db = event.target.result;
-        const transaction = db.transaction([storeName], 'readonly');
-        const store = transaction.objectStore(storeName);
-        const request = store.openCursor();
 
-        request.onsuccess = function(event) {
-            const cursor = event.target.result;
-            if (cursor) {
-                // Assuming the 'name' is the first element in the 'data' array
-                if (cursor.value.data[headers.name] === foodName) {
-                    // Found the food item, fetch the value for the specified header key
-                    const value = cursor.value.data[headers[headerKey]];
-                    console.log('Found food item, value for', headerKey, ':', value);
-                    callback(value);
-                    return;
-                }
-                cursor.continue();
-            } else {
-                console.log('Food item not found:', foodName);
-            }
-        };
-
-        request.onerror = function(event) {
-            console.error('Cursor error:', event.target.error);
-        };
-    };
-}
-
-function getNutritionalInfo(foodName, grams) {
-    // Placeholder for the nutritionalInfo object that will be populated
-    var nutritionalInfo = {
-        calories: 0,
-        fat: 0,
-        protein: 0,
-        carbs: 0
-    };
-
-    // Function to handle the callback from fetchValueForKey
-    function handleFetchedValue(headerKey, value) {
-        // Calculate the nutritional value based on grams
-        var calculatedValue = parseFloat(((grams / 100) * value).toFixed(1));
-        // Update the nutritionalInfo object
-        switch (headerKey) {
-            case 'calories':
-                nutritionalInfo.calories = calculatedValue;
-                break;
-            case 'fat':
-                nutritionalInfo.fat = calculatedValue;
-                break;
-            case 'protein':
-                nutritionalInfo.protein = calculatedValue;
-                break;
-            case 'carbohydrate':
-                nutritionalInfo.carbs = calculatedValue;
-                break;
-            default:
-                console.error('Invalid header key:', headerKey);
-        }
-    }
-
-    // Create an array of Promises for each fetch operation
-    var fetchPromises = ['calories', 'fat', 'protein', 'carbohydrate'].map(function(headerKey) {
-        return new Promise(function(resolve, reject) {
-            fetchValueForKey(foodName, headerKey, function(value) {
-                handleFetchedValue(headerKey, value);
-                resolve();
-            });
-        });
-    });
-
-    // Return a Promise that resolves with the nutritionalInfo object once all fetch operations have completed
-    return Promise.all(fetchPromises).then(function() {
-        return nutritionalInfo;
-    });
-}
 
 
 document.querySelector('.food').addEventListener('focus', function() {
@@ -1094,64 +983,69 @@ document.getElementById('addBtn').addEventListener('click', function() {
         return;
     }
 
-    getNutritionalInfo(foodName, grams).then(function(nutritionalInfo) {
-        
-		hh_mm = formatTime(new Date());
-		
-		var foodItem = {
-            name: foodName,
-            grams: grams,
-            calories: nutritionalInfo.calories,
-            fat: nutritionalInfo.fat,
-            protein: nutritionalInfo.protein,
-            carbs: nutritionalInfo.carbs,
-            timeAdded: hh_mm,
-        };
+    // Use the optimized single-query function
+    getNutritionalInfo(foodName, grams)
+        .then(function(nutritionalInfo) {
+            hh_mm = formatTime(new Date());
+            
+            var foodItem = {
+                name: foodName,
+                grams: grams,
+                calories: nutritionalInfo.calories,
+                fat: nutritionalInfo.fat,
+                protein: nutritionalInfo.protein,
+                carbs: nutritionalInfo.carbs,
+                timeAdded: hh_mm,
+            };
 
-        var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
-        //var today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+            var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+            //var today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
 
-        if (!foodLog[today]) {
-            foodLog[today] = [];
-        }
-
-        var existingData = foodLog[today];
-		
-		
-        var mostRecentIndex = existingData.reduce(function(mostRecentIndex, item, index) {
-            if (item.name === foodName) {
-				var currentTimeInMinutes = timeToMinutes(hh_mm);
-				var itemTimeInMinutes = timeToMinutes(item.timeAdded);
-				var timeDifference = Math.abs(currentTimeInMinutes - itemTimeInMinutes);
-				var oneHourInMinutes = 60; // Time difference in minutes for 1 hour
-
-				if (timeDifference <= oneHourInMinutes) {
-					return index;
-				}
+            if (!foodLog[today]) {
+                foodLog[today] = [];
             }
-            return mostRecentIndex;
-        }, -1);
 
-        if (mostRecentIndex !== -1) {
-            var updatedItem = existingData[mostRecentIndex];
-            updatedItem.grams += grams;
-            getNutritionalInfo(foodName, updatedItem.grams).then(function(updatedNutrition) {
-                updatedItem.calories = updatedNutrition.calories;
-                updatedItem.fat = updatedNutrition.fat;
-                updatedItem.protein = updatedNutrition.protein;
-                updatedItem.carbs = updatedNutrition.carbs;
+            var existingData = foodLog[today];
+            
+            
+            var mostRecentIndex = existingData.reduce(function(mostRecentIndex, item, index) {
+                if (item.name === foodName) {
+                    var currentTimeInMinutes = timeToMinutes(hh_mm);
+                    var itemTimeInMinutes = timeToMinutes(item.timeAdded);
+                    var timeDifference = Math.abs(currentTimeInMinutes - itemTimeInMinutes);
+                    var oneHourInMinutes = 60; // Time difference in minutes for 1 hour
+
+                    if (timeDifference <= oneHourInMinutes) {
+                        return index;
+                    }
+                }
+                return mostRecentIndex;
+            }, -1);
+
+            if (mostRecentIndex !== -1) {
+                var updatedItem = existingData[mostRecentIndex];
+                updatedItem.grams += grams;
+                getNutritionalInfo(foodName, updatedItem.grams).then(function(updatedNutrition) {
+                    updatedItem.calories = updatedNutrition.calories;
+                    updatedItem.fat = updatedNutrition.fat;
+                    updatedItem.protein = updatedNutrition.protein;
+                    updatedItem.carbs = updatedNutrition.carbs;
+                    localStorage.setItem('foodLog', JSON.stringify(foodLog));
+                    console.log('Existing food item updated');
+                    displayFoodItems(existingData);
+                });
+            } else {
+                existingData.push(foodItem);
                 localStorage.setItem('foodLog', JSON.stringify(foodLog));
-                console.log('Existing food item updated');
+                console.log('Food item added to localStorage');
+                console.log(foodLog);
                 displayFoodItems(existingData);
-            });
-        } else {
-            existingData.push(foodItem);
-            localStorage.setItem('foodLog', JSON.stringify(foodLog));
-            console.log('Food item added to localStorage');
-            console.log(foodLog);
-            displayFoodItems(existingData);
-        }
-    });
+            }
+        })
+        .catch(function(error) {
+            console.error('Error getting nutritional info:', error);
+            alert('Food not found in database. Please check the spelling.');
+        });
 
     document.querySelector('.food').value = '';
     document.querySelector('.grams').value = '';
@@ -1428,33 +1322,34 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
     }
 });
 
-// Add the refresh function after the initializeFoodList function
-function refreshFoodDatabase() {
-    // Clear the current foodList
-    foodList = [];
-    
-    showProgress('Refreshing Database', 'Reloading food data...');
-    updateProgress(20, 'Clearing old data...');
-    
-    // Show loading indicator
-    const originalPlaceholder = document.querySelector('.food').placeholder;
-    document.querySelector('.food').placeholder = "Refreshing food database...";
-    
-    setTimeout(() => {
-        updateProgress(50, 'Reloading database...');
-        // Call initializeFoodList again
-        initializeFoodList();
-        
-        setTimeout(() => {
-            updateProgress(100, 'Database refreshed!');
-            setTimeout(() => {
-                hideProgress();
-                document.querySelector('.food').placeholder = originalPlaceholder;
-                alert("Food database refreshed. New recipes should now appear in search.");
-            }, 500);
-        }, 500);
-    }, 300);
-}
+	// Add the refresh function after the initializeFoodList function
+	function refreshFoodDatabase() {
+		// Clear the current foodList
+		foodList = [];
+		
+		showProgress('Refreshing Database', 'Reloading food data...');
+		updateProgress(20, 'Clearing old data...');
+		
+		// Show loading indicator
+		const originalPlaceholder = document.querySelector('.food').placeholder;
+		document.querySelector('.food').placeholder = "Refreshing food database...";
+		
+		setTimeout(() => {
+			updateProgress(50, 'Reloading database...');
+			// Call initializeFoodList again
+			initializeFoodList();
+			
+			setTimeout(() => {
+				updateProgress(100, 'Database refreshed!');
+				setTimeout(() => {
+					hideProgress();
+					document.querySelector('.food').placeholder = originalPlaceholder;
+					alert("Food database refreshed. New recipes should now appear in search.");
+				}, 500);
+			}, 500);
+		}, 300);
+	}
+	
 </script>
 	
 </body>

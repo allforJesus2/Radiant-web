@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-cache-v2.3';
+const CACHE_NAME = 'my-cache-v2.5';
 const FILES_TO_CACHE = [
   '/set_activity_level.html',
   '/set_macros.html',
@@ -8,10 +8,14 @@ const FILES_TO_CACHE = [
   '/debug.html',
   '/index.html',
   '/nutrition.html',
+  '/create-recipe.html',
   '/charts.html',
   '/settings.html',
   '/profile.html',
   '/dark-theme.css',
+  '/navigation.css',
+  '/navigation.js',
+  '/database-utils.js',
   '/workout.html',
   '/set_workout_day.html',
   '/workout_routine.html',

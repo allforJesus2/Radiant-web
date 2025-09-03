@@ -190,6 +190,7 @@
         }
     </style>
 
+    <script src="database-utils.js"></script>
     <script>
         const ingredients = [];
         let totalWeight = 0;
@@ -200,20 +201,7 @@
             fat: 0
         };
         
-        // Define the headers dictionary to match nutrition.html
-        const headers = {
-            name: 0,
-            foodGroup: 1,
-            calories: 2,
-            fat: 3,
-            protein: 4,
-            carbohydrate: 5,
-            sugars: 6,
-            fiber: 7,
-            netCarbs: 8,
-            servingWeight1: 9,
-            servingDescription1: 10
-        };
+
         
         let foodList = [];
 
@@ -333,7 +321,7 @@
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, 2);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -345,24 +333,21 @@
                 countRequest.onsuccess = function() {
                     const newId = countRequest.result;
                     
-                    // Create the new recipe data array with all required fields
+                    // Create the new recipe with new data structure for better indexing
                     const newRecipe = {
                         id: newId,
-                        data: [
-                            recipeName,           // name
-                            'Custom Recipe',      // foodGroup
-                            per100g.calories,     // calories
-                            per100g.fat,          // fat
-                            per100g.protein,      // protein
-                            per100g.carbs,        // carbohydrate
-                            sugars,               // sugars
-                            fiber,                // fiber
-                            netCarbs,             // netCarbs
-                            100,                  // servingWeight1
-                            '100g',               // servingDescription1
-                            '',                   // Add empty strings for any remaining fields
-                            ''                    // that might be expected in the database
-                        ]
+                        name: recipeName,           // name
+                        foodGroup: 'Custom Recipe', // foodGroup
+                        calories: per100g.calories, // calories
+                        fat: per100g.fat,          // fat
+                        protein: per100g.protein,  // protein
+                        carbohydrate: per100g.carbs, // carbohydrate
+                        sugars: sugars,            // sugars
+                        fiber: fiber,              // fiber
+                        netCarbs: netCarbs,        // netCarbs
+                        servingWeight1: 100,       // servingWeight1
+                        servingDescription1: '100g', // servingDescription1
+
                     };
 
                     const addRequest = store.add(newRecipe);
@@ -443,57 +428,30 @@
             });
         }
         
-        // Function to fetch a specific value for a given food item based on the header key
-        function fetchValueForKey(foodName, headerKey, callback) {
-            const dbName = 'csvDB';
-            const storeName = 'csvStore';
 
-            const dbRequest = indexedDB.open(dbName, 1);
-
-            dbRequest.onerror = function(event) {
-                console.error('Database error:', event.target.error);
-            };
-
-            dbRequest.onsuccess = function(event) {
-                const db = event.target.result;
-                const transaction = db.transaction([storeName], 'readonly');
-                const store = transaction.objectStore(storeName);
-                const request = store.openCursor();
-
-                request.onsuccess = function(event) {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        // Assuming the 'name' is the first element in the 'data' array
-                        if (cursor.value.data[headers.name] === foodName) {
-                            // Found the food item, fetch the value for the specified header key
-                            const value = cursor.value.data[headers[headerKey]];
-                            callback(value);
-                            return;
-                        }
-                        cursor.continue();
-                    } else {
-                        console.log('Food item not found:', foodName);
-                    }
-                };
-
-                request.onerror = function(event) {
-                    console.error('Cursor error:', event.target.error);
-                };
-            };
-        }
         
         // Initialize food list from IndexedDB
         function initializeFoodList() {
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, 2);
 
             dbRequest.onupgradeneeded = function(event) {
                 const db = event.target.result;
                 if (!db.objectStoreNames.contains(storeName)) {
                     // Create the object store if it doesn't exist
-                    db.createObjectStore(storeName, { keyPath: 'id' });
+                    const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
+                    
+                    // Create an index on the name field for fast lookups
+                    objectStore.createIndex('nameIndex', 'name', { unique: true });
+                } else {
+                    // Object store exists, check if index exists
+                    const objectStore = db.transaction([storeName], 'readwrite').objectStore(storeName);
+                    if (!objectStore.indexNames.contains('nameIndex')) {
+                        // Create the index if it doesn't exist
+                        objectStore.createIndex('nameIndex', 'name', { unique: true });
+                    }
                 }
             };
 
@@ -506,8 +464,15 @@
                 request.onsuccess = function(event) {
                     const cursor = event.target.result;
                     if (cursor) {
-                        // Assuming the 'name' is the first element in the 'data' array
-                        foodList.push(cursor.value.data[headers.name]);
+                        // Check if this record needs migration (has old data array format)
+                        if (cursor.value.data && !cursor.value.name) {
+                            // Migrate old format to new format
+                            migrateRecord(db, store, cursor.value);
+                        }
+                        
+                        // Use the new name property (or fallback to data array if still migrating)
+                        const name = cursor.value.name || (cursor.value.data ? cursor.value.data[0] : 'Unknown');
+                        foodList.push(name);
                         cursor.continue();
                     } else {
                         // All records have been processed
@@ -518,65 +483,16 @@
             };
         }
         
-        // Setup autocomplete functionality
-        function setupAutocomplete(foodList) {
-            var foodInput = document.querySelector('.food');
-            var autocompleteList = document.getElementById('autocompleteList');
-            var gramsInput = document.querySelector('.grams');
 
-            foodInput.addEventListener('input', function() {
-                var userInput = this.value;
+        
 
-                if (userInput.length > 1) {
-                    // Split the user input into words
-                    var inputWords = userInput.toLowerCase().split(' ');
-
-                    var filteredFoods = foodList.filter(function(food) {
-                        // Convert the food item to lowercase for case-insensitive comparison
-                        var foodLowerCase = food.toLowerCase();
-
-                        // Check if all words in the user input are present in the food item
-                        return inputWords.every(function(word) {
-                            return foodLowerCase.includes(word);
-                        });
-                    });
-
-                    while (autocompleteList.firstChild) {
-                        autocompleteList.removeChild(autocompleteList.firstChild);
-                    }
-
-                    filteredFoods.forEach(function(food) {
-                        var listItem = document.createElement('div');
-                        listItem.textContent = food;
-                        listItem.addEventListener('click', function() {
-                            foodInput.value = this.textContent;
-                            autocompleteList.innerHTML = '';
-                            
-                            // Focus and select grams input immediately after selection
-                            gramsInput.focus();
-                            gramsInput.select();
-                            
-                            // Fetch serving weight
-                            fetchValueForKey(this.textContent, 'servingWeight1', function(value) {
-                                gramsInput.value = value;
-                                gramsInput.select();
-                            });
-                        });
-
-                        autocompleteList.appendChild(listItem);
-                    });
-                } else {
-                    autocompleteList.innerHTML = '';
-                }
-            });
-        }
         
         // New function to load saved recipes
         function loadSavedRecipes() {
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, 2);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -589,15 +505,22 @@
                 request.onsuccess = function(event) {
                     const cursor = event.target.result;
                     if (cursor) {
-                        // Check if this is a custom recipe
-                        if (cursor.value.data[headers.foodGroup] === 'Custom Recipe') {
+                        // Check if this record needs migration (has old data array format)
+                        if (cursor.value.data && !cursor.value.name) {
+                            // Migrate old format to new format
+                            migrateRecord(db, store, cursor.value);
+                        }
+                        
+                        // Check if this is a custom recipe (using new or migrated structure)
+                        const foodGroup = cursor.value.foodGroup || (cursor.value.data ? cursor.value.data[1] : '');
+                        if (foodGroup === 'Custom Recipe') {
                             savedRecipes.push({
                                 id: cursor.value.id,
-                                name: cursor.value.data[headers.name],
-                                calories: cursor.value.data[headers.calories],
-                                protein: cursor.value.data[headers.protein],
-                                carbs: cursor.value.data[headers.carbohydrate],
-                                fat: cursor.value.data[headers.fat]
+                                name: cursor.value.name || (cursor.value.data ? cursor.value.data[0] : 'Unknown'),
+                                calories: cursor.value.calories || (cursor.value.data ? parseFloat(cursor.value.data[2]) : 0),
+                                protein: cursor.value.protein || (cursor.value.data ? parseFloat(cursor.value.data[4]) : 0),
+                                carbs: cursor.value.carbohydrate || (cursor.value.data ? parseFloat(cursor.value.data[5]) : 0),
+                                fat: cursor.value.fat || (cursor.value.data ? parseFloat(cursor.value.data[3]) : 0)
                             });
                         }
                         cursor.continue();
@@ -674,7 +597,7 @@
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, 2);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -686,7 +609,7 @@
                     const recipe = request.result;
                     if (recipe) {
                         // Set as the current ingredient with default 100g
-                        document.querySelector('.food').value = recipe.data[headers.name];
+                        document.querySelector('.food').value = recipe.name;
                         document.querySelector('.grams').value = 100;
                         document.querySelector('.grams').focus();
                         document.querySelector('.grams').select();
@@ -704,7 +627,7 @@
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, 2);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -717,7 +640,7 @@
                 getRequest.onsuccess = function() {
                     const recipe = getRequest.result;
                     if (recipe) {
-                        const recipeName = recipe.data[headers.name];
+                        const recipeName = recipe.name;
                         
                         // Delete the recipe
                         const deleteRequest = store.delete(recipeId);
@@ -750,7 +673,7 @@
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 1);
+            const dbRequest = indexedDB.open(dbName, 2);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -768,13 +691,13 @@
                         modal.innerHTML = `
                             <div class="recipe-modal-content">
                                 <span class="close-modal">&times;</span>
-                                <h2>${recipe.data[headers.name]}</h2>
+                                <h2>${recipe.name}</h2>
                                 <div class="recipe-details">
                                     <h3>Nutritional Information (per 100g)</h3>
-                                    <p>Calories: ${recipe.data[headers.calories]}</p>
-                                    <p>Protein: ${recipe.data[headers.protein]}g</p>
-                                    <p>Carbs: ${recipe.data[headers.carbohydrate]}g</p>
-                                    <p>Fat: ${recipe.data[headers.fat]}g</p>
+                                    <p>Calories: ${recipe.calories}</p>
+                                    <p>Protein: ${recipe.protein}g</p>
+                                    <p>Carbs: ${recipe.carbohydrate}g</p>
+                                    <p>Fat: ${recipe.fat}g</p>
                                 </div>
                                 <div class="modal-actions">
                                     <button class="btn" onclick="useRecipe(${recipeId})">Use This Recipe</button>
@@ -813,6 +736,7 @@
             initializeFoodList();
             loadSavedRecipes();
         });
+        
     </script>
 </body>
 </html> 
