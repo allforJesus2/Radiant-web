@@ -18,9 +18,9 @@ function migrateRecord(db, store, record) {
         servingDescription1: record.data[10] || ''
     };
     
-    // Update the record in the database
-    const updateTransaction = db.transaction([storeName], 'readwrite');
-    const updateStore = updateTransaction.objectStore(storeName);
+    // Update the record in the database using the passed store parameter
+    const updateTransaction = db.transaction([store.name], 'readwrite');
+    const updateStore = updateTransaction.objectStore(store.name);
     updateStore.put(migratedRecord);
     
     console.log('Migrated record:', record.id, 'to new format');
