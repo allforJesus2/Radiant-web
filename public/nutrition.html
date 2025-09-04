@@ -480,8 +480,8 @@ function parseAndStoreCSV(csvData) {
 
     updateProgress(60, 'Opening database...');
 
-    // Open the database with version 2 to trigger index creation
-    const dbRequest = indexedDB.open(dbName, 2);
+    // Open the database with version 3 to match create-recipe.html
+    const dbRequest = indexedDB.open(dbName, 3);
     console.log('Database request made'); // Log to confirm database request
 
     dbRequest.onupgradeneeded = function(event) {
@@ -585,23 +585,29 @@ function initializeFoodList() {
     const foodList = [];
 	//db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
 
-    const dbRequest = indexedDB.open(dbName, 2);
+    const dbRequest = indexedDB.open(dbName, 3);
 
     dbRequest.onupgradeneeded = function(event) {
         const db = event.target.result;
+        const oldVersion = event.oldVersion;
+        
+        // Create the main store if it doesn't exist
         if (!db.objectStoreNames.contains(storeName)) {
-            // Create the object store if it doesn't exist
-            const objectStore = db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
-            
-                                // Create an index on the name field for fast lookups
-                    objectStore.createIndex('nameIndex', 'name', { unique: true });
-        } else {
-            // Object store exists, check if index exists
-            const objectStore = db.transaction([storeName], 'readwrite').objectStore(storeName);
+            const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
+            objectStore.createIndex('nameIndex', 'name', { unique: true });
+        } else if (oldVersion < 2) {
+            // Upgrade existing store to add index if needed
+            const transaction = event.target.transaction;
+            const objectStore = transaction.objectStore(storeName);
             if (!objectStore.indexNames.contains('nameIndex')) {
-                // Create the index if it doesn't exist
                 objectStore.createIndex('nameIndex', 'name', { unique: true });
             }
+        }
+        
+        // Create ingredients store if it doesn't exist (version 3+)
+        const ingredientsStoreName = 'recipeIngredients';
+        if (!db.objectStoreNames.contains(ingredientsStoreName)) {
+            db.createObjectStore(ingredientsStoreName, { keyPath: 'recipeId' });
         }
     };
 

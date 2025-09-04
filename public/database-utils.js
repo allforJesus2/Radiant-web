@@ -32,7 +32,7 @@ function fetchValueForKey(foodName, headerKey, callback) {
     const storeName = 'csvStore';
     console.log('Fetching value for food:', foodName, 'headerKey:', headerKey);
 
-    const dbRequest = indexedDB.open(dbName, 2);
+    const dbRequest = indexedDB.open(dbName, 3);
 
     dbRequest.onerror = function(event) {
         console.error('Database error:', event.target.error);
@@ -81,7 +81,7 @@ function getNutritionalInfo(foodName, grams) {
         const dbName = 'csvDB';
         const storeName = 'csvStore';
         
-        const dbRequest = indexedDB.open(dbName, 2);
+        const dbRequest = indexedDB.open(dbName, 3);
         
         dbRequest.onerror = function(event) {
             reject(event.target.error);
