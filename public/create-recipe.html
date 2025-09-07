@@ -458,7 +458,7 @@
             const storeName = 'csvStore';
             const ingredientsStoreName = 'recipeIngredients';
             
-            const dbRequest = indexedDB.open(dbName, 3);
+            const dbRequest = indexedDB.open(dbName);
             
             dbRequest.onupgradeneeded = function(event) {
                 const db = event.target.result;
@@ -622,7 +622,7 @@
             const storeName = 'csvStore';
             const ingredientsStoreName = 'recipeIngredients';
             
-            const dbRequest = indexedDB.open(dbName, 3);
+            const dbRequest = indexedDB.open(dbName);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -761,7 +761,7 @@
             const storeName = 'csvStore';
             const ingredientsStoreName = 'recipeIngredients';
             
-            const dbRequest = indexedDB.open(dbName, 3);
+            const dbRequest = indexedDB.open(dbName);
 
             dbRequest.onupgradeneeded = function(event) {
                 const db = event.target.result;
@@ -795,14 +795,8 @@
                 request.onsuccess = function(event) {
                     const cursor = event.target.result;
                     if (cursor) {
-                        // Check if this record needs migration (has old data array format)
-                        if (cursor.value.data && !cursor.value.name) {
-                            // Migrate old format to new format
-                            migrateRecord(db, store, cursor.value);
-                        }
-                        
-                        // Use the new name property (or fallback to data array if still migrating)
-                        const name = cursor.value.name || (cursor.value.data ? cursor.value.data[0] : 'Unknown');
+                        // Use the new name property
+                        const name = cursor.value.name || 'Unknown';
                         foodList.push(name);
                         cursor.continue();
                     } else {
@@ -823,7 +817,7 @@
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 3);
+            const dbRequest = indexedDB.open(dbName);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -836,22 +830,16 @@
                 request.onsuccess = function(event) {
                     const cursor = event.target.result;
                     if (cursor) {
-                        // Check if this record needs migration (has old data array format)
-                        if (cursor.value.data && !cursor.value.name) {
-                            // Migrate old format to new format
-                            migrateRecord(db, store, cursor.value);
-                        }
-                        
-                        // Check if this is a custom recipe (using new or migrated structure)
-                        const foodGroup = cursor.value.foodGroup || (cursor.value.data ? cursor.value.data[1] : '');
+                        // Check if this is a custom recipe
+                        const foodGroup = cursor.value.foodGroup || '';
                         if (foodGroup === 'Custom Recipe') {
                             savedRecipes.push({
                                 id: cursor.value.id,
-                                name: cursor.value.name || (cursor.value.data ? cursor.value.data[0] : 'Unknown'),
-                                calories: cursor.value.calories || (cursor.value.data ? parseFloat(cursor.value.data[2]) : 0),
-                                protein: cursor.value.protein || (cursor.value.data ? parseFloat(cursor.value.data[4]) : 0),
-                                carbs: cursor.value.carbohydrate || (cursor.value.data ? parseFloat(cursor.value.data[5]) : 0),
-                                fat: cursor.value.fat || (cursor.value.data ? parseFloat(cursor.value.data[3]) : 0)
+                                name: cursor.value.name || 'Unknown',
+                                calories: cursor.value.calories || 0,
+                                protein: cursor.value.protein || 0,
+                                carbs: cursor.value.carbohydrate || 0,
+                                fat: cursor.value.fat || 0
                             });
                         }
                         cursor.continue();
@@ -928,7 +916,7 @@
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 3);
+            const dbRequest = indexedDB.open(dbName);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -959,7 +947,7 @@
             const storeName = 'csvStore';
             const ingredientsStoreName = 'recipeIngredients';
             
-            const dbRequest = indexedDB.open(dbName, 3);
+            const dbRequest = indexedDB.open(dbName);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -1042,7 +1030,7 @@
             const storeName = 'csvStore';
             const ingredientsStoreName = 'recipeIngredients';
             
-            const dbRequest = indexedDB.open(dbName, 3);
+            const dbRequest = indexedDB.open(dbName);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;
@@ -1125,7 +1113,7 @@
             const dbName = 'csvDB';
             const storeName = 'csvStore';
             
-            const dbRequest = indexedDB.open(dbName, 3);
+            const dbRequest = indexedDB.open(dbName);
             
             dbRequest.onsuccess = function(event) {
                 const db = event.target.result;

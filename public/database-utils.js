@@ -1,30 +1,29 @@
 // Shared database utility functions for IndexedDB operations
 
-// Function to migrate old data format to new format
-function migrateRecord(db, store, record) {
-    // Create new structure from old data array
-    const migratedRecord = {
-        id: record.id,
-        name: record.data[0] || 'Unknown',
-        foodGroup: record.data[1] || 'Unknown',
-        calories: parseFloat(record.data[2]) || 0,
-        fat: parseFloat(record.data[3]) || 0,
-        protein: parseFloat(record.data[4]) || 0,
-        carbohydrate: parseFloat(record.data[5]) || 0,
-        sugars: parseFloat(record.data[6]) || 0,
-        fiber: parseFloat(record.data[7]) || 0,
-        netCarbs: parseFloat(record.data[8]) || 0,
-        servingWeight1: parseFloat(record.data[9]) || 0,
-        servingDescription1: record.data[10] || ''
-    };
+// Function to handle database migration from old versions
+function handleDatabaseMigration(db, oldVersion, newVersion) {
+    console.log(`Setting up database structure for version ${newVersion}`);
     
-    // Update the record in the database using the passed store parameter
-    const updateTransaction = db.transaction([store.name], 'readwrite');
-    const updateStore = updateTransaction.objectStore(store.name);
-    updateStore.put(migratedRecord);
-    
-    console.log('Migrated record:', record.id, 'to new format');
+    try {
+        // Always ensure the main store exists
+        if (!db.objectStoreNames.contains('csvStore')) {
+            const objectStore = db.createObjectStore('csvStore', { keyPath: 'id' });
+            objectStore.createIndex('nameIndex', 'name', { unique: true });
+            console.log('Created csvStore with nameIndex');
+        }
+        
+        // Always ensure the recipe ingredients store exists
+        if (!db.objectStoreNames.contains('recipeIngredients')) {
+            db.createObjectStore('recipeIngredients', { keyPath: 'recipeId' });
+            console.log('Created recipeIngredients store');
+        }
+    } catch (error) {
+        console.error('Error in database migration:', error);
+        // Don't throw the error, just log it
+    }
 }
+
+
 
 // Function to fetch a specific value for a given food item based on the header key
 function fetchValueForKey(foodName, headerKey, callback) {
@@ -32,7 +31,7 @@ function fetchValueForKey(foodName, headerKey, callback) {
     const storeName = 'csvStore';
     console.log('Fetching value for food:', foodName, 'headerKey:', headerKey);
 
-    const dbRequest = indexedDB.open(dbName, 3);
+    const dbRequest = indexedDB.open(dbName);
 
     dbRequest.onerror = function(event) {
         console.error('Database error:', event.target.error);
@@ -81,7 +80,7 @@ function getNutritionalInfo(foodName, grams) {
         const dbName = 'csvDB';
         const storeName = 'csvStore';
         
-        const dbRequest = indexedDB.open(dbName, 3);
+        const dbRequest = indexedDB.open(dbName);
         
         dbRequest.onerror = function(event) {
             reject(event.target.error);

@@ -119,6 +119,7 @@ how can we add spacing between suggestions
 				<button class="btn" id="nutrientAnalysis">Nutrient Analysis</button>
 				<button class="btn" onclick="window.location.href='debug.html'">Debug</button>
 				<button class="btn" id="deleteDBButton">Delete 'csvDB' IndexedDB</button>
+				<button class="btn" id="clearCacheButton">Clear Cache & Reload</button>
 				<button class="btn" id="downloadCSV">Download Food Data</button>
 				<div class="file-upload">
 					<label>Select Custom Food Database File</label>        
@@ -392,6 +393,7 @@ document.addEventListener('DOMContentLoaded', function() {
     checkProfileCompletion();
     
     const deleteDBButton = document.getElementById('deleteDBButton');
+    const clearCacheButton = document.getElementById('clearCacheButton');
 
     deleteDBButton.addEventListener('click', function() {
         const dbName = 'csvDB';
@@ -408,6 +410,29 @@ document.addEventListener('DOMContentLoaded', function() {
         request.onblocked = function() {
             alert('Database is blocked. Please close all connections to the database.');
         };
+    });
+
+    clearCacheButton.addEventListener('click', function() {
+        if (confirm('This will clear browser cache and reload the page. Your profile and food data will NOT be affected. Continue?')) {
+            // Clear all caches
+            if ('caches' in window) {
+                caches.keys().then(function(cacheNames) {
+                    return Promise.all(
+                        cacheNames.map(function(cacheName) {
+                            console.log('Deleting cache:', cacheName);
+                            return caches.delete(cacheName);
+                        })
+                    );
+                }).then(function() {
+                    console.log('All caches cleared');
+                    // Reload the page
+                    window.location.reload(true);
+                });
+            } else {
+                // Fallback if caches API is not available
+                window.location.reload(true);
+            }
+        }
     });
 });
 
@@ -480,22 +505,32 @@ function parseAndStoreCSV(csvData) {
 
     updateProgress(60, 'Opening database...');
 
-    // Open the database with version 3 to match create-recipe.html
-    const dbRequest = indexedDB.open(dbName, 3);
+    // Open the database - let IndexedDB handle versioning automatically
+    const dbRequest = indexedDB.open(dbName);
     console.log('Database request made'); // Log to confirm database request
 
     dbRequest.onupgradeneeded = function(event) {
         console.log('onupgradeneeded triggered'); // Log to confirm upgrade needed
         const db = event.target.result;
+        const oldVersion = event.oldVersion;
+        const newVersion = event.newVersion;
         console.log('Database object:', db); // Log the database object
 
-        // Create the object store
-        const objectStore = db.createObjectStore(storeName, {keyPath: 'id', autoIncrement: true});
-        console.log('Object store created'); // Log to confirm object store creation
-        
-        // Create an index on the name field for fast lookups
-        objectStore.createIndex('nameIndex', 'name', { unique: true });
-        console.log('Name index created for fast lookups');
+        try {
+            // Create stores only if they don't exist
+            if (!db.objectStoreNames.contains('csvStore')) {
+                const objectStore = db.createObjectStore('csvStore', { keyPath: 'id' });
+                objectStore.createIndex('nameIndex', 'name', { unique: true });
+                console.log('Created csvStore with nameIndex');
+            }
+            
+            if (!db.objectStoreNames.contains('recipeIngredients')) {
+                db.createObjectStore('recipeIngredients', { keyPath: 'recipeId' });
+                console.log('Created recipeIngredients store');
+            }
+        } catch (error) {
+            console.error('Error in onupgradeneeded:', error);
+        }
     };
 
     dbRequest.onsuccess = function(event) {
@@ -566,8 +601,13 @@ function parseAndStoreCSV(csvData) {
 
     dbRequest.onerror = function(event) {
         console.error('Database request failed:', event.target.error); // Log the error
+        console.error('Error details:', {
+            name: event.target.error.name,
+            message: event.target.error.message,
+            code: event.target.error.code
+        });
         hideProgress();
-        alert('An error occurred while opening the IndexedDB.');
+        alert(`Database error: ${event.target.error.message}. Please try refreshing the page or clearing your browser data.`);
     };
 }
    document.getElementById('csvFile').addEventListener('change', handleFileUpload);
@@ -585,29 +625,27 @@ function initializeFoodList() {
     const foodList = [];
 	//db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
 
-    const dbRequest = indexedDB.open(dbName, 3);
+    const dbRequest = indexedDB.open(dbName);
 
     dbRequest.onupgradeneeded = function(event) {
         const db = event.target.result;
         const oldVersion = event.oldVersion;
+        const newVersion = event.newVersion;
         
-        // Create the main store if it doesn't exist
-        if (!db.objectStoreNames.contains(storeName)) {
-            const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
-            objectStore.createIndex('nameIndex', 'name', { unique: true });
-        } else if (oldVersion < 2) {
-            // Upgrade existing store to add index if needed
-            const transaction = event.target.transaction;
-            const objectStore = transaction.objectStore(storeName);
-            if (!objectStore.indexNames.contains('nameIndex')) {
+        try {
+            // Create stores only if they don't exist
+            if (!db.objectStoreNames.contains('csvStore')) {
+                const objectStore = db.createObjectStore('csvStore', { keyPath: 'id' });
                 objectStore.createIndex('nameIndex', 'name', { unique: true });
+                console.log('Created csvStore with nameIndex');
             }
-        }
-        
-        // Create ingredients store if it doesn't exist (version 3+)
-        const ingredientsStoreName = 'recipeIngredients';
-        if (!db.objectStoreNames.contains(ingredientsStoreName)) {
-            db.createObjectStore(ingredientsStoreName, { keyPath: 'recipeId' });
+            
+            if (!db.objectStoreNames.contains('recipeIngredients')) {
+                db.createObjectStore('recipeIngredients', { keyPath: 'recipeId' });
+                console.log('Created recipeIngredients store');
+            }
+        } catch (error) {
+            console.error('Error in onupgradeneeded:', error);
         }
     };
 
@@ -620,14 +658,8 @@ function initializeFoodList() {
         request.onsuccess = function(event) {
             const cursor = event.target.result;
             if (cursor) {
-                // Check if this record needs migration (has old data array format)
-                if (cursor.value.data && !cursor.value.name) {
-                    // Migrate old format to new format
-                    migrateRecord(db, store, cursor.value);
-                }
-                
-                // Use the new name property (or fallback to data array if still migrating)
-                const name = cursor.value.name || (cursor.value.data ? cursor.value.data[0] : 'Unknown');
+                // Use the new name property
+                const name = cursor.value.name || 'Unknown';
                 foodList.push(name);
                 cursor.continue();
             } else {
@@ -636,6 +668,19 @@ function initializeFoodList() {
                 setupAutocomplete(foodList);
             }
         };
+        
+        request.onerror = function(event) {
+            console.error('Error reading food list:', event.target.error);
+        };
+    };
+    
+    dbRequest.onerror = function(event) {
+        console.error('Error opening database for food list:', event.target.error);
+        console.error('Error details:', {
+            name: event.target.error.name,
+            message: event.target.error.message,
+            code: event.target.error.code
+        });
     };
 }
 
@@ -1223,47 +1268,58 @@ document.addEventListener('DOMContentLoaded', function() {
     // Check if 'csvDB' exists in the list of databases
 	
 
-	indexedDB.databases().then(function(databases) {
-		// Check if 'csvDB' exists in the list of databases
-		const dbExists = databases.some(db => db.name === 'csvDB');
+	// Add debugging information
+	console.log('IndexedDB support:', 'indexedDB' in window);
+	
+	// Try to check if database exists, with fallback for older browsers
+	if ('databases' in indexedDB) {
+		indexedDB.databases().then(function(databases) {
+			console.log('Available databases:', databases);
+			// Check if 'csvDB' exists in the list of databases
+			const dbExists = databases.some(db => db.name === 'csvDB');
+			console.log('csvDB exists:', dbExists);
 
-		if (!dbExists) {
-			// 'csvDB' does not exist, ask user if they want to download the database
-			console.log('csvDB does not exist.');
-			const userWantsToDownload = confirm('No food database found. Would you like to download the food database now? This will enable food search and nutritional information.');
-			
-			if (userWantsToDownload) {
-				// Show progress indicator
-				showProgress('Initial Database Setup', 'Downloading food database...');
-				updateProgress(10, 'Starting download...');
+			if (!dbExists) {
+				// 'csvDB' does not exist, ask user if they want to download the database
+				console.log('csvDB does not exist.');
+				const userWantsToDownload = confirm('No food database found. Would you like to download the food database now? This will enable food search and nutritional information.');
 				
-				fetch('assets/FoodData.csv')
-					.then(response => {
-						updateProgress(30, 'File downloaded, processing data...');
-						return response.text();
-					})
-					.then(csvData => {
-						updateProgress(50, 'Storing data in database...');
-						// Process and store the CSV data
-						parseAndStoreCSV(csvData);
-					})
-					.catch(error => {
-						console.error('Error fetching CSV:', error);
-						hideProgress();
-						alert('Error downloading food database. Please try again later.');
-					});
+				if (userWantsToDownload) {
+					// Show progress indicator
+					showProgress('Initial Database Setup', 'Downloading food database...');
+					updateProgress(10, 'Starting download...');
+					
+					fetch('assets/FoodData.csv')
+						.then(response => {
+							updateProgress(30, 'File downloaded, processing data...');
+							return response.text();
+						})
+						.then(csvData => {
+							updateProgress(50, 'Storing data in database...');
+							// Process and store the CSV data
+							parseAndStoreCSV(csvData);
+						})
+						.catch(error => {
+							console.error('Error fetching CSV:', error);
+							hideProgress();
+							alert('Error downloading food database. Please try again later.');
+						});
+				} else {
+					console.log('User chose not to download the database.');
+					// Optionally show a message that they can download it later from settings
+					alert('You can download the food database later from the Settings menu (⚙️) by clicking "Fetch and Store CSV Data".');
+				}
 			} else {
-				console.log('User chose not to download the database.');
-				// Optionally show a message that they can download it later from settings
-				alert('You can download the food database later from the Settings menu (⚙️) by clicking "Fetch and Store CSV Data".');
+				// 'csvDB' exists, you can proceed with opening it or other actions
+				console.log('csvDB exists.');
 			}
-		} else {
-			// 'csvDB' exists, you can proceed with opening it or other actions
-			console.log('csvDB exists.');
-		}
-	}).catch(function(error) {
-		console.error('Error fetching databases:', error);
-	});
+		}).catch(function(error) {
+			console.error('Error fetching databases:', error);
+		});
+	} else {
+		// Fallback for browsers that don't support indexedDB.databases()
+		console.log('indexedDB.databases() not supported, skipping database check');
+	}
 
 
 
@@ -1303,14 +1359,21 @@ document.addEventListener('DOMContentLoaded', function() {
     recipesLink.textContent = 'Recipes';
     recipesLink.style.marginLeft = '20px';
 
+    // Create a daily notes link
+    const dailyNotesLink = document.createElement('a');
+    dailyNotesLink.href = 'notes.html';
+    dailyNotesLink.textContent = '📝 Notes';
+    dailyNotesLink.style.marginLeft = '20px';
+
     // Create a home button
     const homeButton = document.createElement('a');
     homeButton.href = 'index.html';
     homeButton.textContent = 'Home';
     homeButton.style.marginLeft = '20px';
 
-    // Append both links to the header
+    // Append all links to the header
     dateHeader.appendChild(recipesLink);
+    dateHeader.appendChild(dailyNotesLink);
     dateHeader.appendChild(homeButton);
 
     // Add event listener for refresh button

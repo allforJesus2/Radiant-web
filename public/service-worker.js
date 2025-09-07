@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-cache-v2.5';
+const CACHE_NAME = 'my-cache-v3.0';
 const FILES_TO_CACHE = [
   '/set_activity_level.html',
   '/set_macros.html',

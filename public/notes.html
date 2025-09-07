@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+	<style>
+		:root {
+			--background: #111;
+			--text: #fff;
+			--button: #333;
+			--input: #555;
+		}
+		
+		body, button, input {
+			font-size: 24px;
+			margin: 3%;
+			padding: 3%;
+			color: var(--text);
+			background-color: var(--background);
+		}
+			
+		.container {
+			border: 1px solid #543;
+			text-align: center;
+			padding: 20px;
+		}
+		
+		.btn {
+			background-color: var(--button);
+			color: white;
+			margin: 10px;
+			min-width: 200px;
+		}
+
+		.center-text {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* Daily Notes Styles */
+
+        .notes-textarea {
+            width: 100%;
+            height: 300px;
+            background-color: var(--input);
+            color: var(--text);
+            border: 1px solid #543;
+            padding: 15px;
+            font-size: 16px;
+            font-family: inherit;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+
+        .notes-textarea.read-only {
+            background-color: #333;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .notes-btn.disabled {
+            background-color: #666;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .read-only-notice {
+            background-color: #543;
+            color: var(--text);
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        /* Tab Interface Styles */
+        .tab-container {
+            margin-bottom: 20px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid #543;
+            margin-bottom: 20px;
+        }
+
+        .tab-btn {
+            background-color: var(--button);
+            color: var(--text);
+            border: none;
+            padding: 12px 24px;
+            cursor: pointer;
+            font-size: 16px;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+
+        .tab-btn.active {
+            background-color: #543;
+            color: white;
+        }
+
+        .tab-btn:hover {
+            background-color: #543;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .notes-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            margin-bottom: 10px;
+            justify-content: center;
+        }
+
+        .notes-btn {
+            background-color: var(--button);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .notes-btn:hover {
+            background-color: #543;
+        }
+
+        .calendar-container {
+            margin-top: 20px;
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .calendar-nav {
+            background-color: var(--button);
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .calendar-nav:hover {
+            background-color: #543;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-bottom: 15px;
+        }
+
+        .calendar-day {
+            background-color: var(--input);
+            border: 1px solid #543;
+            padding: 8px;
+            min-height: 60px;
+            font-size: 12px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .calendar-day:hover {
+            background-color: #543;
+        }
+
+        .calendar-day.today {
+            background-color: #543;
+            font-weight: bold;
+        }
+
+        .calendar-day.has-notes {
+            border-color: #fff;
+        }
+
+        .day-number {
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+
+        .day-preview {
+            font-size: 10px;
+            color: #ccc;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .calendar-weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-bottom: 5px;
+        }
+
+        .weekday {
+            text-align: center;
+            font-weight: bold;
+            padding: 5px;
+            background-color: var(--button);
+            color: white;
+        }
+
+        .back-btn {
+            background-color: var(--button);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .back-btn:hover {
+            background-color: #543;
+        }
+	</style>
+</head>
+<body>
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: -5px; margin-top: -15px;">
+            <div id="currentDateDisplay"></div>
+            <button class="back-btn" onclick="window.location.href='index.html'">← Back</button>
+        </div>
+        
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="switchTab('notes')">📝 Daily Notes</button>
+                <button class="tab-btn" onclick="switchTab('calendar')">📅 Calendar View</button>
+            </div>
+            
+            <!-- Daily Notes Tab -->
+            <div id="notesTab" class="tab-content active">
+                
+                <div id="readOnlyNotice" class="read-only-notice" style="display: none;">
+                    📖 Read-only mode: You can only edit notes for today's date
+                </div>
+                
+                <textarea id="notesTextarea" class="notes-textarea" placeholder="Write your daily notes here..."></textarea>
+                
+                <div class="notes-actions">
+                    <button class="notes-btn" onclick="saveNotes()">Save Notes</button>
+                    <button class="notes-btn" onclick="clearNotes()">Clear</button>
+                </div>
+            </div>
+            
+            <!-- Calendar View Tab -->
+            <div id="calendarTab" class="tab-content">
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <button class="calendar-nav" onclick="previousMonth()">‹</button>
+                        <h3 id="calendarMonthYear"></h3>
+                        <button class="calendar-nav" onclick="nextMonth()">›</button>
+                    </div>
+                    
+                    <div class="calendar-weekdays">
+                        <div class="weekday">Sun</div>
+                        <div class="weekday">Mon</div>
+                        <div class="weekday">Tue</div>
+                        <div class="weekday">Wed</div>
+                        <div class="weekday">Thu</div>
+                        <div class="weekday">Fri</div>
+                        <div class="weekday">Sat</div>
+                    </div>
+                    
+                    <div id="calendarGrid" class="calendar-grid"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Daily Notes functionality
+        let currentSelectedDate = new Date();
+        let currentCalendarDate = new Date();
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', function() {
+            loadNotesForDate(currentSelectedDate);
+            updateDateDisplay();
+            generateCalendar(); // Generate calendar on page load
+        });
+
+        // Tab switching functionality
+        function switchTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab content
+            document.getElementById(tabName + 'Tab').classList.add('active');
+            
+            // Add active class to clicked tab button
+            event.target.classList.add('active');
+            
+            // If switching to calendar tab, regenerate calendar
+            if (tabName === 'calendar') {
+                generateCalendar();
+            }
+        }
+
+        function updateDateDisplay() {
+            const dateDisplay = document.getElementById('currentDateDisplay');
+            dateDisplay.innerHTML = `<h3>${currentSelectedDate.toDateString()}</h3>`;
+            updateEditMode();
+        }
+
+        function isToday(date) {
+            const today = new Date();
+            return date.toDateString() === today.toDateString();
+        }
+
+        function updateEditMode() {
+            const textarea = document.getElementById('notesTextarea');
+            const saveBtn = document.querySelector('button[onclick="saveNotes()"]');
+            const clearBtn = document.querySelector('button[onclick="clearNotes()"]');
+            const readOnlyNotice = document.getElementById('readOnlyNotice');
+            
+            const isEditable = isToday(currentSelectedDate);
+            
+            if (isEditable) {
+                // Enable editing
+                textarea.disabled = false;
+                textarea.classList.remove('read-only');
+                textarea.placeholder = "Write your daily notes here...";
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('disabled');
+                clearBtn.disabled = false;
+                clearBtn.classList.remove('disabled');
+                readOnlyNotice.style.display = 'none';
+            } else {
+                // Disable editing
+                textarea.disabled = true;
+                textarea.classList.add('read-only');
+                textarea.placeholder = "Read-only: You can only edit notes for today's date";
+                saveBtn.disabled = true;
+                saveBtn.classList.add('disabled');
+                clearBtn.disabled = true;
+                clearBtn.classList.add('disabled');
+                readOnlyNotice.style.display = 'block';
+            }
+        }
+
+        function getDateKey(date) {
+            return date.toISOString().split('T')[0];
+        }
+
+        function loadNotesForDate(date) {
+            const dateKey = getDateKey(date);
+            const savedNotes = localStorage.getItem('dailyNotes_' + dateKey);
+            document.getElementById('notesTextarea').value = savedNotes || '';
+        }
+
+        function saveNotes() {
+            // Only allow saving for today's date
+            if (!isToday(currentSelectedDate)) {
+                alert('You can only edit notes for today\'s date.');
+                return;
+            }
+            
+            const dateKey = getDateKey(currentSelectedDate);
+            const notes = document.getElementById('notesTextarea').value;
+            localStorage.setItem('dailyNotes_' + dateKey, notes);
+            
+            // Show save confirmation
+            const saveBtn = event.target;
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = 'Saved!';
+            saveBtn.style.backgroundColor = '#543';
+            setTimeout(() => {
+                saveBtn.textContent = originalText;
+                saveBtn.style.backgroundColor = '';
+            }, 1000);
+        }
+
+        function clearNotes() {
+            // Only allow clearing for today's date
+            if (!isToday(currentSelectedDate)) {
+                alert('You can only edit notes for today\'s date.');
+                return;
+            }
+            
+            if (confirm('Are you sure you want to clear all notes for today?')) {
+                document.getElementById('notesTextarea').value = '';
+                saveNotes();
+            }
+        }
+
+
+        function generateCalendar() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            const monthYear = document.getElementById('calendarMonthYear');
+            
+            // Update month/year display
+            const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                'July', 'August', 'September', 'October', 'November', 'December'];
+            monthYear.textContent = `${monthNames[currentCalendarDate.getMonth()]} ${currentCalendarDate.getFullYear()}`;
+            
+            // Clear previous calendar
+            calendarGrid.innerHTML = '';
+            
+            // Get first day of month and number of days
+            const firstDay = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), 1);
+            const lastDay = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth() + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startingDayOfWeek = firstDay.getDay();
+            
+            // Add empty cells for days before the first day of the month
+            for (let i = 0; i < startingDayOfWeek; i++) {
+                const emptyDay = document.createElement('div');
+                emptyDay.className = 'calendar-day';
+                calendarGrid.appendChild(emptyDay);
+            }
+            
+            // Add days of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayElement = document.createElement('div');
+                dayElement.className = 'calendar-day';
+                
+                const dayDate = new Date(currentCalendarDate.getFullYear(), currentCalendarDate.getMonth(), day);
+                const dateKey = getDateKey(dayDate);
+                const savedNotes = localStorage.getItem('dailyNotes_' + dateKey);
+                
+                // Check if it's today
+                const today = new Date();
+                if (dayDate.toDateString() === today.toDateString()) {
+                    dayElement.classList.add('today');
+                }
+                
+                // Check if it has notes
+                if (savedNotes && savedNotes.trim()) {
+                    dayElement.classList.add('has-notes');
+                }
+                
+                dayElement.innerHTML = `
+                    <div class="day-number">${day}</div>
+                    <div class="day-preview">${savedNotes ? savedNotes.substring(0, 20) + '...' : ''}</div>
+                `;
+                
+                dayElement.onclick = () => selectDate(dayDate);
+                calendarGrid.appendChild(dayElement);
+            }
+        }
+
+        function selectDate(date) {
+            currentSelectedDate = new Date(date);
+            loadNotesForDate(currentSelectedDate);
+            updateDateDisplay();
+            
+            // Switch to Daily Notes tab when a date is selected
+            switchToNotesTab();
+        }
+
+        function switchToNotesTab() {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show Daily Notes tab
+            document.getElementById('notesTab').classList.add('active');
+            document.querySelector('button[onclick="switchTab(\'notes\')"]').classList.add('active');
+        }
+
+        function previousMonth() {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() - 1);
+            generateCalendar();
+        }
+
+        function nextMonth() {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + 1);
+            generateCalendar();
+        }
+
+        // Auto-save notes every 30 seconds (only for today's date)
+        setInterval(() => {
+            if (isToday(currentSelectedDate)) {
+                const notes = document.getElementById('notesTextarea').value;
+                if (notes.trim()) {
+                    saveNotes();
+                }
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

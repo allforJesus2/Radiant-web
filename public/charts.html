@@ -176,6 +176,11 @@
         <canvas id="macroChart"></canvas>
     </div>
 
+    <div class="chart-container">
+        <h2>Sleep Quality Trend</h2>
+        <canvas id="sleepChart"></canvas>
+    </div>
+
     <!-- Add new chart container -->
     <div class="chart-container">
         <div style="display: flex; justify-content: space-between; align-items: center;">
@@ -235,6 +240,7 @@
     <script>
         let calorieChart = null;
         let macroChart = null;
+        let sleepChart = null;
         let distributionChart = null;  // Add new chart variable
 
         function formatDate(dateStr) {
@@ -374,6 +380,16 @@
             breakdown.innerHTML = html;
         }
 
+        function getSleepData() {
+            try {
+                const sleepData = JSON.parse(localStorage.getItem('sleep')) || {};
+                return sleepData;
+            } catch (e) {
+                console.error('Error loading sleep data:', e);
+                return {};
+            }
+        }
+
         function destroyCharts() {
             if (calorieChart) {
                 calorieChart.destroy();
@@ -382,6 +398,10 @@
             if (macroChart) {
                 macroChart.destroy();
                 macroChart = null;
+            }
+            if (sleepChart) {
+                sleepChart.destroy();
+                sleepChart = null;
             }
             if (distributionChart) {
                 distributionChart.destroy();
@@ -460,6 +480,88 @@
                     }]
                 },
                 options: chartOptions
+            });
+
+            // Create sleep chart
+            const sleepData = getSleepData();
+            const sleepCtx = document.getElementById('sleepChart').getContext('2d');
+            
+            // Get sleep ratings for the same dates as food data
+            const sleepRatings = dates.map(date => {
+                const rating = sleepData[date];
+                return rating ? parseInt(rating) : null;
+            });
+
+            // Sleep quality labels
+            const sleepLabels = {
+                1: 'Ugh X(',
+                2: 'eh :(',
+                3: 'meh',
+                4: 'Good-nuf',
+                5: 'between goodnuf and excellent',
+                6: 'Excellent',
+                7: 'Dreambaby'
+            };
+
+            sleepChart = new Chart(sleepCtx, {
+                type: 'line',
+                data: {
+                    labels: chartData.map(d => d.date),
+                    datasets: [{
+                        label: 'Sleep Quality',
+                        data: sleepRatings,
+                        borderColor: '#9c27b0',
+                        backgroundColor: 'rgba(156, 39, 176, 0.1)',
+                        tension: 0.1,
+                        pointRadius: 6,
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: window.innerWidth < 768 ? 1.2 : 2,
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#fff',
+                                boxWidth: window.innerWidth < 768 ? 12 : 40
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const rating = context.parsed.y;
+                                    if (rating === null) return 'No sleep data';
+                                    return `Sleep: ${sleepLabels[rating] || rating}`;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            min: 0.5,
+                            max: 7.5,
+                            ticks: { 
+                                color: '#fff',
+                                callback: function(value) {
+                                    return sleepLabels[value] || value;
+                                },
+                                maxTicksLimit: 7
+                            },
+                            grid: { color: 'rgba(255,255,255,0.1)' },
+                            title: {
+                                display: true,
+                                text: 'Sleep Quality',
+                                color: '#fff'
+                            }
+                        },
+                        x: {
+                            ticks: { color: '#fff' },
+                            grid: { color: 'rgba(255,255,255,0.1)' }
+                        }
+                    }
+                }
             });
 
             // Modified distribution chart creation
