@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Settings</title>
     <link rel="stylesheet" href="dark-theme.css">
+    <script src="offline-preference.js"></script>
 </head>
 <body>
     <header id="dateHeader">
@@ -13,7 +14,25 @@
     </header>
 
     <div class="container">
+        <h2>Performance Settings</h2>
+        
+        <div style="margin: 20px 0;">
+            <label style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
+                <input type="checkbox" id="preferOfflineData" style="transform: scale(1.5);">
+                <span>Always use offline data (faster loading)</span>
+            </label>
+            <p class="small-text">When enabled, the app will use cached data instead of fetching from the internet, making it faster but potentially showing older content.</p>
+        </div>
+
         <h2>Data Management</h2>
+        
+        <div style="margin: 20px 0;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <span>LocalStorage Usage: <strong id="storageSize">Calculating...</strong></span>
+                <button class="btn" id="refreshStorageSize" style="padding: 5px 10px; font-size: 14px;">Refresh</button>
+            </div>
+            <p class="small-text">Shows the current size of data stored in your browser's localStorage</p>
+        </div>
         
         <div style="margin: 20px 0;">
             <button class="btn" id="downloadData">Download All Data</button>
@@ -30,6 +49,60 @@
     </div>
 
     <script>
+        // Function to calculate localStorage size
+        function calculateStorageSize() {
+            let totalSize = 0;
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                const value = localStorage.getItem(key);
+                // Calculate size in bytes (UTF-16 encoding, 2 bytes per character)
+                totalSize += (key.length + value.length) * 2;
+            }
+            return totalSize;
+        }
+
+        // Function to format bytes to human readable format
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Function to update storage size display
+        function updateStorageSize() {
+            const size = calculateStorageSize();
+            const formattedSize = formatBytes(size);
+            document.getElementById('storageSize').textContent = formattedSize;
+        }
+
+        // Load and handle offline preference setting
+        document.addEventListener('DOMContentLoaded', function() {
+            const preferOfflineCheckbox = document.getElementById('preferOfflineData');
+            
+            // Load current setting from localStorage
+            const currentSetting = localStorage.getItem('preferOfflineData');
+            preferOfflineCheckbox.checked = currentSetting === 'true';
+            
+            // Save setting when checkbox changes
+            preferOfflineCheckbox.addEventListener('change', function() {
+                localStorage.setItem('preferOfflineData', this.checked.toString());
+                
+                // Show confirmation message
+                const message = this.checked 
+                    ? 'Offline mode enabled! The app will now use cached data for faster loading.'
+                    : 'Online mode enabled! The app will now fetch fresh data from the internet.';
+                alert(message);
+            });
+
+            // Initialize storage size display
+            updateStorageSize();
+
+            // Add event listener for refresh button
+            document.getElementById('refreshStorageSize').addEventListener('click', updateStorageSize);
+        });
+
         document.getElementById('downloadData').addEventListener('click', function() {
             // Get all data from localStorage
             const data = {};

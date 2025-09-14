@@ -400,6 +400,175 @@
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
         }
+        
+        /* Quiz Modal Styles */
+        .quiz-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .quiz-content {
+            background: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .quiz-header {
+            background-color: var(--primary);
+            color: white;
+            padding: 20px;
+            border-radius: 12px 12px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .quiz-header h3 {
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        
+        .close-quiz {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 2rem;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .close-quiz:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+        }
+        
+        .quiz-body {
+            padding: 30px;
+        }
+        
+        .quiz-question h4 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+        
+        .quiz-question p {
+            font-size: 1.1rem;
+            margin-bottom: 25px;
+            color: var(--dark);
+        }
+        
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .quiz-option {
+            padding: 15px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background-color: #f9f9f9;
+        }
+        
+        .quiz-option:hover {
+            border-color: var(--secondary);
+            background-color: #f0f4ff;
+        }
+        
+        .quiz-option.selected {
+            border-color: var(--primary);
+            background-color: var(--light);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        
+        .quiz-progress {
+            margin-top: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .progress-bar {
+            flex: 1;
+            height: 8px;
+            background-color: #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background-color: var(--success);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+        
+        .quiz-footer {
+            padding: 20px 30px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .quiz-nav-btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background-color 0.3s;
+        }
+        
+        .quiz-nav-btn:disabled {
+            background-color: #e0e0e0;
+            color: #999;
+            cursor: not-allowed;
+        }
+        
+        .quiz-nav-btn:not(:disabled) {
+            background-color: var(--secondary);
+            color: white;
+        }
+        
+        .quiz-nav-btn:not(:disabled):hover {
+            background-color: var(--primary);
+        }
+        
+        @media (max-width: 768px) {
+            .quiz-content {
+                width: 95%;
+                margin: 20px;
+            }
+            
+            .quiz-body {
+                padding: 20px;
+            }
+            
+            .quiz-footer {
+                padding: 15px 20px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -456,6 +625,7 @@
                 
                 <div class="input-group">
                     <label for="accessory-template">Accessory Template</label>
+                    <button id="quiz-button" style="background-color: var(--accent); padding: 10px 15px; width: 100%; margin-bottom: 10px;">Help Me Choose</button>
                     <select id="accessory-template">
                         <option value="standard">Standard (25-50 reps Push/Pull/Core)</option>
                         <option value="bbb">Boring But Big (5x10 @ 50-60%)</option>
@@ -465,6 +635,35 @@
                     </select>
                 </div>
                 <div id="accessory-explanation" class="explanation-box"></div>
+                
+                <!-- Quiz Modal -->
+                <div id="quiz-modal" class="quiz-modal" style="display: none;">
+                    <div class="quiz-content">
+                        <div class="quiz-header">
+                            <h3>Find Your Perfect 5/3/1 Accessory Template</h3>
+                            <button id="close-quiz" class="close-quiz">&times;</button>
+                        </div>
+                        <div class="quiz-body">
+                            <div id="quiz-question" class="quiz-question">
+                                <h4 id="question-text">Question 1 of 5</h4>
+                                <p id="question-content">What's your primary training goal?</p>
+                                <div id="quiz-options" class="quiz-options">
+                                    <!-- Options will be populated by JavaScript -->
+                                </div>
+                            </div>
+                            <div class="quiz-progress">
+                                <div class="progress-bar">
+                                    <div id="progress-fill" class="progress-fill"></div>
+                                </div>
+                                <span id="progress-text">0/5</span>
+                            </div>
+                        </div>
+                        <div class="quiz-footer">
+                            <button id="prev-question" class="quiz-nav-btn" disabled>Previous</button>
+                            <button id="next-question" class="quiz-nav-btn" disabled>Next</button>
+                        </div>
+                    </div>
+                </div>
                 
                 <button id="generate-button">Generate Workout Plan</button>
                 
@@ -615,24 +814,24 @@
             const accessoryExercises = {
                 standard: {
                     ohp: {
-                        push: ["Dips", "Incline Dumbbell Press", "Pushups"],
-                        pull: ["Chin-ups", "Barbell Rows", "Face Pulls"],
-                        core: ["Ab Wheel", "Hanging Leg Raises", "Planks"]
+                        push: ["Dips", "Incline Dumbbell Press", "Pushups", "Dumbbell Press"],
+                        pull: ["Chin-ups", "Barbell Rows", "Face Pulls", "Cable Rows"],
+                        core: ["Ab Wheel", "Hanging Leg Raises", "Planks", "Russian Twists"]
                     },
                     deadlift: {
-                        push: ["Push-ups", "Dumbbell Bench Press", "Dips"],
-                        pull: ["Lat Pulldowns", "Face Pulls", "Dumbbell Rows"],
-                        legs: ["Bulgarian Split Squats", "Lunges", "Leg Curls"]
+                        push: ["Push-ups", "Dumbbell Bench Press", "Dips", "Incline Press"],
+                        pull: ["Lat Pulldowns", "Face Pulls", "Dumbbell Rows", "Pull-ups"],
+                        legs: ["Bulgarian Split Squats", "Lunges", "Leg Curls", "Step-ups"]
                     },
                     bench: {
-                        push: ["Close-grip Bench", "Tricep Extensions", "Dips"],
-                        pull: ["Barbell Rows", "Pull-ups", "Face Pulls"],
-                        core: ["Russian Twists", "Sit-ups", "Planks"]
+                        push: ["Close-grip Bench", "Tricep Extensions", "Dips", "Dumbbell Press"],
+                        pull: ["Barbell Rows", "Pull-ups", "Face Pulls", "Cable Rows"],
+                        core: ["Russian Twists", "Sit-ups", "Planks", "Ab Wheel"]
                     },
                     squat: {
-                        push: ["Shoulder Press", "Push-ups", "Tricep Extensions"],
-                        pull: ["Cable Rows", "Bicep Curls", "Lat Pulldowns"],
-                        legs: ["Lunges", "Leg Raises", "Glute Bridges"]
+                        push: ["Shoulder Press", "Push-ups", "Tricep Extensions", "Dips"],
+                        pull: ["Cable Rows", "Bicep Curls", "Lat Pulldowns", "Face Pulls"],
+                        legs: ["Lunges", "Leg Raises", "Glute Bridges", "Bulgarian Split Squats"]
                     }
                 },
                 bbb: {
@@ -677,33 +876,33 @@
                     ohp: {
                         mainFSL: true,
                         accessories: {
-                            push: ["Dips", "Push-ups", "Dumbbell Bench"],
-                            pull: ["Chin-ups", "Barbell Rows", "Face Pulls"],
-                            legs: ["Ab Wheel", "Hanging Leg Raises", "Planks"]
+                            push: ["Dips", "Push-ups", "Dumbbell Bench", "Incline Press"],
+                            pull: ["Chin-ups", "Barbell Rows", "Face Pulls", "Cable Rows"],
+                            legs: ["Ab Wheel", "Hanging Leg Raises", "Planks", "Russian Twists"]
                         }
                     },
                     deadlift: {
                         mainFSL: true,
                         accessories: {
-                            push: ["Push-ups", "Dips", "Tricep Extensions"],
-                            pull: ["Pull-ups", "Inverted Rows", "Face Pulls"],
-                            legs: ["Lunges", "Step-ups", "Ab Work"]
+                            push: ["Push-ups", "Dips", "Tricep Extensions", "Dumbbell Press"],
+                            pull: ["Pull-ups", "Inverted Rows", "Face Pulls", "Lat Pulldowns"],
+                            legs: ["Lunges", "Step-ups", "Ab Work", "Bulgarian Split Squats"]
                         }
                     },
                     bench: {
                         mainFSL: true,
                         accessories: {
-                            push: ["Dips", "Incline Press", "Lateral Raises"],
-                            pull: ["Pull-ups", "DB Rows", "Face Pulls"],
-                            legs: ["Hanging Leg Raises", "Ab Wheel", "Planks"]
+                            push: ["Dips", "Incline Press", "Lateral Raises", "Close-grip Bench"],
+                            pull: ["Pull-ups", "DB Rows", "Face Pulls", "Barbell Rows"],
+                            legs: ["Hanging Leg Raises", "Ab Wheel", "Planks", "Sit-ups"]
                         }
                     },
                     squat: {
                         mainFSL: true,
                         accessories: {
-                            push: ["Dips", "Push-ups", "DB Press"],
-                            pull: ["Pull-ups", "Barbell Rows", "Face Pulls"],
-                            legs: ["Leg Curls", "Back Raises", "Ab Work"]
+                            push: ["Dips", "Push-ups", "DB Press", "Shoulder Press"],
+                            pull: ["Pull-ups", "Barbell Rows", "Face Pulls", "Bicep Curls"],
+                            legs: ["Leg Curls", "Back Raises", "Ab Work", "Glute Bridges"]
                         }
                     }
                 }
@@ -716,6 +915,70 @@
             const tmOptions = document.querySelectorAll('.toggle-option');
             const accessorySelect = document.getElementById('accessory-template');
             const levelDisplay = document.getElementById('level-display');
+            
+            // Quiz elements
+            const quizButton = document.getElementById('quiz-button');
+            const quizModal = document.getElementById('quiz-modal');
+            const closeQuiz = document.getElementById('close-quiz');
+            const questionText = document.getElementById('question-text');
+            const questionContent = document.getElementById('question-content');
+            const quizOptions = document.getElementById('quiz-options');
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            const prevButton = document.getElementById('prev-question');
+            const nextButton = document.getElementById('next-question');
+            
+            // Quiz data and state
+            let currentQuestion = 0;
+            let quizAnswers = [];
+            
+            const quizData = [
+                {
+                    question: "What's your primary training goal?",
+                    options: [
+                        { text: "Build muscle mass and size", scores: { bbb: 3, standard: 2, fsl: 1, triumvirate: 1, beginners: 1 } },
+                        { text: "Increase strength and power", scores: { fsl: 3, standard: 2, bbb: 1, triumvirate: 2, beginners: 2 } },
+                        { text: "General fitness and conditioning", scores: { standard: 3, triumvirate: 2, fsl: 1, bbb: 1, beginners: 2 } },
+                        { text: "I'm new to 5/3/1 and need structure", scores: { beginners: 3, standard: 2, fsl: 1, bbb: 1, triumvirate: 1 } }
+                    ]
+                },
+                {
+                    question: "How much time do you have for accessory work?",
+                    options: [
+                        { text: "30+ minutes - I want maximum volume", scores: { bbb: 3, beginners: 2, standard: 2, fsl: 1, triumvirate: 1 } },
+                        { text: "20-30 minutes - moderate volume", scores: { standard: 3, fsl: 2, triumvirate: 2, bbb: 1, beginners: 1 } },
+                        { text: "15-20 minutes - focused work", scores: { triumvirate: 3, fsl: 2, standard: 1, bbb: 1, beginners: 1 } },
+                        { text: "10-15 minutes - minimal but effective", scores: { fsl: 3, triumvirate: 2, standard: 1, bbb: 1, beginners: 1 } }
+                    ]
+                },
+                {
+                    question: "What's your experience level with 5/3/1?",
+                    options: [
+                        { text: "Complete beginner to 5/3/1", scores: { beginners: 3, standard: 2, fsl: 1, bbb: 1, triumvirate: 1 } },
+                        { text: "Some experience, still learning", scores: { standard: 3, fsl: 2, beginners: 2, bbb: 1, triumvirate: 1 } },
+                        { text: "Intermediate - comfortable with the program", scores: { fsl: 3, bbb: 2, standard: 2, triumvirate: 2, beginners: 1 } },
+                        { text: "Advanced - ready for challenging variations", scores: { bbb: 3, fsl: 2, triumvirate: 2, standard: 1, beginners: 1 } }
+                    ]
+                },
+                {
+                    question: "How do you prefer to structure your accessory work?",
+                    options: [
+                        { text: "Same movement as main lift (more volume)", scores: { bbb: 3, fsl: 2, standard: 1, triumvirate: 1, beginners: 1 } },
+                        { text: "Related movements at same intensity", scores: { fsl: 3, standard: 2, bbb: 1, triumvirate: 1, beginners: 2 } },
+                        { text: "Variety of movements for balance", scores: { standard: 3, triumvirate: 2, fsl: 1, bbb: 1, beginners: 2 } },
+                        { text: "Minimal, focused movements", scores: { triumvirate: 3, fsl: 2, standard: 1, bbb: 1, beginners: 1 } }
+                    ]
+                },
+                {
+                    question: "What's your recovery capacity?",
+                    options: [
+                        { text: "Excellent - I recover quickly", scores: { bbb: 3, beginners: 2, standard: 2, fsl: 1, triumvirate: 1 } },
+                        { text: "Good - moderate volume works well", scores: { standard: 3, fsl: 2, triumvirate: 2, bbb: 1, beginners: 1 } },
+                        { text: "Average - need to manage fatigue", scores: { fsl: 3, triumvirate: 2, standard: 2, bbb: 1, beginners: 1 } },
+                        { text: "Limited - prefer lower volume", scores: { triumvirate: 3, fsl: 2, standard: 1, bbb: 1, beginners: 1 } }
+                    ]
+                }
+            ];
             
             // Event listeners
             generateButton.addEventListener('click', () => {
@@ -768,6 +1031,12 @@
             
             accessorySelect.addEventListener('change', () => {
                 accessoryTemplate = accessorySelect.value;
+                
+                // If workout plan already exists, regenerate it with new accessory template
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    generateWorkoutPlan();
+                }
+                
                 saveProfile();
             });
 
@@ -804,6 +1073,16 @@
             
             // Main function to generate workout plan
             function generateWorkoutPlan() {
+                // Store current UI state before regenerating (if workout plan already exists)
+                let savedWeek = currentWeek;
+                let savedDay = currentDay;
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    const currentWeekElement = document.querySelector('.week-tab.active');
+                    const currentDayElement = document.querySelector('.day-tab.active');
+                    savedWeek = currentWeekElement ? parseInt(currentWeekElement.dataset.week) : currentWeek;
+                    savedDay = currentDayElement ? parseInt(currentDayElement.dataset.day) : currentDay;
+                }
+                
                 // Get 1RM values
                 const squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
                 const bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
@@ -868,26 +1147,34 @@
                         // Add accessories based on template
                         if (accessoryTemplate === 'standard') {
                             const exercises = accessoryExercises.standard[main];
+                            const accessoryReps = week === 4 ? '10-25 total reps (deload - may skip entirely)' : '25-50 total reps';
+                            
+                            // Select exercise based on day (0-3 index, cycling through 4 exercises)
+                            const exerciseIndex = (day - 1) % 4;
+                            
                             dayPlan.accessories = [
-                                { type: 'Push', exercises: exercises.push, reps: '25-50 total reps' },
-                                { type: 'Pull', exercises: exercises.pull, reps: '25-50 total reps' },
-                                { type: exercises.core ? 'Core' : 'Legs', exercises: exercises.core || exercises.legs, reps: '25-50 total reps' }
+                                { type: 'Push', exercise: exercises.push[exerciseIndex], reps: accessoryReps },
+                                { type: 'Pull', exercise: exercises.pull[exerciseIndex], reps: accessoryReps },
+                                { type: exercises.core ? 'Core' : 'Legs', exercise: (exercises.core || exercises.legs)[exerciseIndex], reps: accessoryReps }
                             ];
                         } else if (accessoryTemplate === 'bbb') {
                             const bbbExercise = accessoryExercises.bbb[main];
                             const bbbWeight = round5(exerciseTM * 0.5); // 50% TM for BBB
                             
+                            // Reduce BBB volume during deload week
+                            const bbbSets = week === 4 ? '3 sets of 10 reps (deload - may skip entirely)' : '5 sets of 10 reps';
+                            
                             dayPlan.accessories = [
                                 { 
                                     type: 'Boring But Big', 
                                     exercise: bbbExercise.main, 
-                                    sets: '5 sets of 10 reps', 
+                                    sets: bbbSets, 
                                     weight: bbbWeight
                                 },
                                 { 
                                     type: 'Supplemental',
                                     exercise: bbbExercise.secondary,
-                                    sets: '3-5 sets of 10-20 reps'
+                                    sets: week === 4 ? 'Optional - consider skipping' : '3-5 sets of 10-20 reps'
                                 }
                             ];
                         } else if (accessoryTemplate === 'fsl') {
@@ -895,22 +1182,39 @@
                             const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
                             const fslExercises = accessoryExercises.fsl[main];
                             
+                            // Reduce FSL volume during deload week
+                            const fslSets = week === 4 ? '1-2 sets of 5 reps (deload - may skip entirely)' : '5 sets of 5 reps';
+                            const supplementalReps = week === 4 ? 'Optional - consider skipping' : '50-100 total reps';
+                            
                             dayPlan.accessories = [
                                 {
                                     type: 'First Set Last',
                                     exercise: fslExercises.main,
-                                    sets: '5 sets of 5 reps',
+                                    sets: fslSets,
                                     weight: fslWeight
                                 },
                                 {
                                     type: 'Supplemental Work',
                                     exercises: fslExercises.accessories,
-                                    reps: '50-100 total reps'
+                                    reps: supplementalReps
                                 }
                             ];
                         } else if (accessoryTemplate === 'triumvirate') {
                             const triumvirateExercises = accessoryExercises.triumvirate[main];
-                            dayPlan.accessories = triumvirateExercises.accessories;
+                            
+                            // Reduce Triumvirate volume during deload week
+                            if (week === 4) {
+                                // Show only first accessory with reduced sets
+                                dayPlan.accessories = [
+                                    {
+                                        name: triumvirateExercises.accessories[0].name,
+                                        sets: '2-3 sets of 10-15 reps (deload - may skip entirely)',
+                                        reps: '10-15'
+                                    }
+                                ];
+                            } else {
+                                dayPlan.accessories = triumvirateExercises.accessories;
+                            }
                         } else if (accessoryTemplate === 'beginners') {
                             // First set last - use first working set weight for 5x5
                             const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
@@ -918,32 +1222,46 @@
                             
                             dayPlan.fslWeight = fslWeight; // Store for rendering
                             
+                            // Reduce Beginners template volume during deload week
+                            const accessoryReps = week === 4 ? '25-50 total reps (deload - may skip entirely)' : '50-100 total reps';
+                            const fslSets = week === 4 ? 'Skip FSL during deload' : '5 sets of 5 reps';
+                            
+                            // Select exercise based on day (0-3 index, cycling through 4 exercises)
+                            const exerciseIndex = (day - 1) % 4;
+                            
                             // Ensure the accessories property has properly structured data
                             try {
                                 dayPlan.accessories = [
                                     {
+                                        type: 'First Set Last',
+                                        exercise: main.charAt(0).toUpperCase() + main.slice(1),
+                                        sets: fslSets,
+                                        weight: fslWeight
+                                    },
+                                    {
                                         type: 'Push',
-                                        exercises: beginnerExercises.accessories.push || ['Push exercises'],
-                                        reps: '50-100 total reps'
+                                        exercise: (beginnerExercises.accessories.push || ['Push exercises'])[exerciseIndex],
+                                        reps: accessoryReps
                                     },
                                     {
                                         type: 'Pull',
-                                        exercises: beginnerExercises.accessories.pull || ['Pull exercises'],
-                                        reps: '50-100 total reps'
+                                        exercise: (beginnerExercises.accessories.pull || ['Pull exercises'])[exerciseIndex],
+                                        reps: accessoryReps
                                     },
                                     {
                                         type: 'Legs/Core',
-                                        exercises: beginnerExercises.accessories.legs || ['Legs/Core exercises'],
-                                        reps: '50-100 total reps'
+                                        exercise: (beginnerExercises.accessories.legs || ['Legs/Core exercises'])[exerciseIndex],
+                                        reps: accessoryReps
                                     }
                                 ];
                             } catch (error) {
                                 // Fallback if there's any issue with the data structure
                                 console.error('Error setting up accessories for beginners template:', error);
                                 dayPlan.accessories = [
-                                    { type: 'Push', exercises: ['Push exercises'], reps: '50-100 total reps' },
-                                    { type: 'Pull', exercises: ['Pull exercises'], reps: '50-100 total reps' },
-                                    { type: 'Legs/Core', exercises: ['Legs/Core exercises'], reps: '50-100 total reps' }
+                                    { type: 'First Set Last', exercise: main.charAt(0).toUpperCase() + main.slice(1), sets: fslSets, weight: fslWeight },
+                                    { type: 'Push', exercise: 'Push exercises', reps: accessoryReps },
+                                    { type: 'Pull', exercise: 'Pull exercises', reps: accessoryReps },
+                                    { type: 'Legs/Core', exercise: 'Legs/Core exercises', reps: accessoryReps }
                                 ];
                             }
                         }
@@ -955,8 +1273,31 @@
                 // Render workout plan
                 renderWorkoutPlan();
                 
-                // Show week 1 by default
-                showWeekContent(1);
+                // Restore the UI state if we had a previous workout plan, otherwise show week 1
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    setTimeout(() => {
+                        // Update week tabs
+                        weekTabs.forEach(tab => {
+                            tab.classList.toggle('active', tab.dataset.week === savedWeek.toString());
+                        });
+                        
+                        // Show the correct week content
+                        showWeekContent(savedWeek);
+                        
+                        // Show the correct day content
+                        const activeWeek = document.querySelector(`.week-content[data-week="${savedWeek}"]`);
+                        if (activeWeek) {
+                            showDayContent(activeWeek, savedDay);
+                        }
+                        
+                        // Update current tracking variables
+                        currentWeek = savedWeek;
+                        currentDay = savedDay;
+                    }, 0);
+                } else {
+                    // Show week 1 by default for new workout plans
+                    showWeekContent(1);
+                }
             }
             
             // Function to safely join an array or return a default string
@@ -1056,7 +1397,7 @@
                                 day.accessories.forEach(accessory => {
                                     html += `
                                         <li>
-                                            <span><strong>${accessory.type}:</strong> ${safeJoin(accessory.exercises, ' or ', accessory.type + ' exercises')}</span>
+                                            <span><strong>${accessory.type}:</strong> ${accessory.exercise}</span>
                                             <span>${accessory.reps}</span>
                                         </li>`;
                                 });
@@ -1094,24 +1435,29 @@
                                 });
                                 html += `</ul>`;
                             } else if (accessoryTemplate === 'beginners') {
-                                html += `<ul class="accessory-list">
-                                    <li>
-                                        <span><strong>First Set Last:</strong> ${day.mainLift.name}</span>
-                                        <span>5 sets of 5 reps @ ${day.fslWeight} lbs</span>
-                                    </li>
-                                    <li>
-                                        <span><strong>Push:</strong> ${safeJoin(day.accessories[0].exercises, ' or ')}</span>
-                                        <span>50-100 total reps (5x10-20)</span>
-                                    </li>
-                                    <li>
-                                        <span><strong>Pull:</strong> ${safeJoin(day.accessories[1].exercises, ' or ')}</span>
-                                        <span>50-100 total reps (5x10-20)</span>
-                                    </li>
-                                    <li>
-                                        <span><strong>Legs/Core:</strong> ${safeJoin(day.accessories[2].exercises, ' or ')}</span>
-                                        <span>50-100 total reps (5x10-20)</span>
-                                    </li>
-                                </ul>`;
+                                html += `<ul class="accessory-list">`;
+                                
+                                // Handle FSL work
+                                const fslAccessory = day.accessories.find(acc => acc.type === 'First Set Last');
+                                if (fslAccessory) {
+                                    html += `
+                                        <li>
+                                            <span><strong>First Set Last:</strong> ${fslAccessory.exercise}</span>
+                                            <span>${fslAccessory.sets}${fslAccessory.weight ? ' @ ' + fslAccessory.weight + ' lbs' : ''}</span>
+                                        </li>`;
+                                }
+                                
+                                // Handle other accessories
+                                const otherAccessories = day.accessories.filter(acc => acc.type !== 'First Set Last');
+                                otherAccessories.forEach(accessory => {
+                                    html += `
+                                        <li>
+                                            <span><strong>${accessory.type}:</strong> ${accessory.exercise}</span>
+                                            <span>${accessory.reps}</span>
+                                        </li>`;
+                                });
+                                
+                                html += `</ul>`;
                             }
                             
                             html += `
@@ -1217,6 +1563,145 @@
             
             // Update explanation when template changes
             accessoryTemplateSelect.addEventListener('change', updateExplanation);
+            
+            // Quiz functionality
+            function showQuiz() {
+                quizModal.style.display = 'flex';
+                currentQuestion = 0;
+                quizAnswers = [];
+                displayQuestion();
+            }
+            
+            function hideQuiz() {
+                quizModal.style.display = 'none';
+            }
+            
+            function displayQuestion() {
+                const question = quizData[currentQuestion];
+                questionText.textContent = `Question ${currentQuestion + 1} of ${quizData.length}`;
+                questionContent.textContent = question.question;
+                
+                // Clear previous options
+                quizOptions.innerHTML = '';
+                
+                // Add new options
+                question.options.forEach((option, index) => {
+                    const optionElement = document.createElement('div');
+                    optionElement.className = 'quiz-option';
+                    optionElement.textContent = option.text;
+                    optionElement.dataset.index = index;
+                    
+                    // Check if this option was previously selected
+                    if (quizAnswers[currentQuestion] === index) {
+                        optionElement.classList.add('selected');
+                    }
+                    
+                    optionElement.addEventListener('click', () => {
+                        // Remove selection from other options
+                        quizOptions.querySelectorAll('.quiz-option').forEach(opt => opt.classList.remove('selected'));
+                        // Add selection to clicked option
+                        optionElement.classList.add('selected');
+                        // Store answer
+                        quizAnswers[currentQuestion] = index;
+                        // Enable next button
+                        nextButton.disabled = false;
+                    });
+                    
+                    quizOptions.appendChild(optionElement);
+                });
+                
+                // Update progress
+                const progress = ((currentQuestion + 1) / quizData.length) * 100;
+                progressFill.style.width = `${progress}%`;
+                progressText.textContent = `${currentQuestion + 1}/${quizData.length}`;
+                
+                // Update navigation buttons
+                prevButton.disabled = currentQuestion === 0;
+                nextButton.disabled = quizAnswers[currentQuestion] === undefined;
+                
+                // Update next button text
+                if (currentQuestion === quizData.length - 1) {
+                    nextButton.textContent = 'Get My Recommendation';
+                } else {
+                    nextButton.textContent = 'Next';
+                }
+            }
+            
+            function calculateRecommendation() {
+                const scores = { standard: 0, bbb: 0, fsl: 0, triumvirate: 0, beginners: 0 };
+                
+                // Calculate total scores
+                quizAnswers.forEach((answerIndex, questionIndex) => {
+                    const option = quizData[questionIndex].options[answerIndex];
+                    Object.keys(scores).forEach(template => {
+                        scores[template] += option.scores[template];
+                    });
+                });
+                
+                // Find the template with the highest score
+                const recommendation = Object.keys(scores).reduce((a, b) => scores[a] > scores[b] ? a : b);
+                
+                return recommendation;
+            }
+            
+            function showRecommendation() {
+                const recommendation = calculateRecommendation();
+                const templateNames = {
+                    standard: 'Standard Template',
+                    bbb: 'Boring But Big (BBB)',
+                    fsl: 'First Set Last (FSL)',
+                    triumvirate: 'Triumvirate',
+                    beginners: '5/3/1 for Beginners'
+                };
+                
+                // Update the select dropdown
+                accessorySelect.value = recommendation;
+                accessoryTemplate = recommendation;
+                
+                // Update explanation
+                updateExplanation();
+                
+                // If workout plan exists, regenerate it
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    generateWorkoutPlan();
+                }
+                
+                // Save profile
+                saveProfile();
+                
+                // Hide quiz
+                hideQuiz();
+                
+                // Show success message
+                alert(`Based on your answers, we recommend the ${templateNames[recommendation]}! Your workout plan has been updated.`);
+            }
+            
+            // Quiz event listeners
+            quizButton.addEventListener('click', showQuiz);
+            closeQuiz.addEventListener('click', hideQuiz);
+            
+            // Close quiz when clicking outside
+            quizModal.addEventListener('click', (e) => {
+                if (e.target === quizModal) {
+                    hideQuiz();
+                }
+            });
+            
+            prevButton.addEventListener('click', () => {
+                if (currentQuestion > 0) {
+                    currentQuestion--;
+                    displayQuestion();
+                }
+            });
+            
+            nextButton.addEventListener('click', () => {
+                if (currentQuestion < quizData.length - 1) {
+                    currentQuestion++;
+                    displayQuestion();
+                } else {
+                    showRecommendation();
+                }
+            });
 
             // Function to level down (decrease weights)
             function levelDown() {

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-cache-v3.0';
+const CACHE_NAME = 'my-cache-v3.1';
 const FILES_TO_CACHE = [
   '/set_activity_level.html',
   '/set_macros.html',
@@ -16,11 +16,13 @@ const FILES_TO_CACHE = [
   '/navigation.css',
   '/navigation.js',
   '/database-utils.js',
+  '/offline-preference.js',
   '/workout.html',
   '/set_workout_day.html',
   '/workout_routine.html',
   '/edit_workout_routine.html',
   '/workout/531.html',
+  '/notes.html',
 ];
 
 // Install event - cache all initial resources
@@ -63,29 +65,81 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - Network first for HTML, Cache first for other resources
+// Function to check if offline mode is preferred
+async function shouldPreferOffline() {
+  try {
+    // Get the setting from localStorage by sending a message to the client
+    const clients = await self.clients.matchAll();
+    if (clients.length > 0) {
+      // Send a message to get the setting
+      clients[0].postMessage({ type: 'GET_OFFLINE_PREFERENCE' });
+      
+      // Wait for response (with timeout)
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => resolve(false), 100);
+        
+        const messageHandler = (event) => {
+          if (event.data && event.data.type === 'OFFLINE_PREFERENCE_RESPONSE') {
+            clearTimeout(timeout);
+            self.removeEventListener('message', messageHandler);
+            resolve(event.data.preferOffline);
+          }
+        };
+        
+        self.addEventListener('message', messageHandler);
+      });
+    }
+  } catch (error) {
+    console.log('Could not check offline preference:', error);
+  }
+  return false;
+}
+
+// Fetch event - Respect offline preference setting
 self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
   
-  // Network-first strategy for HTML files
+  // Handle HTML files based on offline preference
   if (event.request.mode === 'navigate' || event.request.headers.get('accept').includes('text/html')) {
     event.respondWith(
-      fetch(event.request)
-        .then((networkResponse) => {
-          // Clone the response before using it
-          const responseToCache = networkResponse.clone();
-          
-          // Update cache with new version
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
-          
-          return networkResponse;
-        })
-        .catch(() => {
-          // Fallback to cache if network fails
-          return caches.match(event.request);
-        })
+      shouldPreferOffline().then((preferOffline) => {
+        if (preferOffline) {
+          // Cache-first strategy when offline mode is preferred
+          return caches.match(event.request)
+            .then((cachedResponse) => {
+              if (cachedResponse) {
+                return cachedResponse;
+              }
+              // If no cache, try network
+              return fetch(event.request)
+                .then((networkResponse) => {
+                  const responseToCache = networkResponse.clone();
+                  caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(event.request, responseToCache);
+                  });
+                  return networkResponse;
+                });
+            });
+        } else {
+          // Network-first strategy when online mode is preferred
+          return fetch(event.request)
+            .then((networkResponse) => {
+              // Clone the response before using it
+              const responseToCache = networkResponse.clone();
+              
+              // Update cache with new version
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, responseToCache);
+              });
+              
+              return networkResponse;
+            })
+            .catch(() => {
+              // Fallback to cache if network fails
+              return caches.match(event.request);
+            });
+        }
+      })
     );
     return;
   }
@@ -119,5 +173,10 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data === 'skipWaiting') {
     self.skipWaiting();
+  }
+  
+  // Handle offline preference requests
+  if (event.data && event.data.type === 'GET_OFFLINE_PREFERENCE') {
+    // This will be handled by the client-side code
   }
 });

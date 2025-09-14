@@ -110,6 +110,9 @@ how can we add spacing between suggestions
 					<option value="Snack">Snack</option>
 				</select>
 			</div>
+			<div id="databaseSize" style="margin-top: 5px; font-size: 0.9em; color: var(--text-color); opacity: 0.7;">
+				Database size: <span id="dbSizeValue">Calculating...</span>
+			</div>
 			<div id="settingsPanel" class="settings-panel" style="display: none;">
 				<button class="btn" id="fetchCSVBtn">Fetch and Store CSV Data</button>
 				<button class="btn" onclick="window.location.href='set_meal_times.html'">Meal Times</button>
@@ -588,6 +591,7 @@ function parseAndStoreCSV(csvData) {
                 hideProgress();
                 alert('CSV data stored in IndexedDB');
                 initializeFoodList(); // Assuming this function is defined elsewhere
+                updateDatabaseSize(); // Update the database size display
             }, 500);
         };
 
@@ -1350,34 +1354,53 @@ document.addEventListener('DOMContentLoaded', function() {
     // Get the header element by its ID
     const dateHeader = document.getElementById('dateHeader');
 
-    // Set the header's text content to the formatted date
-    dateHeader.textContent = today;
+    // Set up the header as a flex container
+    dateHeader.style.display = 'flex';
+    dateHeader.style.justifyContent = 'center';
+    dateHeader.style.alignItems = 'center';
+    dateHeader.style.position = 'relative';
+
+    // Create a links container for the center
+    const linksContainer = document.createElement('div');
+    linksContainer.style.display = 'flex';
+    linksContainer.style.gap = '20px';
     
     // Create a recipes link
     const recipesLink = document.createElement('a');
     recipesLink.href = 'create-recipe.html';
     recipesLink.textContent = 'Recipes';
-    recipesLink.style.marginLeft = '20px';
 
     // Create a daily notes link
     const dailyNotesLink = document.createElement('a');
     dailyNotesLink.href = 'notes.html';
-    dailyNotesLink.textContent = '📝 Notes';
-    dailyNotesLink.style.marginLeft = '20px';
+    dailyNotesLink.textContent = 'Notes';
 
     // Create a home button
     const homeButton = document.createElement('a');
     homeButton.href = 'index.html';
     homeButton.textContent = 'Home';
-    homeButton.style.marginLeft = '20px';
 
-    // Append all links to the header
-    dateHeader.appendChild(recipesLink);
-    dateHeader.appendChild(dailyNotesLink);
-    dateHeader.appendChild(homeButton);
+    // Append links to the links container
+    linksContainer.appendChild(recipesLink);
+    linksContainer.appendChild(dailyNotesLink);
+    linksContainer.appendChild(homeButton);
+
+    // Create a date container for the right side
+    const dateContainer = document.createElement('div');
+    dateContainer.textContent = today;
+    dateContainer.style.position = 'absolute';
+    dateContainer.style.right = '0';
+    dateContainer.style.color = 'white';
+
+    // Append links container and date container to the header
+    dateHeader.appendChild(linksContainer);
+    dateHeader.appendChild(dateContainer);
 
     // Add event listener for refresh button
     document.getElementById('refreshFoodDb').addEventListener('click', refreshFoodDatabase);
+    
+    // Update database size on page load
+    updateDatabaseSize();
 });
 
 document.getElementById('settingsToggle').addEventListener('click', function() {
@@ -1390,6 +1413,41 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
         this.textContent = '⚙️ Settings';
     }
 });
+
+	// Function to calculate and display database size
+	function updateDatabaseSize() {
+		const dbName = 'csvDB';
+		const storeName = 'csvStore';
+		
+		const dbRequest = indexedDB.open(dbName);
+		
+		dbRequest.onsuccess = function(event) {
+			const db = event.target.result;
+			const transaction = db.transaction([storeName], 'readonly');
+			const store = transaction.objectStore(storeName);
+			const request = store.count();
+			
+			request.onsuccess = function() {
+				const recordCount = request.result;
+				// Estimate size: each record is approximately 200-300 bytes
+				// We'll use 250 bytes as an average estimate
+				const estimatedSizeBytes = recordCount * 250;
+				const sizeInMB = (estimatedSizeBytes / (1024 * 1024)).toFixed(2);
+				
+				document.getElementById('dbSizeValue').textContent = `${sizeInMB} MB (${recordCount} records)`;
+			};
+			
+			request.onerror = function() {
+				document.getElementById('dbSizeValue').textContent = 'Error calculating size';
+			};
+			
+			db.close();
+		};
+		
+		dbRequest.onerror = function() {
+			document.getElementById('dbSizeValue').textContent = 'Database not found';
+		};
+	}
 
 	// Add the refresh function after the initializeFoodList function
 	function refreshFoodDatabase() {
@@ -1413,6 +1471,8 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
 				setTimeout(() => {
 					hideProgress();
 					document.querySelector('.food').placeholder = originalPlaceholder;
+					// Update database size after refresh
+					updateDatabaseSize();
 					alert("Food database refreshed. New recipes should now appear in search.");
 				}, 500);
 			}, 500);
