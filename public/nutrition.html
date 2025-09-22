@@ -22,6 +22,9 @@ how can we add spacing between suggestions
  <header id="dateHeader">
  
  </header>
+
+ <!-- Blur overlay for menu popup -->
+ <div class="blur-overlay" id="blurOverlay"></div>
  
 
  
@@ -292,9 +295,30 @@ how can we add spacing between suggestions
             transition: width 0.3s ease;
             border-radius: 10px;
         }
+
+        #addBtn {
+            min-width: 70px;
+        }
+
+        .blur-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+            z-index: 999;
+            display: none;
+        }
+
+        .blur-overlay.active {
+            display: block;
+        }
     </style>
 
     <script src="database-utils.js"></script>
+    <script src="menu.js"></script>
     <script>
 	
 	// Define the 'today' variable globally
@@ -1124,6 +1148,12 @@ function displayFoodItems(foodItems) {
 
     scrollableWindow.innerHTML = '';
 
+    // Check for meal plan items for today
+    const today = new Date().toLocaleDateString('en-CA');
+    const dayMealPlan = localStorage.getItem(`mealPlan_${today}`);
+    const mealPlans = JSON.parse(localStorage.getItem('mealPlans')) || {};
+    const completedMeals = JSON.parse(localStorage.getItem(`completedMeals_${today}`)) || [];
+
     // Filter items based on selected meal
     let itemsToDisplay = foodItems;
     if (selectedMeal !== 'All') {
@@ -1136,7 +1166,12 @@ function displayFoodItems(foodItems) {
         const mealOrder = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
         
         mealOrder.forEach(mealType => {
-            if (meals[mealType].length > 0) {
+            const hasRegularItems = meals[mealType].length > 0;
+            const hasPlannedItems = dayMealPlan && mealPlans[dayMealPlan] && 
+                                  mealPlans[dayMealPlan][mealType.toLowerCase()] && 
+                                  mealPlans[dayMealPlan][mealType.toLowerCase()].length > 0;
+            
+            if (hasRegularItems || hasPlannedItems) {
                 // Add meal header with emoji
                 var mealHeader = document.createElement('div');
                 mealHeader.className = 'meal-header';
@@ -1180,7 +1215,20 @@ function displayFoodItems(foodItems) {
                 
                 scrollableWindow.appendChild(mealHeader);
 
-                // Display items for this meal
+                // Display planned meal items first (greyed out with check buttons)
+                if (hasPlannedItems) {
+                    const plannedItems = mealPlans[dayMealPlan][mealType.toLowerCase()];
+                    const uncompletedPlannedItems = plannedItems.filter(item => !completedMeals.includes(item.name));
+                    
+                    // Only show planned items section if there are uncompleted items
+                    if (uncompletedPlannedItems.length > 0) {
+                        uncompletedPlannedItems.forEach(function(item) {
+                            displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, completedMeals);
+                        });
+                    }
+                }
+
+                // Display regular food items (including completed planned meals)
                 meals[mealType].forEach(function(item, index) {
                     displayFoodItem(item, foodItems, scrollableWindow, foodInput, gramsInput);
                 });
@@ -1254,6 +1302,89 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
     });
 
     scrollableWindow.appendChild(listItem);
+}
+
+function displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, completedMeals) {
+    var listItem = document.createElement('div');
+    listItem.className = 'list-item planned-meal-item';
+    listItem.style.opacity = '0.6';
+    listItem.style.backgroundColor = 'rgba(255, 255, 255, 0.05)';
+    
+    listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protein ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
+
+    var checkButton = document.createElement('button');
+    checkButton.textContent = completedMeals.includes(item.name) ? '✓' : '○';
+    checkButton.className = 'check-btn';
+    checkButton.style.float = 'right';
+    checkButton.style.background = completedMeals.includes(item.name) ? '#28a745' : '#6c757d';
+    checkButton.style.color = 'white';
+    checkButton.style.border = 'none';
+    checkButton.style.borderRadius = '3px';
+    checkButton.style.padding = '2px 6px';
+    checkButton.style.cursor = 'pointer';
+    checkButton.style.fontSize = '0.8em';
+    
+    checkButton.addEventListener('click', function(e) {
+        e.stopPropagation();
+        togglePlannedMealItem(item, checkButton);
+    });
+
+    listItem.appendChild(checkButton);
+    scrollableWindow.appendChild(listItem);
+}
+
+function togglePlannedMealItem(item, button) {
+    const today = new Date().toLocaleDateString('en-CA');
+    const completedMeals = JSON.parse(localStorage.getItem(`completedMeals_${today}`)) || [];
+    const mealItem = button.parentElement;
+    
+    if (completedMeals.includes(item.name)) {
+        // Remove from completed
+        const index = completedMeals.indexOf(item.name);
+        completedMeals.splice(index, 1);
+        button.textContent = '○';
+        button.style.background = '#6c757d';
+        mealItem.style.opacity = '0.6';
+        
+        // Remove from food log
+        const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+        if (foodLog[today]) {
+            foodLog[today] = foodLog[today].filter(foodItem => foodItem.name !== item.name);
+            localStorage.setItem('foodLog', JSON.stringify(foodLog));
+        }
+    } else {
+        // Add to completed
+        completedMeals.push(item.name);
+        button.textContent = '✓';
+        button.style.background = '#28a745';
+        mealItem.style.opacity = '1';
+        
+        // Add to food log
+        const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+        if (!foodLog[today]) {
+            foodLog[today] = [];
+        }
+        
+        const foodItem = {
+            name: item.name,
+            grams: item.grams,
+            calories: item.calories,
+            fat: item.fat,
+            protein: item.protein,
+            carbs: item.carbs,
+            timeAdded: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+        };
+        
+        foodLog[today].push(foodItem);
+        localStorage.setItem('foodLog', JSON.stringify(foodLog));
+    }
+    
+    localStorage.setItem(`completedMeals_${today}`, JSON.stringify(completedMeals));
+    
+    // Refresh the display to update totals and show the item as a normal entry
+    const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    const foodItems = foodLog[today] || [];
+    displayFoodItems(foodItems);
 }
 
 
@@ -1351,50 +1482,8 @@ document.addEventListener('DOMContentLoaded', function() {
     initializeFoodList();
 	displayFoodItems(foodItems, today);
 	
-    // Get the header element by its ID
-    const dateHeader = document.getElementById('dateHeader');
-
-    // Set up the header as a flex container
-    dateHeader.style.display = 'flex';
-    dateHeader.style.justifyContent = 'center';
-    dateHeader.style.alignItems = 'center';
-    dateHeader.style.position = 'relative';
-
-    // Create a links container for the center
-    const linksContainer = document.createElement('div');
-    linksContainer.style.display = 'flex';
-    linksContainer.style.gap = '20px';
-    
-    // Create a recipes link
-    const recipesLink = document.createElement('a');
-    recipesLink.href = 'create-recipe.html';
-    recipesLink.textContent = 'Recipes';
-
-    // Create a daily notes link
-    const dailyNotesLink = document.createElement('a');
-    dailyNotesLink.href = 'notes.html';
-    dailyNotesLink.textContent = 'Notes';
-
-    // Create a home button
-    const homeButton = document.createElement('a');
-    homeButton.href = 'index.html';
-    homeButton.textContent = 'Home';
-
-    // Append links to the links container
-    linksContainer.appendChild(recipesLink);
-    linksContainer.appendChild(dailyNotesLink);
-    linksContainer.appendChild(homeButton);
-
-    // Create a date container for the right side
-    const dateContainer = document.createElement('div');
-    dateContainer.textContent = today;
-    dateContainer.style.position = 'absolute';
-    dateContainer.style.right = '0';
-    dateContainer.style.color = 'white';
-
-    // Append links container and date container to the header
-    dateHeader.appendChild(linksContainer);
-    dateHeader.appendChild(dateContainer);
+    // Set up header using centralized menu system
+    setupHeader();
 
     // Add event listener for refresh button
     document.getElementById('refreshFoodDb').addEventListener('click', refreshFoodDatabase);
