@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Workout Routines</title>
-	<link rel="stylesheet" href="dark-theme.css">
+	<link rel="stylesheet" href="../dark-theme.css">
+    <script src="workout-utils.js"></script>
     <style>
         .nav-bar {
             display: flex;
@@ -87,7 +88,7 @@
 </head>
 <body>
     <div class="nav-bar">
-        <a href="index.html">Home</a>
+        <a href="../index.html">Home</a>
         <a href="workout.html">Today's Workout</a>
         <a href="workout_routine.html">Workout Routines</a>
         <a href="set_workout_day.html">Schedule</a>
@@ -114,9 +115,15 @@
                 alert('Please enter a workout routine name.');
                 return;
             }
-            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
-            routines[routineName] = []; // Each routine is now an empty array
-            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            const routines = WorkoutUtils.getRoutines();
+            
+            // New structure with metadata
+            routines[routineName] = {
+                cycleDay: null, // User will assign in schedule
+                exercises: []
+            };
+            
+            WorkoutUtils.saveRoutines(routines);
             displayRoutines();
             routineNameInput.value = ''; // Clear the input field
         }
@@ -130,14 +137,14 @@
             const profileData = JSON.parse(localStorage.getItem('profileStatistics')) || null;
             if (!profileData || !profileData.weight || !profileData.gender || !profileData.bodyFatPercent) {
                 alert('Please complete your profile with weight, gender, and body fat percentage before adding predefined routines.');
-                window.location.href = 'profile.html';
+                window.location.href = '../profile.html';
                 return;
             }
 
             // Get user's preferred weight unit
             const userWeightUnit = profileData.weightUnit || 'lbs';
             
-            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            const routines = WorkoutUtils.getRoutines();
             
             // Calculate appropriate weights based on user profile
             const calculateWeight = (baseWeight, exerciseType) => {
@@ -192,76 +199,116 @@
             
             // Upper Body Routine
             if (!routines['Upper Body']) {
-                routines['Upper Body'] = [
-                    { name: 'Bench Press', reps: '8', weight: calculateWeight(135, 'bench'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Overhead Press', reps: '8', weight: calculateWeight(95, 'overhead'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Dumbbell Curl', reps: '12', weight: calculateWeight(25, 'curl'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Tricep Extension', reps: '12', weight: calculateWeight(30, 'tricep'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Pull-ups', reps: '8', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Face Pull', reps: '15', weight: calculateWeight(50, 'facepull'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' }
-                ];
+                routines['Upper Body'] = {
+                    cycleDay: null,
+                    exercises: [
+                        { id: `ex-${Date.now()}-0`, name: 'Bench Press', reps: '8', sets: 3, weight: calculateWeight(135, 'bench'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'compound', progression: { enabled: true, type: 'linear', increment: 5 } },
+                        { id: `ex-${Date.now()}-1`, name: 'Overhead Press', reps: '8', sets: 3, weight: calculateWeight(95, 'overhead'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'compound', progression: { enabled: true, type: 'linear', increment: 5 } },
+                        { id: `ex-${Date.now()}-2`, name: 'Dumbbell Curl', reps: '12', sets: 3, weight: calculateWeight(25, 'curl'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'accessory', progression: { enabled: true, type: 'linear', increment: 5 } },
+                        { id: `ex-${Date.now()}-3`, name: 'Tricep Extension', reps: '12', sets: 3, weight: calculateWeight(30, 'tricep'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'accessory', progression: { enabled: true, type: 'linear', increment: 5 } },
+                        { id: `ex-${Date.now()}-4`, name: 'Pull-ups', reps: '8', sets: 3, weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'compound', progression: { enabled: false, type: 'linear', increment: 0 } },
+                        { id: `ex-${Date.now()}-5`, name: 'Face Pull', reps: '15', sets: 3, weight: calculateWeight(50, 'facepull'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'accessory', progression: { enabled: true, type: 'linear', increment: 5 } }
+                    ]
+                };
             }
             
             // Lower Body Routine
             if (!routines['Lower Body']) {
-                routines['Lower Body'] = [
-                    { name: 'Squat', reps: '8', weight: calculateWeight(185, 'squat'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Deadlift', reps: '6', weight: calculateWeight(225, 'deadlift'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Leg Press', reps: '12', weight: calculateWeight(250, 'legpress'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Lunges', reps: '10', weight: calculateWeight(30, 'lunge'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Calf Raise', reps: '15', weight: calculateWeight(100, 'calf'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' }
-                ];
+                routines['Lower Body'] = {
+                    cycleDay: null,
+                    exercises: [
+                        { id: `ex-${Date.now()}-10`, name: 'Squat', reps: '8', sets: 3, weight: calculateWeight(185, 'squat'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'compound', progression: { enabled: true, type: 'linear', increment: 10 } },
+                        { id: `ex-${Date.now()}-11`, name: 'Deadlift', reps: '6', sets: 3, weight: calculateWeight(225, 'deadlift'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'compound', progression: { enabled: true, type: 'linear', increment: 10 } },
+                        { id: `ex-${Date.now()}-12`, name: 'Leg Press', reps: '12', sets: 3, weight: calculateWeight(250, 'legpress'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'accessory', progression: { enabled: true, type: 'linear', increment: 10 } },
+                        { id: `ex-${Date.now()}-13`, name: 'Lunges', reps: '10', sets: 3, weight: calculateWeight(30, 'lunge'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'accessory', progression: { enabled: true, type: 'linear', increment: 5 } },
+                        { id: `ex-${Date.now()}-14`, name: 'Calf Raise', reps: '15', sets: 3, weight: calculateWeight(100, 'calf'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'accessory', progression: { enabled: true, type: 'linear', increment: 10 } }
+                    ]
+                };
             }
             
             // Core Workout
             if (!routines['Core Workout']) {
-                routines['Core Workout'] = [
-                    { name: 'Plank', reps: '', weight: '', time: '60', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Russian Twist', reps: '20', weight: calculateWeight(15, 'twist'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Crunches', reps: '20', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Leg Raises', reps: '15', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Mountain Climbers', reps: '', weight: '', time: '45', weightUnit: userWeightUnit, timeUnit: 'sec' }
-                ];
+                routines['Core Workout'] = {
+                    cycleDay: null,
+                    exercises: [
+                        { id: `ex-${Date.now()}-20`, name: 'Plank', reps: '', sets: 3, weight: '', time: '60', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'core', progression: { enabled: true, type: 'linear', increment: 5 } },
+                        { id: `ex-${Date.now()}-21`, name: 'Russian Twist', reps: '20', sets: 3, weight: calculateWeight(15, 'twist'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'core', progression: { enabled: true, type: 'linear', increment: 5 } },
+                        { id: `ex-${Date.now()}-22`, name: 'Crunches', reps: '20', sets: 3, weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'core', progression: { enabled: false, type: 'linear', increment: 0 } },
+                        { id: `ex-${Date.now()}-23`, name: 'Leg Raises', reps: '15', sets: 3, weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'core', progression: { enabled: false, type: 'linear', increment: 0 } },
+                        { id: `ex-${Date.now()}-24`, name: 'Mountain Climbers', reps: '', sets: 3, weight: '', time: '45', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'core', progression: { enabled: true, type: 'linear', increment: 5 } }
+                    ]
+                };
             }
             
             // Cardio Session
             if (!routines['Cardio Session']) {
-                routines['Cardio Session'] = [
-                    { name: 'Running', reps: '', weight: '', time: '20', weightUnit: userWeightUnit, timeUnit: 'min' },
-                    { name: 'Jump Rope', reps: '', weight: '', time: '5', weightUnit: userWeightUnit, timeUnit: 'min' },
-                    { name: 'Burpees', reps: '15', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Cycling', reps: '', weight: '', time: '15', weightUnit: userWeightUnit, timeUnit: 'min' }
-                ];
+                routines['Cardio Session'] = {
+                    cycleDay: null,
+                    exercises: [
+                        { id: `ex-${Date.now()}-30`, name: 'Running', reps: '', sets: 1, weight: '', time: '20', weightUnit: userWeightUnit, timeUnit: 'min', category: 'cardio', progression: { enabled: true, type: 'linear', increment: 1 } },
+                        { id: `ex-${Date.now()}-31`, name: 'Jump Rope', reps: '', sets: 3, weight: '', time: '5', weightUnit: userWeightUnit, timeUnit: 'min', category: 'cardio', progression: { enabled: true, type: 'linear', increment: 1 } },
+                        { id: `ex-${Date.now()}-32`, name: 'Burpees', reps: '15', sets: 3, weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'cardio', progression: { enabled: false, type: 'linear', increment: 0 } },
+                        { id: `ex-${Date.now()}-33`, name: 'Cycling', reps: '', sets: 1, weight: '', time: '15', weightUnit: userWeightUnit, timeUnit: 'min', category: 'cardio', progression: { enabled: true, type: 'linear', increment: 1 } }
+                    ]
+                };
             }
             
             // Full Body Workout
             if (!routines['Full Body Workout']) {
-                routines['Full Body Workout'] = [
-                    { name: 'Squat', reps: '10', weight: calculateWeight(155, 'squat'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Push-ups', reps: '15', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Deadlift', reps: '8', weight: calculateWeight(185, 'deadlift'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Pull-ups', reps: '8', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Plank', reps: '', weight: '', time: '45', weightUnit: userWeightUnit, timeUnit: 'sec' },
-                    { name: 'Burpees', reps: '10', weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec' }
-                ];
+                routines['Full Body Workout'] = {
+                    cycleDay: null,
+                    exercises: [
+                        { id: `ex-${Date.now()}-40`, name: 'Squat', reps: '10', sets: 3, weight: calculateWeight(155, 'squat'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'compound', progression: { enabled: true, type: 'linear', increment: 10 } },
+                        { id: `ex-${Date.now()}-41`, name: 'Push-ups', reps: '15', sets: 3, weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'accessory', progression: { enabled: false, type: 'linear', increment: 0 } },
+                        { id: `ex-${Date.now()}-42`, name: 'Deadlift', reps: '8', sets: 3, weight: calculateWeight(185, 'deadlift'), time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'compound', progression: { enabled: true, type: 'linear', increment: 10 } },
+                        { id: `ex-${Date.now()}-43`, name: 'Pull-ups', reps: '8', sets: 3, weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'compound', progression: { enabled: false, type: 'linear', increment: 0 } },
+                        { id: `ex-${Date.now()}-44`, name: 'Plank', reps: '', sets: 3, weight: '', time: '45', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'core', progression: { enabled: true, type: 'linear', increment: 5 } },
+                        { id: `ex-${Date.now()}-45`, name: 'Burpees', reps: '10', sets: 3, weight: '', time: '', weightUnit: userWeightUnit, timeUnit: 'sec', category: 'cardio', progression: { enabled: false, type: 'linear', increment: 0 } }
+                    ]
+                };
             }
             
-            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            WorkoutUtils.saveRoutines(routines);
             displayRoutines();
             alert('Predefined workout routines have been added with weights calculated based on your profile!');
         }
 
         // Function to display workout routines
         function displayRoutines() {
-            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+            const routines = WorkoutUtils.getRoutines();
+            const settings = WorkoutUtils.getSettings();
+            const schedule = WorkoutUtils.getSchedule();
             const routineList = document.getElementById('routine-list');
             routineList.innerHTML = ''; // Clear the list
+            
             Object.keys(routines).forEach((routineName) => {
+                const routine = routines[routineName];
                 const routineElement = document.createElement('div');
-                routineElement.textContent = routineName;
+                
+                // Show routine name and optional cycle day assignment
+                let displayText = routineName;
+                
+                // Check if this routine is assigned to a schedule
+                if (schedule.type === 'cycle' && routine.cycleDay) {
+                    const dayName = WorkoutUtils.getCycleDayName(routine.cycleDay);
+                    displayText += ` (${dayName})`;
+                } else if (schedule.type === 'weekly') {
+                    // Find which days this routine is assigned to
+                    const assignedDays = Object.keys(schedule.weekly).filter(day => schedule.weekly[day] === routineName);
+                    if (assignedDays.length > 0) {
+                        displayText += ` (${assignedDays.join(', ')})`;
+                    }
+                }
+                
+                // Show exercise count
+                const exerciseCount = routine.exercises ? routine.exercises.length : 0;
+                displayText += ` - ${exerciseCount} exercise${exerciseCount !== 1 ? 's' : ''}`;
+                
+                routineElement.textContent = displayText;
                 routineElement.onclick = function() {
                     window.location.href = `edit_workout_routine.html?selectedRoutine=${encodeURIComponent(routineName)}`;
                 };
+                
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = '❌';
                 deleteButton.onclick = function(e) {
@@ -277,9 +324,9 @@
 		function deleteRoutine(routineName) {
 			const confirmDelete = confirm('Are you sure you want to delete this workout routine?');
 			if (confirmDelete) {
-				const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
+				const routines = WorkoutUtils.getRoutines();
 				delete routines[routineName];
-				localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+				WorkoutUtils.saveRoutines(routines);
 				displayRoutines();
 			}
 		}
@@ -302,7 +349,7 @@
                 messageDiv.id = 'profile-message';
                 messageDiv.style.color = '#ff9800';
                 messageDiv.style.marginBottom = '10px';
-                messageDiv.innerHTML = 'Complete your <a href="profile.html" style="color: #2196F3; text-decoration: underline;">profile</a> to get personalized workout weights.';
+                messageDiv.innerHTML = 'Complete your <a href="../profile.html" style="color: #2196F3; text-decoration: underline;">profile</a> to get personalized workout weights.';
                 
                 // Insert the message before the button
                 addPredefinedBtn.parentNode.insertBefore(messageDiv, addPredefinedBtn);

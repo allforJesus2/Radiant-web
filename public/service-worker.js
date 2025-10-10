@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-cache-v3.1';
+const CACHE_NAME = 'my-cache-v3.2';
 const FILES_TO_CACHE = [
   '/set_activity_level.html',
   '/set_macros.html',
@@ -17,12 +17,16 @@ const FILES_TO_CACHE = [
   '/navigation.js',
   '/database-utils.js',
   '/offline-preference.js',
-  '/workout.html',
-  '/set_workout_day.html',
-  '/workout_routine.html',
-  '/edit_workout_routine.html',
+  '/workout/workout.html',
+  '/workout/set_workout_day.html',
+  '/workout/workout_routine.html',
+  '/workout/edit_workout_routine.html',
   '/workout/531.html',
+  '/workout/gzcl.html',
   '/notes.html',
+  '/menu.js',
+  '/meal-plan.html',
+  '/create-meal-plan.html',
 ];
 
 // Install event - cache all initial resources

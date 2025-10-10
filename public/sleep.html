@@ -20,6 +20,22 @@ label {
     display: block;
     margin-bottom: 10px;
 }
+
+.blur-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(5px);
+    z-index: 999;
+    display: none;
+}
+
+.blur-overlay.active {
+    display: block;
+}
 </style>
 
 
@@ -28,12 +44,15 @@ label {
 	
 </head>
 <body>
+    <header id="dateHeader">
+ 
+    </header>
+
+    <!-- Blur overlay for menu popup -->
+    <div class="blur-overlay" id="blurOverlay"></div>
+
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
         <h1>Sleep Last Night</h1>
-        <div>
-            <a href="notes.html" style="margin-right: 20px; color: var(--text); text-decoration: none;">📝 Notes</a>
-            <a href="index.html" style="color: var(--text); text-decoration: none;">Home</a>
-        </div>
     </div>
     <form id="sleepForm">
         <label>
@@ -58,11 +77,14 @@ label {
             <input type="radio" name="sleepRating" value="7"> Dreambaby
         </label>
     </form>
+    <script src="menu.js"></script>
     <script>
 	
 	
 	
 document.addEventListener('DOMContentLoaded', function() {
+    // Set up header using centralized menu system
+    setupHeader('Sleep Last Night');
     const sleepForm = document.getElementById('sleepForm');
     const today = new Date().toISOString().split('T')[0]; // Get today's date in yyyy-mm-dd format
 

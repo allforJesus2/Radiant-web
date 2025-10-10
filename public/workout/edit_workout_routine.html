@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Workout Routine</title>
-	<link rel="stylesheet" href="dark-theme.css">
+	<link rel="stylesheet" href="../dark-theme.css">
+    <script src="workout-utils.js"></script>
     <style>
         .nav-bar {
             display: flex;
@@ -121,6 +122,45 @@
             padding: 15px;
             background-color: #333;
             border-radius: 4px;
+        }
+        .advanced-section {
+            grid-column: span 2;
+            margin-top: 10px;
+            padding: 15px;
+            background-color: #2c2c2c;
+            border-radius: 4px;
+            border-left: 4px solid #4CAF50;
+        }
+        .advanced-section h4 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .advanced-section h4::before {
+            content: '▼ ';
+            font-size: 0.8em;
+        }
+        .advanced-section.collapsed h4::before {
+            content: '► ';
+        }
+        .advanced-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .advanced-section.collapsed .advanced-content {
+            display: none;
+        }
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            transform: scale(1.2);
         }
         #workout-input div {
             display: flex;
@@ -294,6 +334,7 @@
 </head>
 <body>
     <div class="nav-bar">
+        <a href="../index.html">Home</a>
         <a href="workout.html">Today's Workout</a>
         <a href="workout_routine.html">Workout Routines</a>
         <a href="set_workout_day.html">Schedule</a>
@@ -388,6 +429,8 @@
                 </datalist>
             </div>
             <div>
+                <span>🔢</span>
+                <input type="number" id="sets" placeholder="Sets" value="3" min="1">
                 <span>🔁</span>
                 <input type="number" id="reps" placeholder="Reps">
             </div>
@@ -406,6 +449,54 @@
                     <option value="sec">sec</option>
                     <option value="min">min</option>
                 </select>
+            </div>
+            <div style="grid-column: span 2; display: block;">
+                <span>📝</span>
+                <input type="text" id="notes" placeholder="Notes (optional)" style="width: calc(100% - 40px);">
+            </div>
+
+            <!-- Advanced Settings Section -->
+            <div class="advanced-section collapsed" id="advanced-section">
+                <h4 onclick="toggleAdvanced()">Advanced Settings (1RM, Progression, etc.)</h4>
+                <div class="advanced-content">
+                    <div>
+                        <span>🏋️</span>
+                        <input type="number" id="oneRepMax" placeholder="1RM (optional)">
+                    </div>
+                    <div>
+                        <span>📈</span>
+                        <input type="number" id="trainingMaxPercent" placeholder="TM % (90)" value="90" min="1" max="100">
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="progressionEnabled">
+                        <label for="progressionEnabled">Enable Progression</label>
+                    </div>
+                    <div>
+                        <span>➕</span>
+                        <input type="number" id="progressionIncrement" placeholder="Increment (lbs)" value="5" min="0" step="2.5">
+                    </div>
+                    <div>
+                        <span>🎯</span>
+                        <select id="category">
+                            <option value="compound">Compound</option>
+                            <option value="accessory">Accessory</option>
+                            <option value="cardio">Cardio</option>
+                            <option value="core">Core</option>
+                        </select>
+                    </div>
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="amrap">
+                        <label for="amrap">AMRAP Set</label>
+                    </div>
+                    <div>
+                        <span>😓</span>
+                        <input type="number" id="rpe" placeholder="RPE (1-10)" min="1" max="10">
+                    </div>
+                    <div>
+                        <span>⏸️</span>
+                        <input type="number" id="restTime" placeholder="Rest (sec)" value="90" min="0">
+                    </div>
+                </div>
             </div>
 
             <div class="button-container">
@@ -433,14 +524,21 @@
             content.classList.toggle('collapsed');
         }
 
+        function toggleAdvanced() {
+            const section = document.getElementById('advanced-section');
+            section.classList.toggle('collapsed');
+        }
+
         function displayExercises() {
-            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
-            const exercises = routines[selectedRoutine] || [];
+            const routines = WorkoutUtils.getRoutines();
+            const routine = routines[selectedRoutine] || { exercises: [] };
+            const exercises = routine.exercises || [];
             const exerciseList = document.getElementById('exercise-list');
             exerciseList.innerHTML = '';
 			
             exercises.forEach((exercise, index) => {
-                const { name, reps, weight, time, weightUnit = 'lbs', timeUnit = 'sec' } = exercise;
+                const { name, reps, sets = 3, weight, time, weightUnit = 'lbs', timeUnit = 'sec', 
+                        category, progression, oneRepMax, amrap } = exercise;
                 const exerciseElement = document.createElement('li');
                 exerciseElement.dataset.index = index;
                 exerciseElement.draggable = true;
@@ -462,13 +560,30 @@
                 
                 const nameElement = document.createElement('div');
                 nameElement.className = 'exercise-name';
-                nameElement.textContent = name;
+                let displayName = name;
+                if (category) {
+                    const categoryBadge = category === 'compound' ? '🏋️' : 
+                                         category === 'core' ? '💪' : 
+                                         category === 'cardio' ? '🏃' : '💡';
+                    displayName = `${categoryBadge} ${name}`;
+                }
+                if (amrap) displayName += ' (AMRAP)';
+                nameElement.textContent = displayName;
                 
                 const detailsElement = document.createElement('div');
                 detailsElement.className = 'exercise-details';
                 const timeDisplay = timeUnit === 'min' ? `${time || '-'} min` : `${time || '-'} sec`;
                 const weightDisplay = weightUnit === 'kg' ? `${weight || '-'} kg` : `${weight || '-'} lbs`;
-                detailsElement.textContent = `Reps: ${reps || '-'}, Weight: ${weightDisplay}, Time: ${timeDisplay}`;
+                
+                let detailsText = `${sets}x${reps || '-'}`;
+                if (weight) detailsText += `, ${weightDisplay}`;
+                if (time) detailsText += `, ${timeDisplay}`;
+                if (oneRepMax) detailsText += ` (1RM: ${oneRepMax}${weightUnit})`;
+                if (progression && progression.enabled) {
+                    detailsText += ` 📈+${progression.increment}${weightUnit}`;
+                }
+                
+                detailsElement.textContent = detailsText;
                 
                 exerciseInfo.appendChild(nameElement);
                 exerciseInfo.appendChild(detailsElement);
@@ -486,8 +601,9 @@
                     const confirmDelete = confirm('Are you sure you want to delete this exercise?');
                     if (confirmDelete) {
                         exercises.splice(index, 1);
-                        routines[selectedRoutine] = exercises;
-                        localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+                        routine.exercises = exercises;
+                        routines[selectedRoutine] = routine;
+                        WorkoutUtils.saveRoutines(routines);
                         displayExercises();
                         clearForm();
                     }
@@ -643,8 +759,9 @@
         }
 
         function moveExerciseToNewPosition(fromElement, toElement) {
-            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
-            const exercises = routines[selectedRoutine] || [];
+            const routines = WorkoutUtils.getRoutines();
+            const routine = routines[selectedRoutine] || { exercises: [] };
+            const exercises = routine.exercises || [];
             
             const fromIndex = parseInt(fromElement.dataset.index);
             const toIndex = parseInt(toElement.dataset.index);
@@ -659,8 +776,9 @@
             exercises.splice(toIndex, 0, exercise);
             
             // Save the updated order
-            routines[selectedRoutine] = exercises;
-            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            routine.exercises = exercises;
+            routines[selectedRoutine] = routine;
+            WorkoutUtils.saveRoutines(routines);
             
             // Refresh the display
             displayExercises();
@@ -683,35 +801,103 @@
 
         function addExercise() {
             const exerciseName = document.getElementById('exercise-name').value.trim();
-            const reps = document.getElementById('reps').value;
-            const weight = document.getElementById('weight').value;
-            const time = document.getElementById('time').value;
-            const weightUnit = document.getElementById('weight-unit').value;
-            const timeUnit = document.getElementById('time-unit').value;
-
             if (exerciseName === '') {
                 alert('Please enter an exercise name.');
                 return;
             }
 
-            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
-            const exercises = routines[selectedRoutine] || [];
+            // Basic fields
+            const sets = document.getElementById('sets').value || 3;
+            const reps = document.getElementById('reps').value;
+            const weight = document.getElementById('weight').value;
+            const time = document.getElementById('time').value;
+            const weightUnit = document.getElementById('weight-unit').value;
+            const timeUnit = document.getElementById('time-unit').value;
+            const notes = document.getElementById('notes').value;
 
-            exercises.push({ name: exerciseName, reps, weight, time, weightUnit, timeUnit });
-            routines[selectedRoutine] = exercises;
-            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            // Advanced fields
+            const oneRepMax = document.getElementById('oneRepMax').value ? parseFloat(document.getElementById('oneRepMax').value) : null;
+            const trainingMaxPercent = document.getElementById('trainingMaxPercent').value || 90;
+            const progressionEnabled = document.getElementById('progressionEnabled').checked;
+            const progressionIncrement = parseFloat(document.getElementById('progressionIncrement').value) || 5;
+            const category = document.getElementById('category').value;
+            const amrap = document.getElementById('amrap').checked;
+            const rpe = document.getElementById('rpe').value ? parseInt(document.getElementById('rpe').value) : null;
+            const restTime = parseInt(document.getElementById('restTime').value) || 90;
+
+            // Calculate training max if 1RM is provided
+            const trainingMax = oneRepMax ? WorkoutUtils.calculateTrainingMax(oneRepMax, trainingMaxPercent) : null;
+
+            const routines = WorkoutUtils.getRoutines();
+            const routine = routines[selectedRoutine] || { exercises: [] };
+            const exercises = routine.exercises || [];
+
+            const newExercise = {
+                id: `ex-${Date.now()}`,
+                name: exerciseName,
+                sets: parseInt(sets),
+                reps,
+                weight,
+                weightUnit,
+                time,
+                timeUnit,
+                notes,
+                oneRepMax,
+                trainingMax,
+                trainingMaxPercent: parseInt(trainingMaxPercent),
+                progression: {
+                    enabled: progressionEnabled,
+                    type: 'linear',
+                    increment: progressionIncrement,
+                    lastUpdated: null
+                },
+                percentageBased: {
+                    enabled: false,
+                    percentage: 75,
+                    autoCalculate: false
+                },
+                category,
+                amrap,
+                rpe,
+                restTime
+            };
+
+            exercises.push(newExercise);
+            routine.exercises = exercises;
+            routines[selectedRoutine] = routine;
+            WorkoutUtils.saveRoutines(routines);
+
+            // Update exercise library if 1RM is provided
+            if (oneRepMax) {
+                WorkoutUtils.updateExercise1RM(exerciseName, oneRepMax);
+            }
 
             displayExercises();
-
-            // Clear the form
             clearForm();
         }
 
         function clearForm() {
+            // Basic fields
             document.getElementById('exercise-name').value = '';
+            document.getElementById('sets').value = '3';
             document.getElementById('reps').value = '';
             document.getElementById('weight').value = '';
             document.getElementById('time').value = '';
+            document.getElementById('notes').value = '';
+            
+            // Advanced fields
+            document.getElementById('oneRepMax').value = '';
+            document.getElementById('trainingMaxPercent').value = '90';
+            document.getElementById('progressionEnabled').checked = false;
+            document.getElementById('progressionIncrement').value = '5';
+            document.getElementById('category').value = 'accessory';
+            document.getElementById('amrap').checked = false;
+            document.getElementById('rpe').value = '';
+            document.getElementById('restTime').value = '90';
+            
+            // Collapse advanced section
+            const advancedSection = document.getElementById('advanced-section');
+            advancedSection.classList.add('collapsed');
             
             // Reset buttons to ADD mode
             const addButton = document.getElementById('add-button');
@@ -730,17 +916,35 @@
         }
 
         function editExercise(index) {
-            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
-            const exercises = routines[selectedRoutine] || [];
+            const routines = WorkoutUtils.getRoutines();
+            const routine = routines[selectedRoutine] || { exercises: [] };
+            const exercises = routine.exercises || [];
             const exercise = exercises[index];
             
-            // Fill the form with the exercise details
+            // Fill basic fields
             document.getElementById('exercise-name').value = exercise.name;
+            document.getElementById('sets').value = exercise.sets || 3;
             document.getElementById('reps').value = exercise.reps || '';
             document.getElementById('weight').value = exercise.weight || '';
             document.getElementById('time').value = exercise.time || '';
             document.getElementById('weight-unit').value = exercise.weightUnit || 'lbs';
             document.getElementById('time-unit').value = exercise.timeUnit || 'sec';
+            document.getElementById('notes').value = exercise.notes || '';
+            
+            // Fill advanced fields
+            document.getElementById('oneRepMax').value = exercise.oneRepMax || '';
+            document.getElementById('trainingMaxPercent').value = exercise.trainingMaxPercent || 90;
+            document.getElementById('progressionEnabled').checked = exercise.progression?.enabled || false;
+            document.getElementById('progressionIncrement').value = exercise.progression?.increment || 5;
+            document.getElementById('category').value = exercise.category || 'accessory';
+            document.getElementById('amrap').checked = exercise.amrap || false;
+            document.getElementById('rpe').value = exercise.rpe || '';
+            document.getElementById('restTime').value = exercise.restTime || 90;
+            
+            // Show advanced section if any advanced field is filled
+            if (exercise.oneRepMax || exercise.progression?.enabled || exercise.amrap) {
+                document.getElementById('advanced-section').classList.remove('collapsed');
+            }
             
             // Show edit mode buttons
             const addButton = document.getElementById('add-button');
@@ -772,27 +976,78 @@
         
         function updateExercise(index) {
             const exerciseName = document.getElementById('exercise-name').value.trim();
-            const reps = document.getElementById('reps').value;
-            const weight = document.getElementById('weight').value;
-            const time = document.getElementById('time').value;
-            const weightUnit = document.getElementById('weight-unit').value;
-            const timeUnit = document.getElementById('time-unit').value;
-            
             if (exerciseName === '') {
                 alert('Please enter an exercise name.');
                 return;
             }
             
-            const routines = JSON.parse(localStorage.getItem('workoutRoutines')) || {};
-            const exercises = routines[selectedRoutine] || [];
+            // Get all form values (same as addExercise)
+            const sets = document.getElementById('sets').value || 3;
+            const reps = document.getElementById('reps').value;
+            const weight = document.getElementById('weight').value;
+            const time = document.getElementById('time').value;
+            const weightUnit = document.getElementById('weight-unit').value;
+            const timeUnit = document.getElementById('time-unit').value;
+            const notes = document.getElementById('notes').value;
+
+            const oneRepMax = document.getElementById('oneRepMax').value ? parseFloat(document.getElementById('oneRepMax').value) : null;
+            const trainingMaxPercent = document.getElementById('trainingMaxPercent').value || 90;
+            const progressionEnabled = document.getElementById('progressionEnabled').checked;
+            const progressionIncrement = parseFloat(document.getElementById('progressionIncrement').value) || 5;
+            const category = document.getElementById('category').value;
+            const amrap = document.getElementById('amrap').checked;
+            const rpe = document.getElementById('rpe').value ? parseInt(document.getElementById('rpe').value) : null;
+            const restTime = parseInt(document.getElementById('restTime').value) || 90;
+
+            const trainingMax = oneRepMax ? WorkoutUtils.calculateTrainingMax(oneRepMax, trainingMaxPercent) : null;
             
-            exercises[index] = { name: exerciseName, reps, weight, time, weightUnit, timeUnit };
-            routines[selectedRoutine] = exercises;
-            localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+            const routines = WorkoutUtils.getRoutines();
+            const routine = routines[selectedRoutine] || { exercises: [] };
+            const exercises = routine.exercises || [];
             
-            // Reset the form and buttons
+            // Keep the existing ID
+            const existingId = exercises[index].id || `ex-${Date.now()}`;
+            
+            exercises[index] = {
+                id: existingId,
+                name: exerciseName,
+                sets: parseInt(sets),
+                reps,
+                weight,
+                weightUnit,
+                time,
+                timeUnit,
+                notes,
+                oneRepMax,
+                trainingMax,
+                trainingMaxPercent: parseInt(trainingMaxPercent),
+                progression: {
+                    enabled: progressionEnabled,
+                    type: 'linear',
+                    increment: progressionIncrement,
+                    lastUpdated: exercises[index].progression?.lastUpdated || null
+                },
+                percentageBased: exercises[index].percentageBased || {
+                    enabled: false,
+                    percentage: 75,
+                    autoCalculate: false
+                },
+                category,
+                amrap,
+                rpe,
+                restTime
+            };
+            
+            routine.exercises = exercises;
+            routines[selectedRoutine] = routine;
+            WorkoutUtils.saveRoutines(routines);
+            
+            // Update exercise library if 1RM is provided
+            if (oneRepMax) {
+                WorkoutUtils.updateExercise1RM(exerciseName, oneRepMax);
+            }
+            
             clearForm();
-            
             displayExercises();
         }
 
