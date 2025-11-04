@@ -180,6 +180,9 @@
         document.getElementById('carbsSlider').addEventListener('input', () => updateMacros('carbs'));
         document.getElementById('fatSlider').addEventListener('input', () => updateMacros('fat'));
         document.getElementById('macroPreset').addEventListener('change', applyPreset);
+        
+        // Initialize the display on page load
+        updateMacros();
 
 
         function applyPreset() {
