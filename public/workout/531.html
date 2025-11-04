@@ -371,7 +371,6 @@
             background-color: #FFD700;
             color: #000;
             margin-top: 1rem;
-            animation: pulse 1.5s infinite;
             border: 2px solid #DAA520;
         }
         
@@ -380,25 +379,142 @@
             border-color: #B8860B;
         }
         
-        .level-down-button {
-            background-color: var(--dark);
-            margin-top: 1rem;
-        }
-        
-        .button-group {
-            display: flex;
-            gap: 10px;
-            margin-top: 1rem;
-        }
-        
-        .button-group button {
-            flex: 1;
-        }
-        
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.05); }
             100% { transform: scale(1); }
+        }
+        
+        /* AMRAP Logging Styles */
+        .amrap-logging {
+            margin-top: 1.5rem;
+            padding: 15px;
+            background-color: #fff8e1;
+            border-left: 4px solid #ffa726;
+            border-radius: 4px;
+        }
+        
+        .amrap-logging h4 {
+            color: #f57c00;
+            margin-bottom: 1rem;
+        }
+        
+        .amrap-input-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+        
+        .amrap-input-group label {
+            font-weight: 600;
+            margin: 0;
+        }
+        
+        .amrap-input-group input[type="number"] {
+            width: 80px;
+            padding: 8px;
+        }
+        
+        .amrap-recommendations {
+            margin-top: 1rem;
+        }
+        
+        .amrap-option {
+            display: flex;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 10px;
+            background-color: white;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .amrap-option:hover {
+            border-color: var(--secondary);
+            background-color: #f0f4ff;
+        }
+        
+        .amrap-option input[type="radio"] {
+            margin-right: 10px;
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+        
+        .amrap-option-content {
+            flex: 1;
+        }
+        
+        .amrap-option-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        
+        .amrap-option-description {
+            font-size: 0.9rem;
+            color: #666;
+        }
+        
+        .amrap-option.selected {
+            border-color: var(--success);
+            background-color: #e8f5e9;
+        }
+        
+        .amrap-option.recommended {
+            border-color: #4caf50;
+        }
+        
+        .amrap-option.warning {
+            border-color: #ff9800;
+        }
+        
+        .amrap-option.danger {
+            border-color: #f44336;
+        }
+        
+        .recommendation-badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .badge-recommended {
+            background-color: #4caf50;
+            color: white;
+        }
+        
+        .badge-warning {
+            background-color: #ff9800;
+            color: white;
+        }
+        
+        .badge-danger {
+            background-color: #f44336;
+            color: white;
+        }
+        
+        .amrap-submit-btn {
+            background-color: var(--success);
+            margin-top: 1rem;
+        }
+        
+        .amrap-status {
+            margin-top: 1rem;
+            padding: 10px;
+            border-radius: 4px;
+            background-color: #e8f5e9;
+            border-left: 4px solid #4caf50;
+        }
+        
+        .amrap-status.logged {
+            background-color: #e3f2fd;
+            border-left-color: #2196f3;
         }
         
         /* Quiz Modal Styles */
@@ -702,6 +818,7 @@
             let currentWeek = 1;
             let currentDay = 0;
             let userLevel = 1; // Initialize user level
+            let amrapResults = {}; // Store AMRAP results for each exercise
 
             // Load saved profile from localStorage
             function loadProfile() {
@@ -725,12 +842,6 @@
                     accessoryTemplate = profile.accessoryTemplate || 'standard';
                     accessorySelect.value = accessoryTemplate;
                     
-                    // Restore workout plan
-                    if (profile.workoutPlan) {
-                        workoutPlan = profile.workoutPlan;
-                        renderWorkoutPlan();
-                    }
-                    
                     // Restore UI state
                     currentWeek = profile.currentWeek || 1;
                     currentDay = profile.currentDay || 0;
@@ -738,6 +849,15 @@
                     // Restore user level
                     userLevel = profile.userLevel || 1;
                     updateLevelDisplay();
+                    
+                    // Restore AMRAP results BEFORE rendering workout plan
+                    amrapResults = profile.amrapResults || {};
+                    
+                    // Restore workout plan
+                    if (profile.workoutPlan) {
+                        workoutPlan = profile.workoutPlan;
+                        renderWorkoutPlan();
+                    }
                     
                     // Update UI to show saved week/day
                     setTimeout(() => {
@@ -774,7 +894,8 @@
                     workoutPlan,
                     currentWeek,
                     currentDay,
-                    userLevel // Save user level
+                    userLevel, // Save user level
+                    amrapResults // Save AMRAP results
                 };
                 
                 localStorage.setItem('531-workout-profile', JSON.stringify(profile));
@@ -999,6 +1120,8 @@
                     // Reset user level
                     userLevel = 1;
                     updateLevelDisplay();
+                    // Reset AMRAP results
+                    amrapResults = {};
                     // Reset workout plan
                     workoutPlan = {};
                     // Reset UI
@@ -1308,6 +1431,49 @@
                 return defaultText || 'Not specified';
             }
             
+            // Check if all AMRAP sets have been logged
+            function areAllAmrapSetsLogged() {
+                // Get the exercises that have 1RM values (are being used)
+                const exercises = [];
+                if (parseFloat(document.getElementById('squat-1rm').value) > 0) exercises.push('squat');
+                if (parseFloat(document.getElementById('bench-1rm').value) > 0) exercises.push('bench');
+                if (parseFloat(document.getElementById('deadlift-1rm').value) > 0) exercises.push('deadlift');
+                if (parseFloat(document.getElementById('ohp-1rm').value) > 0) exercises.push('ohp');
+                
+                // Check if all exercises have logged AMRAP results
+                return exercises.every(exercise => amrapResults[exercise] && amrapResults[exercise].reps !== undefined);
+            }
+            
+            // Generate level up buttons with validation
+            function generateLevelUpButtons() {
+                const allLogged = areAllAmrapSetsLogged();
+                const missingExercises = [];
+                
+                // Find which exercises are missing AMRAP logs
+                ['squat', 'bench', 'deadlift', 'ohp'].forEach(exercise => {
+                    const has1RM = parseFloat(document.getElementById(`${exercise}-1rm`).value) > 0;
+                    const hasLogged = amrapResults[exercise] && amrapResults[exercise].reps !== undefined;
+                    if (has1RM && !hasLogged) {
+                        missingExercises.push(exercise.toUpperCase());
+                    }
+                });
+                
+                let html = '';
+                
+                if (allLogged) {
+                    html += '<button id="level-up-button" class="level-up-button" style="width: 100%; margin-top: 1rem;">LEVEL UP! (Complete Cycle & Increase Weights)</button>';
+                } else {
+                    html += '<button id="level-up-button" class="level-up-button" disabled style="opacity: 0.5; cursor: not-allowed; width: 100%; margin-top: 1rem;">LEVEL UP! (Log Week 3 AMRAP Sets First)</button>';
+                    html += `<div class="notes" style="margin-top: 1rem; background-color: #fff3e1; border-left-color: #ff9800;">
+                        <p><strong>⚠️ Cannot Level Up Yet</strong></p>
+                        <p>Please log your Week 3 AMRAP performance for: <strong>${missingExercises.join(', ')}</strong></p>
+                        <p>Go to Week 3, complete your 1+ sets, and log your results to unlock progression.</p>
+                    </div>`;
+                }
+                
+                return html;
+            }
+            
             // Function to render workout plan
             function renderWorkoutPlan() {
                 const resultsContainer = document.getElementById('workout-results');
@@ -1387,8 +1553,51 @@
                             
                             html += `
                                         </tbody>
-                                    </table>
-                                    
+                                    </table>`;
+                            
+                            // Add AMRAP logging section for Week 3 only
+                            if (week === 3) {
+                                const exerciseName = day.mainLift.name.toLowerCase();
+                                const amrapData = amrapResults[exerciseName] || {};
+                                const hasLogged = amrapData.reps !== undefined;
+                                
+                                html += `
+                                    <div class="amrap-logging">
+                                        <h4>📊 Log Your AMRAP Performance (Wendler Philosophy)</h4>
+                                        <p style="margin-bottom: 1rem; font-size: 0.95rem;">
+                                            Your performance on this 1+ set determines your progression for the next cycle.
+                                        </p>`;
+                                
+                                if (hasLogged) {
+                                    html += `
+                                        <div class="amrap-status logged">
+                                            <strong>✓ Logged:</strong> ${amrapData.reps} reps completed | 
+                                            <strong>Decision:</strong> ${amrapData.decision}
+                                        </div>
+                                        <button id="amrap-undo-${exerciseName}" class="amrap-submit-btn" style="background-color: var(--accent);">
+                                            Undo Decision
+                                        </button>`;
+                                } else {
+                                    html += `
+                                        <div class="amrap-input-group">
+                                            <label for="amrap-reps-${exerciseName}">Reps completed on 1+ set:</label>
+                                            <input type="number" id="amrap-reps-${exerciseName}" min="0" max="20" placeholder="0">
+                                        </div>
+                                        
+                                        <div id="amrap-recommendations-${exerciseName}" class="amrap-recommendations" style="display: none;">
+                                            <!-- Options will be populated by JavaScript -->
+                                        </div>
+                                        
+                                        <button id="amrap-submit-${exerciseName}" class="amrap-submit-btn" style="display: none;">
+                                            Apply Progression Decision
+                                        </button>`;
+                                }
+                                
+                                html += `
+                                    </div>`;
+                            }
+                            
+                            html += `
                                     <div class="accessory-section">
                                         <h4>Accessory Work</h4>`;
                             
@@ -1475,12 +1684,7 @@
                                         </ul>
                                     </div>
                                     
-                                    ${isLastDayOfCycle ? `
-                                    <div class="button-group">
-                                        <button id="level-down-button" class="level-down-button">LEVEL DOWN (Decrease Weights)</button>
-                                        <button id="level-up-button" class="level-up-button">LEVEL UP! (Complete Cycle & Increase Weights)</button>
-                                    </div>
-                                    ` : ''}
+                                    ${isLastDayOfCycle ? generateLevelUpButtons() : ''}
                                 </div>
                             </div>`;
                         });
@@ -1492,16 +1696,14 @@
                 
                 resultsContainer.innerHTML = html;
                 
-                // Add event listeners for level buttons
+                // Add event listeners for level up button
                 const levelUpButton = document.getElementById('level-up-button');
                 if (levelUpButton) {
                     levelUpButton.addEventListener('click', levelUp);
                 }
                 
-                const levelDownButton = document.getElementById('level-down-button');
-                if (levelDownButton) {
-                    levelDownButton.addEventListener('click', levelDown);
-                }
+                // Add event listeners for AMRAP logging
+                setupAmrapListeners();
             }
             
             // Function to show specific week content
@@ -1703,78 +1905,423 @@
                 }
             });
 
-            // Function to level down (decrease weights)
-            function levelDown() {
-                // Don't allow level to go below 1
-                if (userLevel <= 1) {
-                    alert("You are already at Level 1. Cannot decrease level further.");
+            // Setup AMRAP logging event listeners
+            function setupAmrapListeners() {
+                const exercises = ['squat', 'bench', 'deadlift', 'ohp'];
+                
+                exercises.forEach(exercise => {
+                    const repsInput = document.getElementById(`amrap-reps-${exercise}`);
+                    if (repsInput) {
+                        repsInput.addEventListener('input', () => {
+                            const reps = parseInt(repsInput.value);
+                            if (reps >= 0) {
+                                showAmrapOptions(exercise, reps);
+                            } else {
+                                hideAmrapOptions(exercise);
+                            }
+                        });
+                    }
+                    
+                    // Setup undo button if it exists
+                    const undoBtn = document.getElementById(`amrap-undo-${exercise}`);
+                    if (undoBtn) {
+                        undoBtn.addEventListener('click', () => {
+                            undoAmrapDecision(exercise);
+                        });
+                    }
+                });
+            }
+            
+            // Show AMRAP progression options based on reps
+            function showAmrapOptions(exercise, reps) {
+                const recommendationsDiv = document.getElementById(`amrap-recommendations-${exercise}`);
+                const submitBtn = document.getElementById(`amrap-submit-${exercise}`);
+                
+                if (!recommendationsDiv || !submitBtn) return;
+                
+                let optionsHtml = '<p style="margin-bottom: 0.75rem; font-weight: 600;">Choose your progression:</p>';
+                
+                if (reps >= 5) {
+                    // 5+ reps: Earned the increase
+                    const isUpperBody = exercise === 'bench' || exercise === 'ohp';
+                    const increase = isUpperBody ? 5 : 10;
+                    
+                    optionsHtml += `
+                        <div class="amrap-option recommended" onclick="selectAmrapOption('${exercise}', 'earned', ${increase})">
+                            <input type="radio" name="amrap-${exercise}" value="earned">
+                            <div class="amrap-option-content">
+                                <div class="amrap-option-title">
+                                    ✅ Earned Increase (+${increase} lbs)
+                                    <span class="recommendation-badge badge-recommended">RECOMMENDED</span>
+                                </div>
+                                <div class="amrap-option-description">
+                                    Perfect! Your TM is set correctly. Add ${increase} lbs for next cycle.
+                                </div>
+                            </div>
+                        </div>`;
+                } else if (reps >= 2 && reps <= 4) {
+                    // 2-4 reps: Warning zone
+                    const isUpperBody = exercise === 'bench' || exercise === 'ohp';
+                    const increase = isUpperBody ? 5 : 10;
+                    
+                    optionsHtml += `
+                        <div class="amrap-option warning" onclick="selectAmrapOption('${exercise}', 'smart', 0)">
+                            <input type="radio" name="amrap-${exercise}" value="smart">
+                            <div class="amrap-option-content">
+                                <div class="amrap-option-title">
+                                    🟡 Smart: Keep Same Weight (0 lbs)
+                                    <span class="recommendation-badge badge-recommended">RECOMMENDED</span>
+                                </div>
+                                <div class="amrap-option-description">
+                                    Your TM is getting heavy. Repeat the cycle with the same weight and beat your reps.
+                                </div>
+                            </div>
+                        </div>
+                        <div class="amrap-option warning" onclick="selectAmrapOption('${exercise}', 'aggressive', ${increase})">
+                            <input type="radio" name="amrap-${exercise}" value="aggressive">
+                            <div class="amrap-option-content">
+                                <div class="amrap-option-title">
+                                    ⚡ Aggressive: Add Weight (+${increase} lbs)
+                                    <span class="recommendation-badge badge-warning">RISKY</span>
+                                </div>
+                                <div class="amrap-option-description">
+                                    Warning: Next cycle will be very difficult. Only choose if you're confident.
+                                </div>
+                            </div>
+                        </div>`;
+                } else if (reps >= 0 && reps <= 1) {
+                    // 0-1 rep: Failed - must decrease
+                    optionsHtml += `
+                        <div class="amrap-option danger" onclick="selectAmrapOption('${exercise}', 'decrease', -10)">
+                            <input type="radio" name="amrap-${exercise}" value="decrease">
+                            <div class="amrap-option-content">
+                                <div class="amrap-option-title">
+                                    🔴 Decrease TM (-10%)
+                                    <span class="recommendation-badge badge-danger">REQUIRED</span>
+                                </div>
+                                <div class="amrap-option-description">
+                                    Your TM is too high. You must lower it by 10% before starting the next cycle.
+                                </div>
+                            </div>
+                        </div>`;
+                }
+                
+                recommendationsDiv.innerHTML = optionsHtml;
+                recommendationsDiv.style.display = 'block';
+                submitBtn.style.display = 'block';
+            }
+            
+            // Hide AMRAP options
+            function hideAmrapOptions(exercise) {
+                const recommendationsDiv = document.getElementById(`amrap-recommendations-${exercise}`);
+                const submitBtn = document.getElementById(`amrap-submit-${exercise}`);
+                
+                if (recommendationsDiv) recommendationsDiv.style.display = 'none';
+                if (submitBtn) submitBtn.style.display = 'none';
+            }
+            
+            // Global variable to track selected option
+            let selectedAmrapOptions = {};
+            
+            // Select AMRAP option
+            function selectAmrapOption(exercise, decision, weightChange) {
+                selectedAmrapOptions[exercise] = { decision, weightChange };
+                
+                // Update UI to show selection
+                const recommendationsDiv = document.getElementById(`amrap-recommendations-${exercise}`);
+                if (recommendationsDiv) {
+                    const allOptions = recommendationsDiv.querySelectorAll('.amrap-option');
+                    allOptions.forEach(opt => opt.classList.remove('selected'));
+                    
+                    const selectedOption = Array.from(allOptions).find(opt => 
+                        opt.querySelector(`input[value="${decision}"]`)
+                    );
+                    if (selectedOption) {
+                        selectedOption.classList.add('selected');
+                        selectedOption.querySelector('input').checked = true;
+                    }
+                }
+                
+                // Add click handler to submit button
+                const submitBtn = document.getElementById(`amrap-submit-${exercise}`);
+                if (submitBtn) {
+                    // Remove old event listeners by cloning
+                    const newSubmitBtn = submitBtn.cloneNode(true);
+                    submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
+                    
+                    newSubmitBtn.addEventListener('click', () => {
+                        applyAmrapDecision(exercise);
+                    });
+                }
+            }
+            
+            // Make selectAmrapOption globally available
+            window.selectAmrapOption = selectAmrapOption;
+            
+            // Undo AMRAP decision
+            function undoAmrapDecision(exercise) {
+                const amrapData = amrapResults[exercise];
+                
+                if (!amrapData || amrapData.original1RM === undefined) {
+                    alert('No AMRAP decision to undo.');
                     return;
                 }
                 
-                // Get current 1RM values
-                let squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
-                let bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
-                let deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
-                let ohp1RM = parseFloat(document.getElementById('ohp-1rm').value) || 0;
+                // Confirm undo
+                if (!confirm(`Undo AMRAP decision for ${exercise.toUpperCase()}?\n\nThis will restore the original 1RM value and clear your logged performance.`)) {
+                    return;
+                }
                 
-                // Decrease upper body lifts by 5lbs, lower body by 10lbs
-                if (bench1RM >= 5) bench1RM -= 5;
-                if (ohp1RM >= 5) ohp1RM -= 5;
-                if (squat1RM >= 10) squat1RM -= 10;
-                if (deadlift1RM >= 10) deadlift1RM -= 10;
+                // Restore original 1RM
+                const inputId = `${exercise}-1rm`;
+                document.getElementById(inputId).value = amrapData.original1RM;
                 
-                // Update input fields
-                document.getElementById('squat-1rm').value = squat1RM;
-                document.getElementById('bench-1rm').value = bench1RM;
-                document.getElementById('deadlift-1rm').value = deadlift1RM;
-                document.getElementById('ohp-1rm').value = ohp1RM;
-                
-                // Decrease user level
-                userLevel--;
-                updateLevelDisplay();
-                
-                // Generate new workout plan
-                generateWorkoutPlan();
-                
-                // Reset to week 1
-                currentWeek = 1;
-                currentDay = 0;
-                
-                // Update week tabs UI
-                weekTabs.forEach(tab => {
-                    tab.classList.toggle('active', tab.dataset.week === '1');
-                });
+                // Clear the AMRAP result
+                delete amrapResults[exercise];
                 
                 // Save profile
                 saveProfile();
                 
-                // Show message
-                alert(`You've scaled back to Level ${userLevel}. Your lift weights have been decreased and a new cycle has been generated.`);
+                // Update the UI to show the input form again
+                updateAmrapUI(exercise);
+                
+                // Update level up button status if we're on Week 4
+                updateLevelUpButtonStatus();
             }
-
+            
+            // Apply AMRAP decision
+            function applyAmrapDecision(exercise) {
+                const repsInput = document.getElementById(`amrap-reps-${exercise}`);
+                const selectedOption = selectedAmrapOptions[exercise];
+                
+                if (!repsInput || !selectedOption) return;
+                
+                const reps = parseInt(repsInput.value);
+                const { decision, weightChange } = selectedOption;
+                
+                // Get current 1RM
+                const inputId = `${exercise}-1rm`;
+                let current1RM = parseFloat(document.getElementById(inputId).value) || 0;
+                
+                // Calculate new 1RM based on decision
+                let new1RM;
+                if (decision === 'decrease') {
+                    // Decrease by 10%
+                    new1RM = Math.round(current1RM * 0.9);
+                } else {
+                    // Add the weight change
+                    new1RM = current1RM + weightChange;
+                }
+                
+                // Update the 1RM input
+                document.getElementById(inputId).value = new1RM;
+                
+                // Store the AMRAP result
+                const decisionText = decision === 'earned' ? `Earned +${weightChange}lbs` :
+                                    decision === 'smart' ? 'Keep same weight (Smart)' :
+                                    decision === 'aggressive' ? `Add +${weightChange}lbs (Aggressive)` :
+                                    'Decrease TM by 10%';
+                
+                amrapResults[exercise] = {
+                    reps: reps,
+                    decision: decisionText,
+                    weightChange: new1RM - current1RM,
+                    original1RM: current1RM // Store original for undo
+                };
+                
+                // Save profile
+                saveProfile();
+                
+                // Update the UI to show the logged status
+                updateAmrapUI(exercise);
+                
+                // Update level up button status if we're on Week 4
+                updateLevelUpButtonStatus();
+            }
+            
+            // Update level up button status
+            function updateLevelUpButtonStatus() {
+                const levelUpButton = document.getElementById('level-up-button');
+                if (!levelUpButton) return; // Button not visible (not on Week 4 last day)
+                
+                const allLogged = areAllAmrapSetsLogged();
+                const missingExercises = [];
+                
+                // Find which exercises are missing AMRAP logs
+                ['squat', 'bench', 'deadlift', 'ohp'].forEach(exercise => {
+                    const has1RM = parseFloat(document.getElementById(`${exercise}-1rm`).value) > 0;
+                    const hasLogged = amrapResults[exercise] && amrapResults[exercise].reps !== undefined;
+                    if (has1RM && !hasLogged) {
+                        missingExercises.push(exercise.toUpperCase());
+                    }
+                });
+                
+                // Find the warning message div (next sibling)
+                let warningDiv = levelUpButton.nextElementSibling;
+                if (warningDiv && !warningDiv.classList.contains('notes')) {
+                    warningDiv = null;
+                }
+                
+                if (allLogged) {
+                    // Enable button
+                    levelUpButton.disabled = false;
+                    levelUpButton.style.opacity = '1';
+                    levelUpButton.style.cursor = 'pointer';
+                    levelUpButton.textContent = 'LEVEL UP! (Complete Cycle & Increase Weights)';
+                    
+                    // Remove warning message if it exists
+                    if (warningDiv && warningDiv.querySelector('strong')?.textContent === '⚠️ Cannot Level Up Yet') {
+                        warningDiv.remove();
+                    }
+                } else {
+                    // Disable button
+                    levelUpButton.disabled = true;
+                    levelUpButton.style.opacity = '0.5';
+                    levelUpButton.style.cursor = 'not-allowed';
+                    levelUpButton.textContent = 'LEVEL UP! (Log Week 3 AMRAP Sets First)';
+                    
+                    // Add or update warning message
+                    if (!warningDiv || !warningDiv.querySelector('strong')?.textContent.includes('Cannot Level Up Yet')) {
+                        const newWarning = document.createElement('div');
+                        newWarning.className = 'notes';
+                        newWarning.style.marginTop = '1rem';
+                        newWarning.style.backgroundColor = '#fff3e1';
+                        newWarning.style.borderLeftColor = '#ff9800';
+                        newWarning.innerHTML = `
+                            <p><strong>⚠️ Cannot Level Up Yet</strong></p>
+                            <p>Please log your Week 3 AMRAP performance for: <strong>${missingExercises.join(', ')}</strong></p>
+                            <p>Go to Week 3, complete your 1+ sets, and log your results to unlock progression.</p>
+                        `;
+                        levelUpButton.parentElement.appendChild(newWarning);
+                    } else if (warningDiv) {
+                        // Update existing warning with current missing exercises
+                        warningDiv.innerHTML = `
+                            <p><strong>⚠️ Cannot Level Up Yet</strong></p>
+                            <p>Please log your Week 3 AMRAP performance for: <strong>${missingExercises.join(', ')}</strong></p>
+                            <p>Go to Week 3, complete your 1+ sets, and log your results to unlock progression.</p>
+                        `;
+                    }
+                }
+            }
+            
+            // Update AMRAP UI for a specific exercise
+            function updateAmrapUI(exercise) {
+                const amrapData = amrapResults[exercise] || {};
+                const hasLogged = amrapData.reps !== undefined;
+                
+                // Find the amrap-logging container directly by class and exercise name pattern
+                const allAmrapContainers = document.querySelectorAll('.amrap-logging');
+                let amrapContainer = null;
+                
+                // Find the container that has elements with this exercise name in their IDs
+                for (let container of allAmrapContainers) {
+                    const inputField = container.querySelector(`#amrap-reps-${exercise}`);
+                    const undoBtn = container.querySelector(`#amrap-undo-${exercise}`);
+                    const submitBtn = container.querySelector(`#amrap-submit-${exercise}`);
+                    
+                    if (inputField || undoBtn || submitBtn) {
+                        amrapContainer = container;
+                        break;
+                    }
+                }
+                
+                if (!amrapContainer) return;
+                
+                // Build new HTML content
+                let html = `
+                    <h4>📊 Log Your AMRAP Performance (Wendler Philosophy)</h4>
+                    <p style="margin-bottom: 1rem; font-size: 0.95rem;">
+                        Your performance on this 1+ set determines your progression for the next cycle.
+                    </p>`;
+                
+                if (hasLogged) {
+                    html += `
+                        <div class="amrap-status logged">
+                            <strong>✓ Logged:</strong> ${amrapData.reps} reps completed | 
+                            <strong>Decision:</strong> ${amrapData.decision}
+                        </div>
+                        <button id="amrap-undo-${exercise}" class="amrap-submit-btn" style="background-color: var(--accent);">
+                            Undo Decision
+                        </button>`;
+                } else {
+                    html += `
+                        <div class="amrap-input-group">
+                            <label for="amrap-reps-${exercise}">Reps completed on 1+ set:</label>
+                            <input type="number" id="amrap-reps-${exercise}" min="0" max="20" placeholder="0">
+                        </div>
+                        
+                        <div id="amrap-recommendations-${exercise}" class="amrap-recommendations" style="display: none;">
+                            <!-- Options will be populated by JavaScript -->
+                        </div>
+                        
+                        <button id="amrap-submit-${exercise}" class="amrap-submit-btn" style="display: none;">
+                            Apply Progression Decision
+                        </button>`;
+                }
+                
+                // Update the container HTML
+                amrapContainer.innerHTML = html;
+                
+                // Re-attach event listeners for this specific exercise
+                const repsInput = document.getElementById(`amrap-reps-${exercise}`);
+                if (repsInput) {
+                    repsInput.addEventListener('input', () => {
+                        const reps = parseInt(repsInput.value);
+                        if (reps >= 0) {
+                            showAmrapOptions(exercise, reps);
+                        } else {
+                            hideAmrapOptions(exercise);
+                        }
+                    });
+                }
+                
+                // Setup undo button if it exists
+                const undoBtn = document.getElementById(`amrap-undo-${exercise}`);
+                if (undoBtn) {
+                    undoBtn.addEventListener('click', () => {
+                        undoAmrapDecision(exercise);
+                    });
+                }
+            }
+            
             // Function to level up (increase weights)
             function levelUp() {
-                // Get current 1RM values
+                // Check if all AMRAP sets have been logged
+                if (!areAllAmrapSetsLogged()) {
+                    alert('Please log your Week 3 AMRAP performance for all exercises before leveling up.\n\nGo to Week 3, complete your 1+ sets, and log your results.');
+                    return;
+                }
+                
+                // Get current 1RM values (these may have been modified by AMRAP logging)
                 let squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
                 let bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
                 let deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
                 let ohp1RM = parseFloat(document.getElementById('ohp-1rm').value) || 0;
                 
-                // Increase upper body lifts by 5lbs, lower body by 10lbs
-                if (bench1RM > 0) bench1RM += 5;
-                if (ohp1RM > 0) ohp1RM += 5;
-                if (squat1RM > 0) squat1RM += 10;
-                if (deadlift1RM > 0) deadlift1RM += 10;
+                // Check if any AMRAP results were logged - if not, use standard progression
+                const hasAmrapResults = Object.keys(amrapResults).some(key => amrapResults[key].reps !== undefined);
                 
-                // Update input fields
-                document.getElementById('squat-1rm').value = squat1RM;
-                document.getElementById('bench-1rm').value = bench1RM;
-                document.getElementById('deadlift-1rm').value = deadlift1RM;
-                document.getElementById('ohp-1rm').value = ohp1RM;
+                if (!hasAmrapResults) {
+                    // Standard progression: Increase upper body lifts by 5lbs, lower body by 10lbs
+                    if (bench1RM > 0) bench1RM += 5;
+                    if (ohp1RM > 0) ohp1RM += 5;
+                    if (squat1RM > 0) squat1RM += 10;
+                    if (deadlift1RM > 0) deadlift1RM += 10;
+                    
+                    // Update input fields
+                    document.getElementById('squat-1rm').value = squat1RM;
+                    document.getElementById('bench-1rm').value = bench1RM;
+                    document.getElementById('deadlift-1rm').value = deadlift1RM;
+                    document.getElementById('ohp-1rm').value = ohp1RM;
+                }
+                // If AMRAP results exist, the 1RM values have already been updated
                 
                 // Increase user level
                 userLevel++;
                 updateLevelDisplay();
+                
+                // Clear AMRAP results for the new cycle
+                amrapResults = {};
                 
                 // Generate new workout plan
                 generateWorkoutPlan();
@@ -1792,7 +2339,7 @@
                 saveProfile();
                 
                 // Show success message
-                alert(`Congratulations! You've leveled up to Level ${userLevel}! Your lift weights have been increased and a new cycle has been generated.`);
+                alert(`Congratulations! You've leveled up to Level ${userLevel}! Your lift weights have been ${hasAmrapResults ? 'updated based on your AMRAP performance' : 'increased'} and a new cycle has been generated.`);
             }
         });
     </script>

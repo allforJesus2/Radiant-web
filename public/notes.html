@@ -204,6 +204,84 @@
             background-color: #543;
         }
 
+        /* Sleep form layout styles */
+        .sleep-form-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .sleep-rating-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .sleep-time-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .sleep-rating-container label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 0;
+            cursor: pointer;
+            padding: 4px;
+            border-radius: 3px;
+            font-size: 20px;
+        }
+
+        .sleep-rating-container label:hover {
+            background-color: #333;
+        }
+
+        .sleep-rating-container input[type="radio"] {
+            margin: 0;
+            flex-shrink: 0;
+        }
+
+        .sleep-time-container label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 0;
+        }
+
+        .sleep-time-container input {
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        .sleep-duration-slider {
+            margin-top: 8px;
+        }
+
+        .sleep-duration-slider input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+
+        .sleep-duration-slider .slider-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #ccc;
+            margin-top: 5px;
+        }
+
+        /* Mobile responsive for sleep form */
+        @media (max-width: 768px) {
+            .sleep-form-container {
+                flex-direction: column;
+                gap: 15px;
+            }
+        }
+
         .calendar-container {
             margin-top: 20px;
         }
@@ -408,6 +486,7 @@
         <div class="tab-container">
             <div class="tab-buttons">
                 <button class="tab-btn active" onclick="switchTab('notes')">📝 Daily Notes</button>
+                <button class="tab-btn" onclick="switchTab('sleep')">😴 Sleep</button>
                 <button class="tab-btn" onclick="switchTab('calendar')">📅 Calendar View</button>
             </div>
             
@@ -438,6 +517,49 @@
                 </div>
             </div>
             
+            <!-- Sleep Tab -->
+            <div id="sleepTab" class="tab-content">
+                <form id="sleepForm">
+                    <div class="sleep-form-container">
+                        <div class="sleep-rating-container">
+                            <h3>Sleep Quality Rating</h3>
+                            <label><input type="radio" name="sleepRating" value="1"> Ugh X(</label>
+                            <label><input type="radio" name="sleepRating" value="2"> eh :(</label>
+                            <label><input type="radio" name="sleepRating" value="3"> meh</label>
+                            <label><input type="radio" name="sleepRating" value="4"> Good-nuf</label>
+                            <label><input type="radio" name="sleepRating" value="5"> between goodnuf and excellent</label>
+                            <label><input type="radio" name="sleepRating" value="6"> Excellent</label>
+                            <label><input type="radio" name="sleepRating" value="7"> Dreambaby</label>
+                        </div>
+                        
+                        <div class="sleep-time-container">
+                            <h3>Sleep Schedule</h3>
+                            <label for="timeInBed">
+                                Time to Bed
+                                <input type="time" id="timeInBed" name="timeInBed" onchange="calculateSleepDuration()">
+                            </label>
+                            <label for="wakeUpTime">
+                                Wake Up Time
+                                <input type="time" id="wakeUpTime" name="wakeUpTime" onchange="calculateSleepDuration()">
+                            </label>
+                            <label for="sleepHours">
+                                Sleep Duration (hours)
+                                <input type="number" id="sleepHours" name="sleepHours" min="0" max="24" step="0.5" placeholder="8.5" onchange="updateSleepDurationFromInput()">
+                                <div class="sleep-duration-slider">
+                                    <input type="range" id="sleepDurationSlider" min="0" max="24" step="0.5" value="8.5" oninput="updateSleepDurationFromSlider()">
+                                    <div class="slider-labels">
+                                        <span>0h</span>
+                                        <span id="sliderValue">8.5h</span>
+                                        <span id="maxDuration">24h</span>
+                                    </div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    <button type="button" class="notes-btn" onclick="saveSleepData()">Save Sleep Data</button>
+                </form>
+            </div>
+
             <!-- Calendar View Tab -->
             <div id="calendarTab" class="tab-content">
                 <div class="calendar-container">
@@ -600,11 +722,13 @@
             const textarea = document.getElementById('notesTextarea');
             const saveBtn = document.querySelector('button[onclick="saveNotes()"]');
             const clearBtn = document.querySelector('button[onclick="clearNotes()"]');
+            const saveSleepBtn = document.querySelector('button[onclick="saveSleepData()"]');
+            const sleepForm = document.getElementById('sleepForm');
             
             const isEditable = isToday(currentSelectedDate);
             
             if (isEditable) {
-                // Enable editing
+                // Enable editing for notes
                 textarea.disabled = false;
                 textarea.classList.remove('read-only');
                 textarea.placeholder = "Write your daily notes here...";
@@ -612,8 +736,13 @@
                 saveBtn.classList.remove('disabled');
                 clearBtn.disabled = false;
                 clearBtn.classList.remove('disabled');
+                // Enable editing for sleep
+                saveSleepBtn.disabled = false;
+                saveSleepBtn.classList.remove('disabled');
+                sleepForm.querySelectorAll('input').forEach(input => input.disabled = false);
+
             } else {
-                // Disable editing
+                // Disable editing for notes
                 textarea.disabled = true;
                 textarea.classList.add('read-only');
                 textarea.placeholder = "Read-only: You can only edit notes for today's date";
@@ -621,6 +750,10 @@
                 saveBtn.classList.add('disabled');
                 clearBtn.disabled = true;
                 clearBtn.classList.add('disabled');
+                // Disable editing for sleep
+                saveSleepBtn.disabled = true;
+                saveSleepBtn.classList.add('disabled');
+                sleepForm.querySelectorAll('input').forEach(input => input.disabled = true);
             }
         }
 
@@ -646,6 +779,31 @@
             
             document.getElementById('notesTextarea').value = savedNotes;
             updateDailySummary(date);
+            loadSleepDataForDate(date);
+        }
+
+        function loadSleepDataForDate(date) {
+            const dateKey = getDateKey(date);
+            const sleepData = JSON.parse(localStorage.getItem('sleep')) || {};
+            const todayData = sleepData[dateKey] || {};
+
+            document.getElementById('sleepHours').value = todayData.sleepHours || '';
+            document.getElementById('timeInBed').value = todayData.timeInBed || '';
+            document.getElementById('wakeUpTime').value = todayData.wakeUpTime || '';
+
+            const rating = todayData.sleepRating;
+            if (rating) {
+                const ratingInput = document.querySelector(`input[name="sleepRating"][value="${rating}"]`);
+                if (ratingInput) {
+                    ratingInput.checked = true;
+                }
+            } else {
+                // Uncheck all radio buttons if no rating
+                document.querySelectorAll('input[name="sleepRating"]').forEach(radio => radio.checked = false);
+            }
+            
+            // Auto-calculate sleep duration when loading data
+            calculateSleepDuration();
         }
 
         function updateDailySummary(date) {
@@ -695,11 +853,20 @@
                     const dayData = sleep[dateKey];
                     
                     if (dayData) {
-                        // Sleep data is stored as a rating value (1-5 or similar)
-                        const rating = dayData;
-                        const ratingText = getSleepRatingText(rating);
+                        const rating = dayData.sleepRating;
+                        const hours = dayData.sleepHours;
                         
-                        sleepSummary.textContent = ratingText;
+                        if (rating) {
+                            const ratingText = getSleepRatingText(rating);
+                            sleepSummary.textContent = ratingText;
+                            if (hours) {
+                                sleepSummary.textContent += ` (${hours} hrs)`;
+                            }
+                        } else if (hours) {
+                            sleepSummary.textContent = `${hours} hrs`;
+                        } else {
+                            sleepSummary.textContent = 'No data';
+                        }
                     } else {
                         sleepSummary.textContent = 'No data';
                     }
@@ -722,6 +889,110 @@
                 '7': 'Dreambaby'
             };
             return `${rating}: ${ratingMap[rating] || 'Unknown'}`;
+        }
+
+        function calculateSleepDuration() {
+            const timeInBed = document.getElementById('timeInBed').value;
+            const wakeUpTime = document.getElementById('wakeUpTime').value;
+            const sleepHoursInput = document.getElementById('sleepHours');
+            const slider = document.getElementById('sleepDurationSlider');
+            const sliderValue = document.getElementById('sliderValue');
+            const maxDuration = document.getElementById('maxDuration');
+            
+            if (timeInBed && wakeUpTime) {
+                // Convert time strings to Date objects for the same day
+                const bedTime = new Date(`2000-01-01T${timeInBed}`);
+                const wakeTime = new Date(`2000-01-01T${wakeUpTime}`);
+                
+                // If wake time is earlier than bed time, assume it's the next day
+                if (wakeTime <= bedTime) {
+                    wakeTime.setDate(wakeTime.getDate() + 1);
+                }
+                
+                // Calculate difference in hours
+                const diffMs = wakeTime - bedTime;
+                const diffHours = diffMs / (1000 * 60 * 60);
+                
+                // Round to nearest 0.5 hour
+                const roundedHours = Math.round(diffHours * 2) / 2;
+                
+                // Update the input and slider
+                sleepHoursInput.value = roundedHours;
+                slider.value = roundedHours;
+                slider.max = roundedHours;
+                sliderValue.textContent = roundedHours + 'h';
+                maxDuration.textContent = roundedHours + 'h';
+            } else {
+                sleepHoursInput.value = '';
+                slider.value = 0;
+                slider.max = 24;
+                sliderValue.textContent = '0h';
+                maxDuration.textContent = '24h';
+            }
+        }
+
+        function updateSleepDurationFromSlider() {
+            const slider = document.getElementById('sleepDurationSlider');
+            const sleepHoursInput = document.getElementById('sleepHours');
+            const sliderValue = document.getElementById('sliderValue');
+            
+            const value = parseFloat(slider.value);
+            sleepHoursInput.value = value;
+            sliderValue.textContent = value + 'h';
+        }
+
+        function updateSleepDurationFromInput() {
+            const sleepHoursInput = document.getElementById('sleepHours');
+            const slider = document.getElementById('sleepDurationSlider');
+            const sliderValue = document.getElementById('sliderValue');
+            
+            const value = parseFloat(sleepHoursInput.value);
+            if (value <= parseFloat(slider.max)) {
+                slider.value = value;
+                sliderValue.textContent = value + 'h';
+            } else {
+                // If input exceeds max, reset to max
+                sleepHoursInput.value = slider.max;
+                slider.value = slider.max;
+                sliderValue.textContent = slider.max + 'h';
+            }
+        }
+
+        function saveSleepData() {
+            if (!isToday(currentSelectedDate)) {
+                alert('You can only edit sleep data for today\'s date.');
+                return;
+            }
+
+            const dateKey = getDateKey(currentSelectedDate);
+            const sleepData = JSON.parse(localStorage.getItem('sleep')) || {};
+
+            if (!sleepData[dateKey]) {
+                sleepData[dateKey] = {};
+            }
+
+            sleepData[dateKey].sleepHours = document.getElementById('sleepHours').value;
+            sleepData[dateKey].timeInBed = document.getElementById('timeInBed').value;
+            sleepData[dateKey].wakeUpTime = document.getElementById('wakeUpTime').value;
+            
+            const selectedRating = document.querySelector('input[name="sleepRating"]:checked');
+            if (selectedRating) {
+                sleepData[dateKey].sleepRating = selectedRating.value;
+            }
+
+            localStorage.setItem('sleep', JSON.stringify(sleepData));
+
+            if (event && event.target) {
+                const saveBtn = event.target;
+                const originalText = saveBtn.textContent;
+                saveBtn.textContent = 'Saved!';
+                saveBtn.style.backgroundColor = '#543';
+                setTimeout(() => {
+                    saveBtn.textContent = originalText;
+                    saveBtn.style.backgroundColor = '';
+                }, 1000);
+            }
+            updateDailySummary(currentSelectedDate);
         }
 
         function saveNotes() {

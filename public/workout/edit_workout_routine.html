@@ -4,395 +4,446 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Edit Workout Routine</title>
-	<link rel="stylesheet" href="../dark-theme.css">
+    <link rel="stylesheet" href="../dark-theme.css">
+    <link rel="stylesheet" href="../navigation.css">
+    <script src="../navigation.js"></script>
     <script src="workout-utils.js"></script>
     <style>
-        .nav-bar {
+        body {
             display: flex;
-            justify-content: space-around;
-            padding: 10px;
-            background-color: #333;
-            margin-bottom: 20px;
+            flex-direction: column;
+            align-items: center; /* Center horizontally */
+            min-height: 100vh; /* Minimum viewport height */
+            margin: 0; /* Remove default margin */
+            padding: 20px 10px; /* Add padding for mobile */
         }
-        .nav-bar a {
-            color: white;
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-        }
-        .nav-bar a:hover {
-            background-color: #555;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        .exercise-item {
+
+        .button-group {
             display: flex;
+            gap: 10px;
+            margin: 20px 0;
             justify-content: space-between;
-            align-items: center;
-            padding: 10px;
-            margin: 5px 0;
-            background-color: #333;
-            border-radius: 4px;
         }
-        .exercise-item button {
-            margin-left: 10px;
+
+        .button-group .btn {
+            flex: 1;
         }
-        .back-button {
-            margin-bottom: 20px;
-            padding: 8px 16px;
-            background-color: #555;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .back-button:hover {
-            background-color: #666;
-        }
-        .info-container {
-            margin-bottom: 20px;
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .info-section {
-            margin-bottom: 20px;
+
+        .workout-option {
+            margin: 20px 0;
             padding: 15px;
-            background-color: #2c2c2c;
-            border-radius: 4px;
-            border-left: 4px solid #4CAF50;
-        }
-        .info-section h3 {
-            margin-top: 0;
-            color: #4CAF50;
-        }
-        .info-section p {
-            margin-bottom: 10px;
-            line-height: 1.5;
-        }
-        .info-section ul {
-            padding-left: 20px;
-        }
-        .info-section li {
-            margin-bottom: 5px;
-        }
-        .info-section .section-title {
-            font-weight: bold;
-            color: #4CAF50;
-            margin-top: 10px;
-            margin-bottom: 5px;
-        }
-        .toggle-info {
-            background: none;
-            border: none;
-            color: #4CAF50;
-            cursor: pointer;
-            font-size: 1em;
-            padding: 0;
-            margin-bottom: 10px;
-            display: flex;
-            align-items: center;
-        }
-        .toggle-info:hover {
-            text-decoration: underline;
-        }
-        .toggle-info::before {
-            content: '▼';
-            margin-right: 5px;
-            transition: transform 0.3s;
-        }
-        .toggle-info.collapsed::before {
-            content: '►';
-        }
-        .info-content {
-            transition: max-height 0.3s ease-out;
-            max-height: 1000px;
-            overflow: hidden;
-        }
-        .info-content.collapsed {
-            max-height: 0;
-        }
-        #workout-input {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 20px;
-            padding: 15px;
-            background-color: #333;
-            border-radius: 4px;
-        }
-        .advanced-section {
-            grid-column: span 2;
-            margin-top: 10px;
-            padding: 15px;
-            background-color: #2c2c2c;
-            border-radius: 4px;
-            border-left: 4px solid #4CAF50;
-        }
-        .advanced-section h4 {
-            color: #4CAF50;
-            margin-bottom: 10px;
-            cursor: pointer;
-            user-select: none;
-        }
-        .advanced-section h4::before {
-            content: '▼ ';
-            font-size: 0.8em;
-        }
-        .advanced-section.collapsed h4::before {
-            content: '► ';
-        }
-        .advanced-content {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .advanced-section.collapsed .advanced-content {
-            display: none;
-        }
-        .checkbox-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .checkbox-group input[type="checkbox"] {
-            width: auto;
-            transform: scale(1.2);
-        }
-        #workout-input div {
-            display: flex;
-            align-items: center;
-            min-width: 0;
-        }
-        #workout-input span {
-            margin-right: 10px;
-            font-size: 1.2em;
-            flex-shrink: 0;
-        }
-        #workout-input input {
-            flex: 1;
-            min-width: 0;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #555;
-            background-color: #444;
-            color: white;
-        }
-        #workout-input .button-container {
-            grid-column: span 2;
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        #workout-input .add-button {
-            flex: 1;
-            padding: 10px 15px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        #workout-input .add-button:hover {
-            background-color: #45a049;
-        }
-        #workout-input .update-button {
-            flex: 1;
-            padding: 10px 15px;
-            background-color: #2196F3;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: none;
-        }
-        #workout-input .update-button:hover {
-            background-color: #1976D2;
-        }
-        #workout-input .add-copy-button {
-            flex: 1;
-            padding: 10px 15px;
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: none;
-        }
-        #workout-input .add-copy-button:hover {
-            background-color: #45a049;
-        }
-        #workout-input .cancel-button {
-            flex: 1;
-            padding: 10px 15px;
-            background-color: #f44336;
-            color: white;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            display: none;
-        }
-        #workout-input .cancel-button:hover {
-            background-color: #d32f2f;
-        }
-        #exercise-list {
-            list-style-type: none;
-            padding: 0;
-        }
-        #exercise-list li {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 15px;
-            margin: 5px 0;
-            background-color: #333;
-            border-radius: 4px;
-            cursor: move;
-            border: 2px solid transparent;
+            border: 1px solid var(--input, #555);
+            border-radius: 8px;
+            background-color: var(--background, #222);
             transition: all 0.3s ease;
-            touch-action: none;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
         }
-        #exercise-list li:hover {
-            background-color: #444;
+
+        .workout-option:hover {
+            border-color: #007BFF;
+            background-color: rgba(0, 123, 255, 0.1);
         }
-        #exercise-list li.selected {
-            border-color: #ff8c00;
-            background-color: #3a3a3a;
+
+        .workout-label {
+            display: flex;
+            align-items: flex-start;
+            cursor: pointer;
+            width: 100%;
         }
-        #exercise-list li.dragging {
-            opacity: 0.5;
-            background-color: #444;
-            transform: scale(1.02);
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+
+        .workout-label input[type="radio"] {
+            margin-right: 15px;
+            margin-top: 3px;
         }
-        #exercise-list li.drag-over {
-            border-top: 2px solid #ff8c00;
-            transform: translateY(2px);
+
+        .workout-content {
+            flex: 1;
         }
-        #exercise-list .exercise-info {
-            flex-grow: 1;
-            margin-right: 10px;
+
+        .workout-title {
+            font-weight: bold;
+            font-size: 1.1em;
+            margin-bottom: 8px;
+            color: var(--text, #fff);
         }
-        #exercise-list .exercise-info .exercise-name {
+
+        .workout-description {
+            font-size: 0.9em;
+            line-height: 1.4;
+            color: var(--text, #fff);
+            opacity: 0.8;
+        }
+
+        .workout-option:has(input[type="radio"]:checked) {
+            border-color: #007BFF;
+            background-color: rgba(0, 123, 255, 0.15);
+        }
+
+        .workout-option:has(input[type="radio"]:checked) .workout-title {
+            color: #007BFF;
+        }
+
+        .workout-explanation {
+            max-width: 800px;
+            margin: 0 auto 30px auto;
+            background-color: rgba(0, 123, 255, 0.1);
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            border-radius: 8px;
+            text-align: left;
+            overflow: hidden;
+        }
+
+        .explanation-header {
+            padding: 15px 20px;
+            cursor: pointer;
+            background-color: rgba(0, 123, 255, 0.15);
+            transition: background-color 0.3s ease;
+        }
+
+        .explanation-header:hover {
+            background-color: rgba(0, 123, 255, 0.25);
+        }
+
+        .explanation-header h3 {
+            margin: 0;
+            color: var(--text, #fff);
+            font-size: 1.1em;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #toggleIcon {
+            font-size: 0.8em;
+            transition: transform 0.3s ease;
+        }
+
+        .explanation-content {
+            padding: 0 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .explanation-content.expanded {
+            padding: 20px;
+            max-height: 300px;
+        }
+
+        .explanation-content p {
+            margin: 0 0 15px 0;
+            line-height: 1.6;
+            color: var(--text, #fff);
+        }
+
+        .explanation-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        .explanation-content strong {
+            color: #007BFF;
+        }
+
+        .selection-instruction {
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .selection-instruction h3 {
+            color: var(--text, #fff);
             font-size: 1.2em;
-            font-weight: 500;
-            margin-bottom: 2px;
+            margin: 0;
+            font-weight: normal;
         }
-        #exercise-list .exercise-info .exercise-details {
-            color: #999;
+
+        /* Form styling */
+        #workout-input {
+            background-color: var(--background, #222);
+            border: 1px solid var(--input, #555);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        #workout-input > div {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+            flex-wrap: wrap;
+        }
+
+        #workout-input input, #workout-input select {
+            background-color: var(--input, #333);
+            border: 1px solid var(--input, #555);
+            color: var(--text, #fff);
+            padding: 8px 12px;
+            border-radius: 4px;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        #workout-input input:focus, #workout-input select:focus {
+            outline: none;
+            border-color: #007BFF;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+        }
+
+        #workout-input span {
+            color: var(--text, #fff);
+            font-size: 1.2em;
+            min-width: 30px;
+        }
+
+        #workout-input label {
+            color: var(--text, #fff);
+            margin-right: 10px;
+            min-width: 80px;
+        }
+
+        #workout-input button {
+            background-color: #007BFF;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            transition: background-color 0.3s ease;
+        }
+
+        #workout-input button:hover {
+            background-color: #0056b3;
+        }
+
+        #workout-input button:disabled {
+            background-color: #666;
+            cursor: not-allowed;
+        }
+
+        /* Exercise list styling */
+        #exercise-list {
+            list-style: none;
+            padding: 0;
+            margin: 20px 0;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        #exercise-list li {
+            background-color: var(--background, #222);
+            border: 1px solid var(--input, #555);
+            border-radius: 8px;
+            margin: 10px 0;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        #exercise-list li:hover {
+            border-color: #007BFF;
+            background-color: rgba(0, 123, 255, 0.1);
+        }
+
+        #exercise-list li div:first-child {
+            flex: 1;
+        }
+
+        #exercise-list li div:first-child div:first-child {
+            font-weight: bold;
+            color: var(--text, #fff);
+            margin-bottom: 5px;
+        }
+
+        #exercise-list li div:first-child div:last-child {
+            color: var(--text, #fff);
+            opacity: 0.8;
             font-size: 0.9em;
         }
-        #exercise-list .button-container {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            white-space: nowrap;
-        }
-        #exercise-list .button-container button {
-            background: none;
+
+        #exercise-list li button {
+            background-color: #dc3545;
+            color: #fff;
             border: none;
-            font-size: 1.2em;
+            padding: 5px 10px;
+            border-radius: 4px;
             cursor: pointer;
-            padding: 4px;
-            transition: transform 0.2s;
+            margin-left: 10px;
+        }
+
+        #exercise-list li button:hover {
+            background-color: #c82333;
+        }
+
+        /* Advanced section styling */
+        #advanced-section {
+            margin: 20px auto 30px auto;
+            max-width: 800px;
+            width: 100%;
+            background-color: rgba(0, 123, 255, 0.1);
+            border: 1px solid rgba(0, 123, 255, 0.3);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        #advanced-section h4 {
+            color: var(--text, #fff);
+            cursor: pointer;
+            margin: 0;
+            padding: 15px 20px;
+            background-color: rgba(0, 123, 255, 0.15);
+            border-radius: 0;
+            transition: background-color 0.3s ease;
             display: flex;
+            justify-content: space-between;
             align-items: center;
-            justify-content: center;
+            font-size: 1.1em;
         }
-        #exercise-list .button-container button:hover {
-            transform: scale(1.2);
+
+        #advanced-section h4:hover {
+            background-color: rgba(0, 123, 255, 0.25);
         }
-        #exercise-list .button-container .move-button:hover {
-            color: #4CAF50;
+
+        #advanced-toggle-icon {
+            font-size: 0.8em;
+            transition: transform 0.3s ease;
         }
-        #exercise-list .button-container .delete-button:hover {
-            color: #f44336;
+
+        #advanced-section > div {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.3s ease;
+            padding: 0 20px;
         }
-        @media (max-width: 600px) {
-            #workout-input {
-                grid-template-columns: 1fr;
+
+        #advanced-section > div.expanded {
+            max-height: 500px;
+            padding: 20px;
+        }
+
+        #advanced-section > div > div {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        #advanced-section input, #advanced-section select {
+            background-color: var(--input, #333);
+            border: 1px solid var(--input, #555);
+            color: var(--text, #fff);
+            padding: 8px 12px;
+            border-radius: 4px;
+            flex: 1;
+            min-width: 120px;
+        }
+
+        #advanced-section input:focus, #advanced-section select:focus {
+            outline: none;
+            border-color: #007BFF;
+            box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+        }
+
+        #advanced-section label {
+            color: var(--text, #fff);
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+
+        /* Mobile responsive styles */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px 5px;
             }
-            #workout-input .button-container {
-                grid-column: 1;
-                display: flex;
-                flex-direction: row;
-                gap: 5px;
+            
+            h1 {
+                font-size: 1.5em;
+                margin: 10px 0;
             }
-            #workout-input .button-container button {
-                flex: 1;
+            
+            .workout-explanation {
+                margin: 0 auto 20px auto;
+            }
+            
+            .explanation-header {
+                padding: 12px 15px;
+            }
+            
+            .explanation-header h3 {
+                font-size: 1em;
+            }
+            
+            .explanation-content.expanded {
+                padding: 15px;
+            }
+            
+            .explanation-content p {
                 font-size: 0.9em;
-                padding: 8px;
+            }
+            
+            .workout-option {
+                margin: 15px 0;
+                padding: 12px;
+            }
+            
+            .workout-title {
+                font-size: 1em;
+            }
+            
+            .workout-description {
+                font-size: 0.85em;
+            }
+            
+            .button-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .button-group .btn {
+                width: 100%;
+            }
+
+            #workout-input > div {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            #workout-input input, #workout-input select {
+                min-width: auto;
+            }
+
+            #advanced-section > div {
+                grid-template-columns: 1fr;
             }
         }
     </style>
 </head>
 <body>
-    <div class="nav-bar">
-        <a href="../index.html">Home</a>
-        <a href="workout.html">Today's Workout</a>
-        <a href="workout_routine.html">Workout Routines</a>
-        <a href="set_workout_day.html">Schedule</a>
+    <div class="progress-indicator">
+        <!-- Progress indicator will be rendered by navigation.js -->
     </div>
     
-    <div class="container">
-        <button class="back-button" onclick="window.location.href='workout_routine.html'">← Back to Routines</button>
-        <h1 id="routine-name"></h1>
-        
-        <div class="info-container">
-            <div class="info-section">
-                <button class="toggle-info collapsed" onclick="toggleInfo(this)">Muscle Growth Guidelines</button>
-                <div class="info-content collapsed">
-                    <p>For optimal muscle growth (hypertrophy), the consensus among experts is to perform 3-4 sets of 8-12 repetitions per exercise. This rep range effectively targets fast-twitch muscle fibers, which are more prone to growth in response to resistance training.</p>
-                    
-                    <div class="section-title">Key Factors for Muscle Growth</div>
-                    <ul>
-                        <li><strong>Volume:</strong> Aim for 10-20 sets per muscle group per week, with some research suggesting that 30-40 sets per week may yield the best hypertrophy results.</li>
-                        <li><strong>Weight:</strong> Choose a weight that allows you to reach muscle failure within the target rep range. If you can easily do more than 12 reps, increase the weight.</li>
-                        <li><strong>Frequency:</strong> Work each muscle group at least 2-3 times per week for optimal growth.</li>
-                        <li><strong>Progressive Overload:</strong> Gradually increase the difficulty of your exercises over time by adjusting weight, reps, or intensity to continue stimulating muscle growth.</li>
-                    </ul>
-                    
-                    <div class="section-title">Additional Considerations</div>
-                    <ul>
-                        <li><strong>Rest Periods:</strong> For hypertrophy-focused training, rest 30-90 seconds between sets.</li>
-                        <li><strong>Exercise Selection:</strong> Prioritize multi-joint movements like bench press, squats, and deadlifts, which recruit more total muscle mass.</li>
-                        <li><strong>Training to Failure:</strong> Aim to finish your sets 0-5 reps short of failure for optimal results without excessive fatigue.</li>
-                        <li><strong>Variation:</strong> While 8-12 reps is generally recommended, incorporating some lower (6-8) and higher (12-15) rep ranges can be beneficial for overall muscle development.</li>
-                    </ul>
-                    
-                    <p>By following these guidelines and consistently challenging your muscles, you can create an optimal environment for muscle growth.</p>
-                </div>
-            </div>
-            
-            <div class="info-section">
-                <button class="toggle-info collapsed" onclick="toggleInfo(this)">Weight Loss Guidelines</button>
-                <div class="info-content collapsed">
-                    <p>For weight loss, the optimal rep and set range typically involves higher repetitions with moderate weights to maximize calorie burn and improve muscular endurance.</p>
-                    
-                    <div class="section-title">Reps and Sets for Weight Loss</div>
-                    <ul>
-                        <li>Perform 2-4 sets of 10-15 repetitions per exercise. This range is ideal for fat loss as it increases time under tension, which enhances calorie expenditure and metabolic activity.</li>
-                        <li>Compound exercises (e.g., squats, deadlifts, push-ups) are especially effective because they engage multiple muscle groups and burn more calories.</li>
-                    </ul>
-                    
-                    <div class="section-title">Additional Guidelines</div>
-                    <ul>
-                        <li><strong>Strength Training:</strong> Incorporate strength training to build muscle mass, which boosts your resting metabolic rate. Aim for 4-8 total sets per muscle group per session.</li>
-                        <li><strong>Cardio:</strong> Combine strength training with cardiovascular exercises like running, cycling, or interval training for a balanced approach to weight loss. The recommended cardio duration is 150 minutes of moderate intensity or 75 minutes of high intensity per week.</li>
-                        <li><strong>Progressive Overload:</strong> Gradually increase weights or reps to challenge your muscles and maintain progress.</li>
-                        <li><strong>Rest Periods:</strong> Rest for 30-60 seconds between sets to keep your heart rate elevated and promote calorie burn.</li>
-                    </ul>
-                    
-                    <p>While exercise plays a crucial role, weight loss ultimately depends on maintaining a calorie deficit through a combination of diet and physical activity.</p>
-                </div>
-            </div>
+    <div class="button-group">
+        <button class="btn" onclick="window.location.href='workout_routine.html'">← Back to Routines</button>
+    </div>
+    
+    <h1 id="routine-name"></h1>
+    
+    <div class="workout-explanation">
+        <div class="explanation-header" onclick="toggleInfo(this)">
+            <h3>Workout Guidelines <span id="toggleIcon">▼</span></h3>
         </div>
+        <div class="explanation-content" id="explanationContent">
+            <p><strong>Muscle Growth:</strong> 3-4 sets of 8-12 reps per exercise. Work each muscle group 2-3 times per week.</p>
+            <p><strong>Weight Loss:</strong> 2-4 sets of 10-15 reps per exercise. Combine with cardio for best results.</p>
+        </div>
+    </div>
         
         <div id="workout-input">
             <div>
@@ -450,60 +501,56 @@
                     <option value="min">min</option>
                 </select>
             </div>
-            <div style="grid-column: span 2; display: block;">
-                <span>📝</span>
-                <input type="text" id="notes" placeholder="Notes (optional)" style="width: calc(100% - 40px);">
-            </div>
 
-            <!-- Advanced Settings Section -->
-            <div class="advanced-section collapsed" id="advanced-section">
-                <h4 onclick="toggleAdvanced()">Advanced Settings (1RM, Progression, etc.)</h4>
-                <div class="advanced-content">
-                    <div>
-                        <span>🏋️</span>
-                        <input type="number" id="oneRepMax" placeholder="1RM (optional)">
-                    </div>
-                    <div>
-                        <span>📈</span>
-                        <input type="number" id="trainingMaxPercent" placeholder="TM % (90)" value="90" min="1" max="100">
-                    </div>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="progressionEnabled">
-                        <label for="progressionEnabled">Enable Progression</label>
-                    </div>
-                    <div>
-                        <span>➕</span>
-                        <input type="number" id="progressionIncrement" placeholder="Increment (lbs)" value="5" min="0" step="2.5">
-                    </div>
-                    <div>
-                        <span>🎯</span>
-                        <select id="category">
-                            <option value="compound">Compound</option>
-                            <option value="accessory">Accessory</option>
-                            <option value="cardio">Cardio</option>
-                            <option value="core">Core</option>
-                        </select>
-                    </div>
-                    <div class="checkbox-group">
-                        <input type="checkbox" id="amrap">
-                        <label for="amrap">AMRAP Set</label>
-                    </div>
-                    <div>
-                        <span>😓</span>
-                        <input type="number" id="rpe" placeholder="RPE (1-10)" min="1" max="10">
-                    </div>
-                    <div>
-                        <span>⏸️</span>
-                        <input type="number" id="restTime" placeholder="Rest (sec)" value="90" min="0">
-                    </div>
+            <div>
+                <button id="add-button" onclick="addExercise()">ADD EXERCISE</button>
+                <button id="update-button" style="display: none;">UPDATE</button>
+                <button id="add-copy-button" style="display: none;">ADD COPY</button>
+                <button id="cancel-button" style="display: none;">CANCEL</button>
+            </div>
+        </div>
+
+        <!-- Advanced Settings Section -->
+        <div id="advanced-section">
+            <h4 onclick="toggleAdvanced()">Advanced Settings <span id="advanced-toggle-icon">▼</span></h4>
+            <div>
+                <div>
+                    <label for="oneRepMax">1RM:</label>
+                    <input type="number" id="oneRepMax" placeholder="optional">
                 </div>
-            </div>
-
-            <div class="button-container">
-                <button id="add-button" class="add-button" onclick="addExercise()">ADD EXERCISE</button>
-                <button id="update-button" class="update-button" style="display: none;">UPDATE</button>
-                <button id="add-copy-button" class="add-copy-button" style="display: none;">ADD COPY</button>
-                <button id="cancel-button" class="cancel-button" style="display: none;">CANCEL</button>
+                <div>
+                    <label for="trainingMaxPercent">TM %:</label>
+                    <input type="number" id="trainingMaxPercent" placeholder="90" value="90">
+                </div>
+                <div>
+                    <input type="checkbox" id="progressionEnabled">
+                    <label for="progressionEnabled">Enable Progression</label>
+                </div>
+                <div>
+                    <label for="progressionIncrement">Increment:</label>
+                    <input type="number" id="progressionIncrement" placeholder="lbs" value="5">
+                </div>
+                <div>
+                    <label for="category">Category:</label>
+                    <select id="category">
+                        <option value="compound">Compound</option>
+                        <option value="accessory">Accessory</option>
+                        <option value="cardio">Cardio</option>
+                        <option value="core">Core</option>
+                    </select>
+                </div>
+                <div>
+                    <input type="checkbox" id="amrap">
+                    <label for="amrap">AMRAP Set</label>
+                </div>
+                <div>
+                    <label for="rpe">Rate of Perceived Exertion: <span id="rpe-value">5</span></label>
+                    <input type="range" id="rpe" min="1" max="10" value="5" step="1">
+                </div>
+                <div>
+                    <label for="restTime">Rest Time:</label>
+                    <input type="number" id="restTime" placeholder="seconds" value="90">
+                </div>
             </div>
         </div>
 
@@ -519,20 +566,36 @@
         document.getElementById('routine-name').textContent = decodeURIComponent(selectedRoutine);
 
         function toggleInfo(button) {
-            button.classList.toggle('collapsed');
-            const content = button.nextElementSibling;
-            content.classList.toggle('collapsed');
+            const content = document.getElementById('explanationContent');
+            const icon = document.getElementById('toggleIcon');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                icon.textContent = '▼';
+            } else {
+                content.classList.add('expanded');
+                icon.textContent = '▲';
+            }
         }
 
         function toggleAdvanced() {
-            const section = document.getElementById('advanced-section');
-            section.classList.toggle('collapsed');
+            const advancedContent = document.getElementById('advanced-section').querySelector('div');
+            const icon = document.getElementById('advanced-toggle-icon');
+            
+            if (advancedContent.classList.contains('expanded')) {
+                advancedContent.classList.remove('expanded');
+                icon.textContent = '▼';
+            } else {
+                advancedContent.classList.add('expanded');
+                icon.textContent = '▲';
+            }
         }
 
         function displayExercises() {
             const routines = WorkoutUtils.getRoutines();
             const routine = routines[selectedRoutine] || { exercises: [] };
             const exercises = routine.exercises || [];
+            
             const exerciseList = document.getElementById('exercise-list');
             exerciseList.innerHTML = '';
 			
@@ -541,25 +604,10 @@
                         category, progression, oneRepMax, amrap } = exercise;
                 const exerciseElement = document.createElement('li');
                 exerciseElement.dataset.index = index;
-                exerciseElement.draggable = true;
                 
-                // Add drag and drop event listeners
-                exerciseElement.addEventListener('dragstart', handleDragStart);
-                exerciseElement.addEventListener('dragend', handleDragEnd);
-                exerciseElement.addEventListener('dragover', handleDragOver);
-                exerciseElement.addEventListener('drop', handleDrop);
-                
-                // Add touch event listeners to exercise-info div instead of the whole element
                 const exerciseInfo = document.createElement('div');
-                exerciseInfo.className = 'exercise-info';
-                
-                // Add touch event listeners for drag and drop
-                exerciseInfo.addEventListener('touchstart', handleTouchStart);
-                exerciseInfo.addEventListener('touchmove', handleTouchMove, { passive: false });
-                exerciseInfo.addEventListener('touchend', handleTouchEnd);
                 
                 const nameElement = document.createElement('div');
-                nameElement.className = 'exercise-name';
                 let displayName = name;
                 if (category) {
                     const categoryBadge = category === 'compound' ? '🏋️' : 
@@ -571,7 +619,6 @@
                 nameElement.textContent = displayName;
                 
                 const detailsElement = document.createElement('div');
-                detailsElement.className = 'exercise-details';
                 const timeDisplay = timeUnit === 'min' ? `${time || '-'} min` : `${time || '-'} sec`;
                 const weightDisplay = weightUnit === 'kg' ? `${weight || '-'} kg` : `${weight || '-'} lbs`;
                 
@@ -590,16 +637,18 @@
                 exerciseElement.appendChild(exerciseInfo);
                 
                 const buttonContainer = document.createElement('div');
-                buttonContainer.className = 'button-container';
                 
                 const deleteButton = document.createElement('button');
                 deleteButton.textContent = '❌';
                 deleteButton.title = 'Delete';
-                deleteButton.className = 'delete-button';
                 deleteButton.addEventListener('click', (e) => {
                     e.stopPropagation();  // Prevent event from bubbling up
                     const confirmDelete = confirm('Are you sure you want to delete this exercise?');
                     if (confirmDelete) {
+                        const routines = WorkoutUtils.getRoutines();
+                        const routine = routines[selectedRoutine] || { exercises: [] };
+                        const exercises = routine.exercises || [];
+                        
                         exercises.splice(index, 1);
                         routine.exercises = exercises;
                         routines[selectedRoutine] = routine;
@@ -609,16 +658,11 @@
                     }
                 });
                 
-                // Add touchend event listener to handle button taps properly
-                deleteButton.addEventListener('touchend', (e) => {
-                    e.stopPropagation();  // Prevent event from bubbling up
-                });
                 
                 buttonContainer.appendChild(deleteButton);
                 exerciseElement.appendChild(buttonContainer);
                 
                 exerciseElement.addEventListener('click', () => {
-                    highlightExercise(index);
                     editExercise(index);
                 });
                 
@@ -626,178 +670,7 @@
             });
         }
 
-        // Drag and Drop Functions
-        let draggedItem = null;
-        let touchStartY = 0;
-        let currentTouchElement = null;
-        let lastTouchY = 0;
-        let isDragging = false;
-        let longPressTimer = null;
-        let initialScrollTop = 0;
-        let hasMoved = false;
 
-        function handleDragStart(e) {
-            draggedItem = this;
-            this.classList.add('dragging');
-            e.dataTransfer.effectAllowed = 'move';
-            e.dataTransfer.setData('text/html', this.innerHTML);
-        }
-
-        function handleDragEnd(e) {
-            this.classList.remove('dragging');
-            const items = document.querySelectorAll('#exercise-list li');
-            items.forEach(item => item.classList.remove('drag-over'));
-            draggedItem = null;
-        }
-
-        function handleDragOver(e) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            this.classList.add('drag-over');
-            return false;
-        }
-
-        function handleDrop(e) {
-            e.stopPropagation();
-            e.preventDefault();
-            
-            this.classList.remove('drag-over');
-            
-            if (draggedItem !== this) {
-                moveExerciseToNewPosition(draggedItem, this);
-            }
-            
-            return false;
-        }
-
-        // Touch event handlers
-        function handleTouchStart(e) {
-            const touch = e.touches[0];
-            touchStartY = touch.clientY;
-            currentTouchElement = this;
-            lastTouchY = touch.clientY;
-            hasMoved = false;
-            initialScrollTop = document.documentElement.scrollTop;
-            
-            // Start long press timer
-            longPressTimer = setTimeout(() => {
-                if (!hasMoved && currentTouchElement) {
-                    isDragging = true;
-                    currentTouchElement.classList.add('dragging');
-                    currentTouchElement.style.opacity = '0.5';
-                    // Add haptic feedback if available
-                    if (window.navigator.vibrate) {
-                        window.navigator.vibrate(50);
-                    }
-                }
-            }, 500); // 500ms delay before initiating drag
-        }
-
-        function handleTouchMove(e) {
-            if (!currentTouchElement) return;
-            
-            const touch = e.touches[0];
-            const deltaY = Math.abs(touch.clientY - touchStartY);
-            
-            // Check if user has moved more than 10px
-            if (deltaY > 10) {
-                hasMoved = true;
-                clearTimeout(longPressTimer);
-            }
-            
-            // If not dragging, allow normal scrolling
-            if (!isDragging) {
-                return;
-            }
-            
-            e.preventDefault(); // Only prevent default if we're dragging
-            lastTouchY = touch.clientY;
-            
-            const elements = document.querySelectorAll('#exercise-list li:not(.dragging)');
-            let closestElement = null;
-            let closestDistance = Infinity;
-            
-            elements.forEach(element => {
-                const box = element.getBoundingClientRect();
-                const offset = touch.clientY - box.top - box.height / 2;
-                
-                if (Math.abs(offset) < Math.abs(closestDistance)) {
-                    closestDistance = offset;
-                    closestElement = element;
-                }
-            });
-            
-            if (closestElement) {
-                elements.forEach(element => element.classList.remove('drag-over'));
-                closestElement.classList.add('drag-over');
-            }
-        }
-
-        function handleTouchEnd(e) {
-            clearTimeout(longPressTimer);
-            
-            if (!currentTouchElement || !isDragging) {
-                currentTouchElement = null;
-                isDragging = false;
-                return;
-            }
-            
-            const targetElement = document.querySelector('#exercise-list li.drag-over');
-            if (targetElement && currentTouchElement !== targetElement) {
-                moveExerciseToNewPosition(currentTouchElement, targetElement);
-            }
-            
-            // Clean up
-            document.querySelectorAll('#exercise-list li').forEach(item => {
-                item.classList.remove('dragging', 'drag-over');
-                item.style.opacity = '1';
-            });
-            
-            currentTouchElement = null;
-            isDragging = false;
-            hasMoved = false;
-        }
-
-        function moveExerciseToNewPosition(fromElement, toElement) {
-            const routines = WorkoutUtils.getRoutines();
-            const routine = routines[selectedRoutine] || { exercises: [] };
-            const exercises = routine.exercises || [];
-            
-            const fromIndex = parseInt(fromElement.dataset.index);
-            const toIndex = parseInt(toElement.dataset.index);
-            
-            // Get the exercise to move
-            const exercise = exercises[fromIndex];
-            
-            // Remove it from the current position
-            exercises.splice(fromIndex, 1);
-            
-            // Insert it at the new position
-            exercises.splice(toIndex, 0, exercise);
-            
-            // Save the updated order
-            routine.exercises = exercises;
-            routines[selectedRoutine] = routine;
-            WorkoutUtils.saveRoutines(routines);
-            
-            // Refresh the display
-            displayExercises();
-            
-            // Keep the moved exercise highlighted
-            highlightExercise(toIndex);
-        }
-
-        function highlightExercise(index) {
-            // Remove highlight from all exercises
-            const exercises = document.querySelectorAll('#exercise-list li');
-            exercises.forEach(exercise => exercise.classList.remove('selected'));
-            
-            // Add highlight to selected exercise
-            const selectedExercise = document.querySelector(`#exercise-list li[data-index="${index}"]`);
-            if (selectedExercise) {
-                selectedExercise.classList.add('selected');
-            }
-        }
 
         function addExercise() {
             const exerciseName = document.getElementById('exercise-name').value.trim();
@@ -813,7 +686,6 @@
             const time = document.getElementById('time').value;
             const weightUnit = document.getElementById('weight-unit').value;
             const timeUnit = document.getElementById('time-unit').value;
-            const notes = document.getElementById('notes').value;
 
             // Advanced fields
             const oneRepMax = document.getElementById('oneRepMax').value ? parseFloat(document.getElementById('oneRepMax').value) : null;
@@ -841,7 +713,6 @@
                 weightUnit,
                 time,
                 timeUnit,
-                notes,
                 oneRepMax,
                 trainingMax,
                 trainingMaxPercent: parseInt(trainingMaxPercent),
@@ -883,7 +754,6 @@
             document.getElementById('reps').value = '';
             document.getElementById('weight').value = '';
             document.getElementById('time').value = '';
-            document.getElementById('notes').value = '';
             
             // Advanced fields
             document.getElementById('oneRepMax').value = '';
@@ -895,9 +765,7 @@
             document.getElementById('rpe').value = '';
             document.getElementById('restTime').value = '90';
             
-            // Collapse advanced section
-            const advancedSection = document.getElementById('advanced-section');
-            advancedSection.classList.add('collapsed');
+            // Advanced section handling removed - no styling
             
             // Reset buttons to ADD mode
             const addButton = document.getElementById('add-button');
@@ -910,9 +778,7 @@
             addCopyButton.style.display = 'none';
             cancelButton.style.display = 'none';
 
-            // Remove highlight from all exercises
-            const exercises = document.querySelectorAll('#exercise-list li');
-            exercises.forEach(exercise => exercise.classList.remove('selected'));
+            // Highlight removal removed - no styling
         }
 
         function editExercise(index) {
@@ -929,7 +795,6 @@
             document.getElementById('time').value = exercise.time || '';
             document.getElementById('weight-unit').value = exercise.weightUnit || 'lbs';
             document.getElementById('time-unit').value = exercise.timeUnit || 'sec';
-            document.getElementById('notes').value = exercise.notes || '';
             
             // Fill advanced fields
             document.getElementById('oneRepMax').value = exercise.oneRepMax || '';
@@ -941,10 +806,7 @@
             document.getElementById('rpe').value = exercise.rpe || '';
             document.getElementById('restTime').value = exercise.restTime || 90;
             
-            // Show advanced section if any advanced field is filled
-            if (exercise.oneRepMax || exercise.progression?.enabled || exercise.amrap) {
-                document.getElementById('advanced-section').classList.remove('collapsed');
-            }
+            // Advanced section display removed - no styling
             
             // Show edit mode buttons
             const addButton = document.getElementById('add-button');
@@ -970,8 +832,7 @@
                 clearForm();
             };
             
-            // Scroll to the form
-            document.getElementById('workout-input').scrollIntoView({ behavior: 'smooth' });
+            // Scroll functionality removed - no styling
         }
         
         function updateExercise(index) {
@@ -988,7 +849,6 @@
             const time = document.getElementById('time').value;
             const weightUnit = document.getElementById('weight-unit').value;
             const timeUnit = document.getElementById('time-unit').value;
-            const notes = document.getElementById('notes').value;
 
             const oneRepMax = document.getElementById('oneRepMax').value ? parseFloat(document.getElementById('oneRepMax').value) : null;
             const trainingMaxPercent = document.getElementById('trainingMaxPercent').value || 90;
@@ -1017,7 +877,6 @@
                 weightUnit,
                 time,
                 timeUnit,
-                notes,
                 oneRepMax,
                 trainingMax,
                 trainingMaxPercent: parseInt(trainingMaxPercent),
@@ -1051,10 +910,48 @@
             displayExercises();
         }
 
+        // Clear old format data and ensure clean new format
+        function clearOldFormatData() {
+            const routines = WorkoutUtils.getRoutines();
+            const cleanedRoutines = {};
+            
+            for (const routineName in routines) {
+                const routine = routines[routineName];
+                
+                // Only keep routines that are in the new format (objects with exercises property)
+                if (routine && typeof routine === 'object' && !Array.isArray(routine) && routine.exercises) {
+                    cleanedRoutines[routineName] = routine;
+                }
+                // Skip old format routines (arrays) - they will be lost
+            }
+            
+            // Save the cleaned routines
+            WorkoutUtils.saveRoutines(cleanedRoutines);
+            console.log('Cleared old format data, kept new format routines:', cleanedRoutines);
+        }
+
+        // RPE slider functionality
+        function updateRPEValue() {
+            const rpeSlider = document.getElementById('rpe');
+            const rpeValue = document.getElementById('rpe-value');
+            rpeValue.textContent = rpeSlider.value;
+        }
+
         window.onload = function() {
+            clearOldFormatData();
             displayExercises();
             // Initialize the cancel button to be hidden
             document.getElementById('cancel-button').style.display = 'none';
+            
+            // Initialize advanced section as collapsed
+            const advancedContent = document.getElementById('advanced-section').querySelector('div');
+            advancedContent.classList.remove('expanded');
+            
+            // Set up RPE slider
+            const rpeSlider = document.getElementById('rpe');
+            if (rpeSlider) {
+                rpeSlider.addEventListener('input', updateRPEValue);
+            }
         };
     </script>
 </body>

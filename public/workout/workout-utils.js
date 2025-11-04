@@ -20,7 +20,7 @@ const WorkoutUtils = {
     },
 
     /**
-     * Initialize or migrate existing data to new structure
+     * Initialize with default settings
      */
     initialize() {
         const settings = this.getSettings();
@@ -29,9 +29,6 @@ const WorkoutUtils = {
         if (!settings) {
             this.saveSettings(this.DEFAULT_SETTINGS);
         }
-
-        // Migrate old routines to new format
-        this.migrateRoutines();
     },
 
     /**
@@ -58,85 +55,7 @@ const WorkoutUtils = {
         this.saveSettings(settings);
     },
 
-    /**
-     * Migrate old routine format to new enhanced format
-     */
-    migrateRoutines() {
-        const oldRoutines = JSON.parse(localStorage.getItem('workoutRoutines') || '{}');
-        let needsMigration = false;
 
-        // Check if any routine needs migration
-        for (const routineName in oldRoutines) {
-            const routine = oldRoutines[routineName];
-            
-            // Old format: array of exercises
-            // New format: object with metadata
-            if (Array.isArray(routine)) {
-                needsMigration = true;
-                break;
-            }
-        }
-
-        if (needsMigration) {
-            const newRoutines = {};
-            
-            for (const routineName in oldRoutines) {
-                const exercises = oldRoutines[routineName];
-                
-                newRoutines[routineName] = {
-                    cycleDay: null, // User will assign later
-                    exercises: exercises.map((ex, index) => this.enhanceExercise(ex, index))
-                };
-            }
-
-            localStorage.setItem('workoutRoutines', JSON.stringify(newRoutines));
-        }
-    },
-
-    /**
-     * Enhance an exercise with new optional fields
-     */
-    enhanceExercise(exercise, index) {
-        return {
-            id: exercise.id || `ex-${Date.now()}-${index}`,
-            name: exercise.name || '',
-            
-            // Basic fields
-            reps: exercise.reps || '',
-            sets: exercise.sets || 3,
-            weight: exercise.weight || '',
-            weightUnit: exercise.weightUnit || 'lbs',
-            time: exercise.time || '',
-            timeUnit: exercise.timeUnit || 'sec',
-            
-            // New optional fields
-            oneRepMax: exercise.oneRepMax || null,
-            trainingMax: exercise.trainingMax || null,
-            trainingMaxPercent: exercise.trainingMaxPercent || 90,
-            
-            // Progression
-            progression: exercise.progression || {
-                enabled: false,
-                type: 'linear',
-                increment: this.isLowerBodyExercise(exercise.name) ? 10 : 5,
-                lastUpdated: null
-            },
-            
-            // Percentage-based training
-            percentageBased: exercise.percentageBased || {
-                enabled: false,
-                percentage: 75,
-                autoCalculate: false
-            },
-            
-            // Metadata
-            notes: exercise.notes || '',
-            category: exercise.category || 'accessory',
-            amrap: exercise.amrap || false,
-            rpe: exercise.rpe || null,
-            restTime: exercise.restTime || 90
-        };
-    },
 
     /**
      * Determine if exercise is lower body (for progression rates)
@@ -186,17 +105,6 @@ const WorkoutUtils = {
         const schedule = localStorage.getItem('workoutSchedule');
         if (schedule) {
             return JSON.parse(schedule);
-        }
-        
-        // Migrate old weekly schedule
-        const oldSchedule = localStorage.getItem('workoutSchedule');
-        if (oldSchedule) {
-            const weekly = JSON.parse(oldSchedule);
-            return {
-                type: 'weekly',
-                cycleDays: {},
-                weekly: weekly
-            };
         }
         
         return {

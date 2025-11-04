@@ -65,6 +65,11 @@
             background-color: var(--button-hover, #555);
         }
 
+        #macroPreset {
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
         .btn-primary {
             background-color: #007BFF;
         }
@@ -79,6 +84,17 @@
         </div>
         <h1>Set Your Daily Macros</h1>
         
+        <div class="macro-group">
+            <label for="macroPreset">Choose a preset:</label>
+            <select id="macroPreset" class="btn">
+                <option value="custom" selected>Custom</option>
+                <option value="balanced">Balanced (40/30/30)</option>
+                <option value="low-carb">Low Carb (25/40/35)</option>
+                <option value="high-protein">High Protein (30/40/30)</option>
+                <option value="keto">Keto (5/25/70)</option>
+            </select>
+        </div>
+
         <div class="calories-display">
             <p>Target Daily Calories: <span id="dailyCalories">2000</span> calories</p>
             <p>Current Total: <span id="totalCalories">0</span> calories</p>
@@ -89,7 +105,7 @@
                 <span>Protein</span>
                 <span id="proteinValue">0g</span>
             </div>
-            <input type="range" min="0" max="100" value="0" id="proteinSlider" oninput="updateMacros()">
+            <input type="range" min="0" max="100" value="0" id="proteinSlider">
         </div>
 
         <div class="macro-group">
@@ -97,7 +113,7 @@
                 <span>Carbs</span>
                 <span id="carbsValue">0g</span>
             </div>
-            <input type="range" min="0" max="100" value="0" id="carbsSlider" oninput="updateMacros()">
+            <input type="range" min="0" max="100" value="0" id="carbsSlider">
         </div>
 
         <div class="macro-group">
@@ -105,7 +121,7 @@
                 <span>Fat</span>
                 <span id="fatValue">0g</span>
             </div>
-            <input type="range" min="0" max="100" value="0" id="fatSlider" oninput="updateMacros()">
+            <input type="range" min="0" max="100" value="0" id="fatSlider">
         </div>
 
         <div class="button-group">
@@ -150,7 +166,7 @@
         if (savedMacros) {
             document.getElementById('proteinSlider').value = savedMacros.protein * 4;
             document.getElementById('carbsSlider').value = savedMacros.carbs * 4;
-            document.getElementById('fatSlider').value = savedMacros.fat * 8;
+            document.getElementById('fatSlider').value = savedMacros.fat * 9;
 			
 		        // Update the span text to reflect the saved macros
             document.getElementById('proteinValue').textContent = Math.round(savedMacros.protein) + "g";
@@ -160,43 +176,114 @@
 		
         }
 
+        document.getElementById('proteinSlider').addEventListener('input', () => updateMacros('protein'));
+        document.getElementById('carbsSlider').addEventListener('input', () => updateMacros('carbs'));
+        document.getElementById('fatSlider').addEventListener('input', () => updateMacros('fat'));
+        document.getElementById('macroPreset').addEventListener('change', applyPreset);
 
 
-        function updateMacros() {
+        function applyPreset() {
+            const preset = document.getElementById('macroPreset').value;
+            if (preset === 'custom') return;
+
+            let proteinRatio, carbsRatio, fatRatio;
+
+            switch (preset) {
+                case 'balanced':
+                    proteinRatio = 0.30;
+                    carbsRatio = 0.40;
+                    fatRatio = 0.30;
+                    break;
+                case 'low-carb':
+                    proteinRatio = 0.40;
+                    carbsRatio = 0.25;
+                    fatRatio = 0.35;
+                    break;
+                case 'high-protein':
+                    proteinRatio = 0.40;
+                    carbsRatio = 0.30;
+                    fatRatio = 0.30;
+                    break;
+                case 'keto':
+                    proteinRatio = 0.25;
+                    carbsRatio = 0.05;
+                    fatRatio = 0.70;
+                    break;
+            }
+
+            const proteinCals = dailyCalories * proteinRatio;
+            const carbsCals = dailyCalories * carbsRatio;
+            const fatCals = dailyCalories * fatRatio;
+
+            document.getElementById('proteinSlider').value = proteinCals;
+            document.getElementById('carbsSlider').value = carbsCals;
+            document.getElementById('fatSlider').value = fatCals;
+
+            // Update display
+            updateMacros();
+        }
+
+        function updateMacros(changedMacro) {
             const proteinSlider = document.getElementById('proteinSlider');
             const carbsSlider = document.getElementById('carbsSlider');
             const fatSlider = document.getElementById('fatSlider');
             const totalCaloriesSpan = document.getElementById('totalCalories');
 
-            // Calculate the actual grams for protein and carbs
-            const proteinValue = proteinSlider.value / 4;
-            const carbsValue = carbsSlider.value / 4;
-            const fatValue = fatSlider.value / 8;
+            let proteinCals = parseFloat(proteinSlider.value);
+            let carbsCals = parseFloat(carbsSlider.value);
+            let fatCals = parseFloat(fatSlider.value);
 
-            // Update the text content of the <span> elements with the current values in grams
-            document.getElementById('proteinValue').textContent = Math.round(proteinValue) + "g";
-            document.getElementById('carbsValue').textContent = Math.round(carbsValue) + "g";
-            document.getElementById('fatValue').textContent = Math.round(fatValue) + "g";
+            let totalCalories = proteinCals + carbsCals + fatCals;
 
-            // Calculate total calories
-            const totalCalories = parseInt(proteinValue * 4) + parseInt(carbsValue * 4) + parseInt(fatValue * 8);
-            totalCaloriesSpan.textContent = totalCalories + " calories";
-
-            // Adjust sliders to prevent exceeding daily calories
             if (totalCalories > dailyCalories) {
                 const excess = totalCalories - dailyCalories;
-                if (proteinValue > excess / 4) {
-                    // If protein is contributing to the excess, adjust carbs or fat
-                    if (carbsValue > 0) {
-                        // Adjust carbs down
-                        carbsSlider.value = Math.max(0, Math.round((carbsValue - excess / 4) * 4));
-                    } else {
-                        // If carbs is zero, adjust fat down
-                        fatSlider.value = Math.max(0, Math.round((fatValue - excess / 8) * 8));
+
+                if (changedMacro) {
+                    document.getElementById('macroPreset').value = 'custom';
+                }
+                
+                if (changedMacro === 'protein') {
+                    const otherCals = carbsCals + fatCals;
+                    if (otherCals > 0) {
+                        const carbsReduction = excess * (carbsCals / otherCals);
+                        const fatReduction = excess * (fatCals / otherCals);
+                        carbsSlider.value = Math.max(0, carbsCals - carbsReduction);
+                        fatSlider.value = Math.max(0, fatCals - fatReduction);
+                    }
+                } else if (changedMacro === 'carbs') {
+                    const otherCals = proteinCals + fatCals;
+                    if (otherCals > 0) {
+                        const proteinReduction = excess * (proteinCals / otherCals);
+                        const fatReduction = excess * (fatCals / otherCals);
+                        proteinSlider.value = Math.max(0, proteinCals - proteinReduction);
+                        fatSlider.value = Math.max(0, fatCals - fatReduction);
+                    }
+                } else if (changedMacro === 'fat') {
+                    const otherCals = proteinCals + carbsCals;
+                    if (otherCals > 0) {
+                        const proteinReduction = excess * (proteinCals / otherCals);
+                        const carbsReduction = excess * (carbsCals / otherCals);
+                        proteinSlider.value = Math.max(0, proteinCals - proteinReduction);
+                        carbsSlider.value = Math.max(0, carbsCals - carbsReduction);
                     }
                 }
-                updateMacros(); // Recursively adjust until within limits
             }
+
+            // Recalculate values after adjustment
+            const finalProteinCals = parseFloat(proteinSlider.value);
+            const finalCarbsCals = parseFloat(carbsSlider.value);
+            const finalFatCals = parseFloat(fatSlider.value);
+
+            const proteinGrams = finalProteinCals / 4;
+            const carbsGrams = finalCarbsCals / 4;
+            const fatGrams = finalFatCals / 9;
+
+            document.getElementById('proteinValue').textContent = Math.round(proteinGrams) + "g";
+            document.getElementById('carbsValue').textContent = Math.round(carbsGrams) + "g";
+            document.getElementById('fatValue').textContent = Math.round(fatGrams) + "g";
+
+            const finalTotalCalories = finalProteinCals + finalCarbsCals + finalFatCals;
+            totalCaloriesSpan.textContent = Math.round(finalTotalCalories) + " calories";
         }
 
 
@@ -212,7 +299,7 @@
 			const macros = {
 				protein: Math.round(proteinSlider.value / 4),
 				carbs: Math.round(carbsSlider.value / 4),
-				fat: Math.round(fatSlider.value / 8)
+				fat: Math.round(fatSlider.value / 9)
 			};
 
             localStorage.setItem('macros', JSON.stringify(macros));
@@ -231,9 +318,9 @@
             
             const proteinValue = proteinSlider.value / 4;
             const carbsValue = carbsSlider.value / 4;
-            const fatValue = fatSlider.value / 8;
+            const fatValue = fatSlider.value / 9;
             
-            const totalCalories = parseInt(proteinValue * 4) + parseInt(carbsValue * 4) + parseInt(fatValue * 8);
+            const totalCalories = parseInt(proteinValue * 4) + parseInt(carbsValue * 4) + parseInt(fatValue * 9);
             
             if (totalCalories < dailyCalories * 0.8) {
                 alert('Your total calories are too low. Please adjust your macros to meet at least 80% of your daily calorie target.');
