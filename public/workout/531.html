@@ -40,11 +40,32 @@
             text-align: center;
             border-radius: 8px 8px 0 0;
             margin-bottom: 1rem;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         h1 {
             font-size: 1.8rem;
             margin-bottom: 0.25rem;
+        }
+        
+        .home-button {
+            position: absolute;
+            right: 1rem;
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background-color 0.3s;
+        }
+        
+        .home-button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
         }
         
         .subtitle {
@@ -67,12 +88,12 @@
         
         .input-section {
             flex: 1;
-            min-width: 300px;
+            min-width: 200px;
         }
         
         .result-section {
             flex: 2;
-            min-width: 300px;
+            min-width: 200px;
         }
         
         h2 {
@@ -119,6 +140,7 @@
         
         .week-tabs {
             display: flex;
+            flex-wrap: wrap;
             margin-bottom: 1.5rem;
             border-bottom: 1px solid #ddd;
         }
@@ -245,6 +267,16 @@
             font-style: italic;
         }
         
+        .notes ul {
+            list-style: none;
+            padding-left: 0;
+            margin: 0.5rem 0;
+        }
+        
+        .notes li {
+            margin-bottom: 0.3rem;
+        }
+        
         .warm-up-section {
             margin-top: 1rem;
             background-color: #fff3ec;
@@ -304,6 +336,25 @@
             
             .result-section {
                 order: 1;
+            }
+            
+            /* Smaller padding for week tabs on mobile */
+            .week-tab {
+                padding: 8px 12px;
+                font-size: 0.9rem;
+                margin-right: 3px;
+                margin-bottom: 5px;
+            }
+            
+            /* Adjust home button on mobile */
+            .home-button {
+                right: 0.5rem;
+                padding: 0.4rem 0.8rem;
+                font-size: 0.85rem;
+            }
+            
+            h1 {
+                font-size: 1.4rem;
             }
         }
         
@@ -685,14 +736,112 @@
                 padding: 15px 20px;
             }
         }
+        
+        /* Rest Timer Styles */
+        .rest-timer-btn {
+            background-color: white;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            padding: 5px 10px;
+            transition: all 0.3s ease;
+            vertical-align: middle;
+            color: #333;
+        }
+        
+        .rest-timer-btn:hover {
+            transform: scale(1.2);
+            background-color: #f5f5f5;
+        }
+        
+        .rest-timer-btn.active {
+            background-color: #ffd700;
+            animation: pulse 1s infinite;
+        }
+        
+        /* Target button with checkmark using class */
+        button.rest-timer-btn.complete {
+            background-color: #28a745;
+        }
+        
+        .rest-timer-display {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: var(--primary);
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            z-index: 1000;
+            font-size: 1.5rem;
+            font-weight: 600;
+            min-width: 120px;
+            text-align: center;
+        }
+        
+        .rest-timer-display.active {
+            animation: pulse 1s infinite;
+        }
+        
+        .rest-timer-settings {
+            margin-top: 1rem;
+            padding: 15px;
+            background-color: #f9f9f9;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+        }
+        
+        .rest-timer-settings h3 {
+            color: var(--primary);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .rest-timer-settings .input-group {
+            margin-bottom: 1rem;
+        }
+        
+        .rest-timer-settings .input-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .rest-timer-settings label {
+            font-size: 0.9rem;
+            margin-bottom: 0.3rem;
+        }
+        
+        .rest-timer-settings input[type="number"] {
+            width: 100%;
+            padding: 8px;
+            font-size: 0.9rem;
+        }
+        
+        .rest-timer-settings .time-display {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.3rem;
+        }
+        
+        @media (max-width: 768px) {
+            .rest-timer-display {
+                top: 10px;
+                right: 10px;
+                font-size: 1.2rem;
+                padding: 12px 20px;
+                min-width: 100px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
+        <div id="rest-timer-display" class="rest-timer-display" style="display: none;"></div>
         <header>
-            <h1>5/3/1 Workout Generator</h1>
+            <h1>5/3/1 Workout Plan</h1>
+            <a href="../index.html" class="home-button">Home</a>
         </header>
-        
         <div class="main-content">
             <div class="input-section">
                 <h2>Program Setup</h2>
@@ -722,8 +871,8 @@
                         <p><strong>Progression Guide:</strong></p>
                         <ul>
                             <li>After each 4-week cycle:</li>
-                            <li>• Increase upper body lifts (Bench, OHP) by 5 lbs</li>
-                            <li>• Increase lower body lifts (Squat, Deadlift) by 10 lbs</li>
+                            <li>> Increase upper body lifts (Bench, OHP) by 5 lbs</li>
+                            <li>> Increase lower body lifts (Squat, Deadlift) by 10 lbs</li>
                             <li>Use AMRAP sets to gauge progress</li>
                             <li>Adjust slower if AMRAP sets are challenging</li>
                         </ul>
@@ -784,6 +933,27 @@
                 <button id="generate-button">Generate Workout Plan</button>
                 
                 <div class="input-group">
+                    <div class="rest-timer-settings">
+                        <h3>Rest Timer Settings</h3>
+                        <div class="input-group">
+                            <label for="warmup-rest-time">Warmup Rest Time (seconds)</label>
+                            <input type="number" id="warmup-rest-time" min="30" max="300" step="5" value="75">
+                            <div class="time-display" id="warmup-time-display">1:15</div>
+                        </div>
+                        <div class="input-group">
+                            <label for="main-rest-time">Main Lift Rest Time (seconds)</label>
+                            <input type="number" id="main-rest-time" min="60" max="600" step="15" value="180">
+                            <div class="time-display" id="main-time-display">3:00</div>
+                        </div>
+                        <div class="input-group">
+                            <label for="accessory-rest-time">Accessory Rest Time (seconds)</label>
+                            <input type="number" id="accessory-rest-time" min="30" max="300" step="5" value="90">
+                            <div class="time-display" id="accessory-time-display">1:30</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group">
                     <button id="delete-profile-button" style="background-color: var(--accent); margin-top: 1rem;">Delete Saved Profile</button>
                 </div>
 
@@ -819,6 +989,15 @@
             let currentDay = 0;
             let userLevel = 1; // Initialize user level
             let amrapResults = {}; // Store AMRAP results for each exercise
+            
+            // Rest timer state
+            let currentTimer = null;
+            let timerInterval = null;
+            let restTimeSettings = {
+                warmup: 75,
+                main: 180,
+                accessory: 90
+            };
 
             // Load saved profile from localStorage
             function loadProfile() {
@@ -852,6 +1031,15 @@
                     
                     // Restore AMRAP results BEFORE rendering workout plan
                     amrapResults = profile.amrapResults || {};
+                    
+                    // Restore rest time settings
+                    if (profile.restTimeSettings) {
+                        restTimeSettings = profile.restTimeSettings;
+                        document.getElementById('warmup-rest-time').value = restTimeSettings.warmup;
+                        document.getElementById('main-rest-time').value = restTimeSettings.main;
+                        document.getElementById('accessory-rest-time').value = restTimeSettings.accessory;
+                        updateTimeDisplays();
+                    }
                     
                     // Restore workout plan
                     if (profile.workoutPlan) {
@@ -895,7 +1083,8 @@
                     currentWeek,
                     currentDay,
                     userLevel, // Save user level
-                    amrapResults // Save AMRAP results
+                    amrapResults, // Save AMRAP results
+                    restTimeSettings // Save rest time settings
                 };
                 
                 localStorage.setItem('531-workout-profile', JSON.stringify(profile));
@@ -1139,6 +1328,7 @@
                     tab.classList.add('active');
                     currentWeek = parseInt(tab.dataset.week);
                     showWeekContent(currentWeek);
+                    resetAllCheckmarks();
                     saveProfile();
                 });
             });
@@ -1169,12 +1359,233 @@
                     const weekContent = e.target.closest('.week-content');
                     currentDay = parseInt(e.target.dataset.day);
                     showDayContent(weekContent, currentDay);
+                    resetAllCheckmarks();
                     saveProfile();
                 }
             });
 
             // Load saved profile on page load
             loadProfile();
+            
+            // Rest Timer Functions
+            function formatTime(seconds) {
+                const mins = Math.floor(seconds / 60);
+                const secs = seconds % 60;
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            }
+            
+            function playBeep() {
+                // Create beep sound using Web Audio API
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.frequency.value = 800;
+                    oscillator.type = 'sine';
+                    
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                    
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 0.5);
+                    
+                    // Play second beep after a short delay
+                    setTimeout(() => {
+                        const oscillator2 = audioContext.createOscillator();
+                        const gainNode2 = audioContext.createGain();
+                        
+                        oscillator2.connect(gainNode2);
+                        gainNode2.connect(audioContext.destination);
+                        
+                        oscillator2.frequency.value = 800;
+                        oscillator2.type = 'sine';
+                        
+                        gainNode2.gain.setValueAtTime(0.3, audioContext.currentTime);
+                        gainNode2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+                        
+                        oscillator2.start(audioContext.currentTime);
+                        oscillator2.stop(audioContext.currentTime + 0.5);
+                    }, 200);
+                } catch (e) {
+                    console.error('Could not play beep sound:', e);
+                }
+            }
+            
+            function stopTimer() {
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                if (currentTimer) {
+                    const btn = document.querySelector(`[data-timer-id="${currentTimer.id}"]`);
+                    if (btn) {
+                        btn.classList.remove('active');
+                    }
+                }
+                currentTimer = null;
+                const display = document.getElementById('rest-timer-display');
+                if (display) {
+                    display.style.display = 'none';
+                    display.classList.remove('active');
+                }
+            }
+            
+            function startTimer(timerId, timerType) {
+                // Stop any existing timer
+                stopTimer();
+                
+                // Get rest time based on type
+                let restTime = restTimeSettings.main;
+                if (timerType === 'warmup') {
+                    restTime = restTimeSettings.warmup;
+                } else if (timerType === 'accessory') {
+                    restTime = restTimeSettings.accessory;
+                }
+                
+                // Find the button
+                const btn = document.querySelector(`[data-timer-id="${timerId}"]`);
+                if (!btn) return;
+                
+                // Store current completion count if button already has one
+                const existingCount = btn.dataset.completionCount || '0';
+                
+                // Show clock emoji while timer is active (will restore count when done)
+                btn.textContent = '⏰';
+                btn.classList.remove('complete');
+                btn.classList.add('active');
+                currentTimer = { id: timerId, timeLeft: restTime, type: timerType, existingCount: existingCount };
+                
+                // Show timer display
+                const display = document.getElementById('rest-timer-display');
+                display.style.display = 'block';
+                display.classList.add('active');
+                display.textContent = formatTime(restTime);
+                
+                // Start countdown
+                timerInterval = setInterval(() => {
+                    if (!currentTimer) {
+                        clearInterval(timerInterval);
+                        return;
+                    }
+                    
+                    currentTimer.timeLeft--;
+                    display.textContent = formatTime(currentTimer.timeLeft);
+                    
+                    if (currentTimer.timeLeft <= 0) {
+                        // Store values before stopTimer() sets currentTimer to null
+                        const existingCount = currentTimer.existingCount || '0';
+                        const timerBtn = document.querySelector(`[data-timer-id="${currentTimer.id}"]`);
+                        
+                        stopTimer();
+                        
+                        if (timerBtn) {
+                            // Get completion count (use existing count from when timer started, or current count)
+                            let completionCount = parseInt(existingCount || timerBtn.dataset.completionCount || '0');
+                            completionCount++;
+                            timerBtn.dataset.completionCount = completionCount;
+                            
+                            // Update button text to show checkmark(s) with count
+                            if (completionCount === 1) {
+                                timerBtn.textContent = '✓';
+                            } else {
+                                timerBtn.textContent = `✓${completionCount}`;
+                            }
+                            timerBtn.classList.remove('active');
+                            timerBtn.classList.add('complete');
+                        }
+                        
+                        // Play beep
+                        playBeep();
+                    }
+                }, 1000);
+            }
+            
+            function resetAllCheckmarks() {
+                const allButtons = document.querySelectorAll('.rest-timer-btn');
+                allButtons.forEach(btn => {
+                    // Check if button has checkmark (could be ✓ or ✓2, ✓3, etc.)
+                    if (btn.textContent.includes('✓')) {
+                        btn.textContent = '⏰';
+                        btn.classList.remove('complete');
+                        btn.dataset.completionCount = '0';
+                    }
+                });
+            }
+            
+            function updateTimeDisplays() {
+                const warmupDisplay = document.getElementById('warmup-time-display');
+                const mainDisplay = document.getElementById('main-time-display');
+                const accessoryDisplay = document.getElementById('accessory-time-display');
+                
+                if (warmupDisplay) {
+                    warmupDisplay.textContent = formatTime(restTimeSettings.warmup);
+                }
+                if (mainDisplay) {
+                    mainDisplay.textContent = formatTime(restTimeSettings.main);
+                }
+                if (accessoryDisplay) {
+                    accessoryDisplay.textContent = formatTime(restTimeSettings.accessory);
+                }
+            }
+            
+            // Event listeners for rest timer buttons
+            document.addEventListener('click', function(e) {
+                if (e.target.classList.contains('rest-timer-btn')) {
+                    const timerId = e.target.dataset.timerId;
+                    const timerType = e.target.dataset.timerType;
+                    
+                    // For accessory workouts, allow restarting even if complete
+                    if (timerType === 'accessory' && e.target.textContent.includes('✓')) {
+                        // Keep the completion count, just start a new timer
+                        // The count will be incremented when this timer completes
+                        startTimer(timerId, timerType);
+                        return;
+                    }
+                    
+                    // For warmup and main lifts, if button is already a checkmark, don't start timer
+                    if (e.target.textContent.includes('✓')) {
+                        return;
+                    }
+                    
+                    startTimer(timerId, timerType);
+                }
+            });
+            
+            // Event listeners for rest time settings
+            const warmupRestInput = document.getElementById('warmup-rest-time');
+            const mainRestInput = document.getElementById('main-rest-time');
+            const accessoryRestInput = document.getElementById('accessory-rest-time');
+            
+            if (warmupRestInput) {
+                warmupRestInput.addEventListener('input', function() {
+                    restTimeSettings.warmup = parseInt(this.value) || 75;
+                    updateTimeDisplays();
+                    saveProfile();
+                });
+            }
+            
+            if (mainRestInput) {
+                mainRestInput.addEventListener('input', function() {
+                    restTimeSettings.main = parseInt(this.value) || 180;
+                    updateTimeDisplays();
+                    saveProfile();
+                });
+            }
+            
+            if (accessoryRestInput) {
+                accessoryRestInput.addEventListener('input', function() {
+                    restTimeSettings.accessory = parseInt(this.value) || 90;
+                    updateTimeDisplays();
+                    saveProfile();
+                });
+            }
+            
+            // Initialize time displays
+            updateTimeDisplays();
             
             // Helper functions
             function round5(num) {
@@ -1522,9 +1933,9 @@
                                         <h4>Warm-up Sets</h4>
                                         <table class="warm-up-table">
                                             <tr>
-                                                <td>5 reps × ${day.mainLift.warmup[0].weight} lbs (40%)</td>
-                                                <td>5 reps × ${day.mainLift.warmup[1].weight} lbs (50%)</td>
-                                                <td>3 reps × ${day.mainLift.warmup[2].weight} lbs (60%)</td>
+                                                <td>5 reps × ${day.mainLift.warmup[0].weight} lbs (40%) <button class="rest-timer-btn" data-timer-type="warmup" data-timer-id="warmup-${week}-${dayIndex}-0" title="Start rest timer">⏰</button></td>
+                                                <td>5 reps × ${day.mainLift.warmup[1].weight} lbs (50%) <button class="rest-timer-btn" data-timer-type="warmup" data-timer-id="warmup-${week}-${dayIndex}-1" title="Start rest timer">⏰</button></td>
+                                                <td>3 reps × ${day.mainLift.warmup[2].weight} lbs (60%) <button class="rest-timer-btn" data-timer-type="warmup" data-timer-id="warmup-${week}-${dayIndex}-2" title="Start rest timer">⏰</button></td>
                                             </tr>
                                         </table>
                                     </div>
@@ -1537,6 +1948,7 @@
                                                 <th>Weight (lbs)</th>
                                                 <th>Reps</th>
                                                 <th>% of TM</th>
+                                                <th>Rest</th>
                                             </tr>
                                         </thead>
                                         <tbody>`;
@@ -1548,6 +1960,7 @@
                                         <td>${set.weight}</td>
                                         <td class="${set.amrap ? 'amrap-set' : ''}">${set.reps}${set.amrap ? ' (AMRAP)' : ''}</td>
                                         <td>${set.percentage}%</td>
+                                        <td><button class="rest-timer-btn" data-timer-type="main" data-timer-id="main-${week}-${dayIndex}-${index}" title="Start rest timer">⏰</button></td>
                                     </tr>`;
                             });
                             
@@ -1603,11 +2016,11 @@
                             
                             if (accessoryTemplate === 'standard') {
                                 html += `<ul class="accessory-list">`;
-                                day.accessories.forEach(accessory => {
+                                day.accessories.forEach((accessory, accIndex) => {
                                     html += `
                                         <li>
                                             <span><strong>${accessory.type}:</strong> ${accessory.exercise}</span>
-                                            <span>${accessory.reps}</span>
+                                            <span>${accessory.reps} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
                                         </li>`;
                                 });
                                 html += `</ul>`;
@@ -1615,31 +2028,31 @@
                                 html += `<ul class="accessory-list">
                                     <li>
                                         <span><strong>${day.accessories[0].type}:</strong> ${day.accessories[0].exercise}</span>
-                                        <span>${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs</span>
+                                        <span>${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-0" title="Start rest timer">⏰</button></span>
                                     </li>
                                     <li>
                                         <span><strong>Supplemental:</strong> ${day.accessories[1].exercise}</span>
-                                        <span>${day.accessories[1].sets}</span>
+                                        <span>${day.accessories[1].sets} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-1" title="Start rest timer">⏰</button></span>
                                     </li>
                                 </ul>`;
                             } else if (accessoryTemplate === 'fsl') {
                                 html += `<ul class="accessory-list">
                                     <li>
                                         <span><strong>${day.accessories[0].type}:</strong> ${day.accessories[0].exercise}</span>
-                                        <span>${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs</span>
+                                        <span>${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-0" title="Start rest timer">⏰</button></span>
                                     </li>
                                     <li>
                                         <span><strong>${day.accessories[1].type}:</strong> ${safeJoin(day.accessories[1].exercises, ', ')}</span>
-                                        <span>${day.accessories[1].reps}</span>
+                                        <span>${day.accessories[1].reps} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-1" title="Start rest timer">⏰</button></span>
                                     </li>
                                 </ul>`;
                             } else if (accessoryTemplate === 'triumvirate') {
                                 html += `<ul class="accessory-list">`;
-                                day.accessories.forEach(accessory => {
+                                day.accessories.forEach((accessory, accIndex) => {
                                     html += `
                                         <li>
                                             <span><strong>${accessory.name}</strong></span>
-                                            <span>${accessory.sets} sets of ${accessory.reps} reps</span>
+                                            <span>${accessory.sets} sets of ${accessory.reps} reps <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
                                         </li>`;
                                 });
                                 html += `</ul>`;
@@ -1648,11 +2061,12 @@
                                 
                                 // Handle FSL work
                                 const fslAccessory = day.accessories.find(acc => acc.type === 'First Set Last');
+                                let accIndex = 0;
                                 if (fslAccessory) {
                                     html += `
                                         <li>
                                             <span><strong>First Set Last:</strong> ${fslAccessory.exercise}</span>
-                                            <span>${fslAccessory.sets}${fslAccessory.weight ? ' @ ' + fslAccessory.weight + ' lbs' : ''}</span>
+                                            <span>${fslAccessory.sets}${fslAccessory.weight ? ' @ ' + fslAccessory.weight + ' lbs' : ''} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex++}" title="Start rest timer">⏰</button></span>
                                         </li>`;
                                 }
                                 
@@ -1662,7 +2076,7 @@
                                     html += `
                                         <li>
                                             <span><strong>${accessory.type}:</strong> ${accessory.exercise}</span>
-                                            <span>${accessory.reps}</span>
+                                            <span>${accessory.reps} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex++}" title="Start rest timer">⏰</button></span>
                                         </li>`;
                                 });
                                 
@@ -2008,7 +2422,8 @@
                 
                 recommendationsDiv.innerHTML = optionsHtml;
                 recommendationsDiv.style.display = 'block';
-                submitBtn.style.display = 'block';
+                // No need to show submit button - decision applies automatically
+                submitBtn.style.display = 'none';
             }
             
             // Hide AMRAP options
@@ -2042,17 +2457,8 @@
                     }
                 }
                 
-                // Add click handler to submit button
-                const submitBtn = document.getElementById(`amrap-submit-${exercise}`);
-                if (submitBtn) {
-                    // Remove old event listeners by cloning
-                    const newSubmitBtn = submitBtn.cloneNode(true);
-                    submitBtn.parentNode.replaceChild(newSubmitBtn, submitBtn);
-                    
-                    newSubmitBtn.addEventListener('click', () => {
-                        applyAmrapDecision(exercise);
-                    });
-                }
+                // Automatically apply the decision when radio button is selected
+                applyAmrapDecision(exercise);
             }
             
             // Make selectAmrapOption globally available

@@ -21,10 +21,30 @@
 
         .activity {
             display: grid;
-            grid-template-columns: 2fr 1.5fr 1fr auto;
+            grid-template-columns: 2fr 2fr 1fr auto;
             gap: 10px;
             margin-bottom: 15px;
             align-items: center;
+        }
+        
+        .duration-perweek-wrapper {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .duration-perweek-wrapper > * {
+            flex: 1;
+        }
+
+        .calories-display {
+            text-align: center;
+            font-weight: bold;
+            color: #4CAF50;
+            padding: 8px;
+            background-color: rgba(76, 175, 80, 0.1);
+            border-radius: 4px;
+            white-space: nowrap;
         }
 
         select, input {
@@ -74,6 +94,27 @@
 
         #activityList {
             margin: 20px 0;
+        }
+
+        .total-calories-summary {
+            background-color: rgba(76, 175, 80, 0.15);
+            border: 2px solid #4CAF50;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        .total-calories-summary h2 {
+            margin: 0 0 10px 0;
+            color: #4CAF50;
+            font-size: 1em;
+        }
+
+        .total-calories-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4CAF50;
         }
 
 
@@ -142,6 +183,12 @@
                 width: 100%;
             }
             
+            .calories-display {
+                font-size: 1.1em;
+                padding: 12px;
+                margin: 5px 0;
+            }
+            
             .activity select,
             .activity input {
                 font-size: 16px; /* Prevents zoom on iOS */
@@ -200,6 +247,11 @@
             <button id="saveActivityLevels" class="btn">Save Activity Levels</button>
         </div>
 
+        <div id="totalCaloriesSummary" class="total-calories-summary" style="display: none;">
+            <h2>Total Daily Calorie Increase</h2>
+            <div class="total-calories-value" id="totalCaloriesValue">+0 cal/day</div>
+        </div>
+
         <div id="activityList"></div>
         
         <div class="bottom-buttons">
@@ -216,6 +268,7 @@ let profileStatistics = {};
 
 // Define an array of activity options
 const activityOptions = [
+    'Select an activity: 0',
     'Heavy Weight Exercise: 8.5',
     'Cardio: 7.5',
     'Walking: 3.0',
@@ -239,6 +292,29 @@ const activityOptions = [
     'Rope jumping (100/min): 11.0',
     'Jogging, 7 mph (11 km/h): 11.2'
 ];
+
+// Function to calculate calories for a single activity
+function calculateActivityCalories(activity) {
+    if (!profileStatistics.weight) {
+        return 0;
+    }
+    
+    // Extract MET score from the activity description
+    const metScoreMatch = activity.activity.match(/(\d+\.\d+)$/);
+    if (!metScoreMatch) {
+        return 0;
+    }
+    
+    const metScore = parseFloat(metScoreMatch[1]);
+    const durationInMinutes = parseFloat(activity.duration) || 0;
+    const timesPerWeek = parseInt(activity.perWeek.split(' ')[0]) || 0;
+    
+    // Calculate calories burned per week for this activity
+    const caloriesPerWeek = (metScore * 3.5 * parseFloat(profileStatistics.weight) / 200) * durationInMinutes * timesPerWeek;
+    
+    // Return daily average
+    return caloriesPerWeek / 7;
+}
 
 // Function to load profile data
 function loadProfileData() {
@@ -269,9 +345,29 @@ function renderActivityLevels() {
             }
             activitySelect.appendChild(optionElement);
         });
+        
+        // Create calories display element
+        const caloriesDisplay = document.createElement('div');
+        caloriesDisplay.className = 'calories-display';
+        
+        // Function to update calorie display
+        const updateCalorieDisplay = () => {
+            const dailyCalories = calculateActivityCalories(activity);
+            caloriesDisplay.textContent = dailyCalories > 0 
+                ? `+${Math.round(dailyCalories)} cal/day` 
+                : 'N/A';
+            // Also update the total summary
+            updateTotalCaloriesSummary();
+        };
+        
         activitySelect.onchange = function() {
             activity.activity = this.value;
+            updateCalorieDisplay();
         };
+
+        // Create a wrapper for duration and perWeek to be on same row
+        const durationPerWeekWrapper = document.createElement('div');
+        durationPerWeekWrapper.className = 'duration-perweek-wrapper';
 
         // Create a wrapper div for duration input and label
         const durationWrapper = document.createElement('div');
@@ -284,6 +380,11 @@ function renderActivityLevels() {
         durationInput.value = activity.duration;
         durationInput.onchange = function() {
             activity.duration = this.value;
+            updateCalorieDisplay();
+        };
+        durationInput.oninput = function() {
+            activity.duration = this.value;
+            updateCalorieDisplay();
         };
 
         const durationLabel = document.createElement('span');
@@ -300,11 +401,19 @@ function renderActivityLevels() {
         perWeekSelect.value = activity.perWeek;
         perWeekSelect.onchange = function() {
             activity.perWeek = this.value;
+            updateCalorieDisplay();
         };
 
+        // Add duration and perWeek to the combined wrapper
+        durationPerWeekWrapper.appendChild(durationWrapper);
+        durationPerWeekWrapper.appendChild(perWeekSelect);
+
+        // Initialize calorie display
+        updateCalorieDisplay();
+
         activityDiv.appendChild(activitySelect);
-        activityDiv.appendChild(durationWrapper);
-        activityDiv.appendChild(perWeekSelect);
+        activityDiv.appendChild(durationPerWeekWrapper);
+        activityDiv.appendChild(caloriesDisplay);
 
         // Create and append the delete button
         const deleteButton = document.createElement('button');
@@ -320,6 +429,28 @@ function renderActivityLevels() {
 
         activityList.appendChild(activityDiv);
     });
+    
+    // Update total calories summary
+    updateTotalCaloriesSummary();
+}
+
+// Function to update the total calories summary
+function updateTotalCaloriesSummary() {
+    const totalCaloriesSummary = document.getElementById('totalCaloriesSummary');
+    const totalCaloriesValue = document.getElementById('totalCaloriesValue');
+    
+    if (activityLevels.length === 0) {
+        totalCaloriesSummary.style.display = 'none';
+        return;
+    }
+    
+    let totalDailyCalories = 0;
+    activityLevels.forEach(activity => {
+        totalDailyCalories += calculateActivityCalories(activity);
+    });
+    
+    totalCaloriesSummary.style.display = 'block';
+    totalCaloriesValue.textContent = `+${Math.round(totalDailyCalories)} cal/day`;
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -343,8 +474,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     addActivityButton.addEventListener('click', function() {
-        activityLevels.push({
-            activity: 'Heavy Weight Exercise',
+        activityLevels.unshift({
+            activity: 'Select an activity: 0',
             duration: '30',
             perWeek: '1x per week'
         });

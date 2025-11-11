@@ -989,6 +989,12 @@ function calculateMealTypeTotals(foodItems, mealType) {
     };
 }
 
+// Function to get the current meal type based on current time
+function getCurrentMealType() {
+    const currentTime = formatTime(new Date());
+    return getMealType(currentTime);
+}
+
 // Function to group food items by meal
 function groupByMeal(foodItems) {
     const meals = { Breakfast: [], Lunch: [], Dinner: [], Snack: [] };
@@ -1184,7 +1190,11 @@ function displayFoodItems(foodItems) {
     // Group items by meal if showing all meals
     if (selectedMeal === 'All') {
         const meals = groupByMeal(itemsToDisplay);
-        const mealOrder = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+        const defaultMealOrder = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+        
+        // Get current meal type and reorder to put it first
+        const currentMealType = getCurrentMealType();
+        const mealOrder = [currentMealType, ...defaultMealOrder.filter(meal => meal !== currentMealType)];
         
         mealOrder.forEach(mealType => {
             const hasRegularItems = meals[mealType].length > 0;
