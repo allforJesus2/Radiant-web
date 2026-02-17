@@ -37,23 +37,31 @@
             background-color: var(--primary);
             color: white;
             padding: 0.5rem;
-            text-align: center;
             border-radius: 8px 8px 0 0;
             margin-bottom: 1rem;
-            position: relative;
             display: flex;
             align-items: center;
-            justify-content: center;
+            justify-content: space-between;
+            gap: 1rem;
         }
         
         h1 {
             font-size: 1.8rem;
-            margin-bottom: 0.25rem;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.75rem;
+            flex: 1;
+            text-align: center;
+        }
+        
+        .header-spacer {
+            width: 100px;
+            visibility: hidden;
         }
         
         .home-button {
-            position: absolute;
-            right: 1rem;
             background-color: rgba(255, 255, 255, 0.2);
             color: white;
             border: 1px solid rgba(255, 255, 255, 0.3);
@@ -62,6 +70,9 @@
             text-decoration: none;
             font-size: 0.9rem;
             transition: background-color 0.3s;
+            white-space: nowrap;
+            width: 100px;
+            text-align: center;
         }
         
         .home-button:hover {
@@ -84,6 +95,13 @@
             border-radius: 8px;
             padding: 20px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* On desktop, always show both sections */
+        @media (min-width: 769px) {
+            .input-section, .result-section {
+                display: block !important;
+            }
         }
         
         .input-section {
@@ -136,6 +154,33 @@
         
         button:hover {
             background-color: var(--primary);
+        }
+        
+        /* Main tabs for mobile view */
+        .main-tabs {
+            display: none;
+            flex-wrap: wrap;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .main-tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            background-color: #f5f5f5;
+            margin-right: 5px;
+            font-weight: 600;
+        }
+        
+        .main-tab.active {
+            background-color: white;
+            border-color: #ddd;
+            border-bottom-color: white;
+            margin-bottom: -1px;
+            color: var(--primary);
         }
         
         .week-tabs {
@@ -198,6 +243,37 @@
             background-color: var(--secondary);
             color: white;
             border-color: var(--secondary);
+        }
+        
+        .day-tab .checkmark {
+            display: none;
+            margin-left: 5px;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .day-tab.checked .checkmark {
+            display: inline;
+        }
+        
+        .week-tab .checkmark {
+            display: none;
+            margin-left: 5px;
+            color: #28a745;
+            font-weight: bold;
+        }
+        
+        .week-tab.checked .checkmark {
+            display: inline;
+        }
+        
+        .day-checkmark-hint {
+            font-size: 0.85rem;
+            color: #6c757d;
+            margin-top: 0.5rem;
+            margin-bottom: 1rem;
+            font-style: italic;
+            text-align: center;
         }
         
         .day-content {
@@ -277,6 +353,60 @@
             margin-bottom: 0.3rem;
         }
         
+        /* Collapsible section styles */
+        .collapsible-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 10px;
+            background-color: #f1faee;
+            border-left: 3px solid var(--success);
+            border-radius: 4px;
+            margin-bottom: 0.5rem;
+            user-select: none;
+            transition: background-color 0.2s;
+        }
+        
+        .collapsible-header:hover {
+            background-color: #e8f5e9;
+        }
+        
+        .collapsible-header strong {
+            margin: 0;
+            font-style: normal;
+        }
+        
+        .collapsible-toggle {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: var(--success);
+            transition: transform 0.3s;
+        }
+        
+        .collapsible-header.collapsed .collapsible-toggle {
+            transform: rotate(-90deg);
+        }
+        
+        .collapsible-content {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            padding: 0 10px 10px 10px;
+            background-color: #f1faee;
+            border-left: 3px solid var(--success);
+            border-radius: 0 0 4px 4px;
+        }
+        
+        .collapsible-content.collapsed {
+            max-height: 0;
+            padding: 0 10px;
+        }
+        
+        .collapsible-wrapper {
+            margin-bottom: 1rem;
+        }
+        
         .warm-up-section {
             margin-top: 1rem;
             background-color: #fff3ec;
@@ -324,21 +454,32 @@
                 flex-direction: column;
             }
             
+            /* Show main tabs on mobile */
+            .main-tabs {
+                display: flex;
+            }
+            
             .input-section, .result-section {
                 width: 100%;
             }
             
-            /* Make the result section appear first on mobile */
-            .input-section {
-                order: 2;
-                margin-top: 20px;
+            /* Hide sections by default on mobile, show only active one */
+            .input-section, .result-section {
+                display: none;
             }
             
-            .result-section {
-                order: 1;
+            .input-section.active, .result-section.active {
+                display: block;
             }
             
-            /* Smaller padding for week tabs on mobile */
+            /* Smaller padding for tabs on mobile */
+            .main-tab {
+                padding: 8px 16px;
+                font-size: 0.9rem;
+                margin-right: 3px;
+                margin-bottom: 5px;
+            }
+            
             .week-tab {
                 padding: 8px 12px;
                 font-size: 0.9rem;
@@ -348,13 +489,36 @@
             
             /* Adjust home button on mobile */
             .home-button {
-                right: 0.5rem;
                 padding: 0.4rem 0.8rem;
                 font-size: 0.85rem;
             }
             
+            header {
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .header-spacer {
+                display: none;
+            }
+            
+            h1 {
+                width: 100%;
+            }
+            
+            .home-button {
+                width: auto;
+            }
+            
             h1 {
                 font-size: 1.4rem;
+                flex-wrap: wrap;
+                gap: 0.5rem;
+            }
+            
+            .level-display {
+                font-size: 0.8rem;
+                padding: 4px 10px;
             }
         }
         
@@ -408,14 +572,13 @@
         }
         
         .level-display {
-            float: right;
             background-color: #FFD700;
             color: #000;
             padding: 5px 12px;
             border-radius: 20px;
             font-weight: bold;
-            font-size: 1rem;
-            margin-top: 5px;
+            font-size: 0.9rem;
+            margin-left: 0.5rem;
         }
         
         .level-up-button {
@@ -748,6 +911,12 @@
             transition: all 0.3s ease;
             vertical-align: middle;
             color: #333;
+            display: inline-block;
+            width: 40px;
+            height: 40px;
+            line-height: 1;
+            text-align: center;
+            box-sizing: border-box;
         }
         
         .rest-timer-btn:hover {
@@ -839,43 +1008,51 @@
     <div class="container">
         <div id="rest-timer-display" class="rest-timer-display" style="display: none;"></div>
         <header>
-            <h1>5/3/1 Workout Plan</h1>
+            <div class="header-spacer"></div>
+            <h1>5/3/1 Workout Plan <span id="level-display" class="level-display">L: 1</span></h1>
             <a href="../index.html" class="home-button">Home</a>
         </header>
+        <div class="main-tabs">
+            <div class="main-tab" data-tab="setup">Program Setup</div>
+            <div class="main-tab active" data-tab="workout">Workout Plan</div>
+        </div>
         <div class="main-content">
             <div class="input-section">
-                <h2>Program Setup</h2>
-                
                 <div class="input-group">
-                    <label for="squat-1rm">Squat 1RM (lbs)</label>
+                    <label for="squat-1rm">Squat 1 Rep Max (lbs)</label>
                     <input type="number" id="squat-1rm" min="0" step="5" placeholder="e.g. 315">
                 </div>
                 
                 <div class="input-group">
-                    <label for="bench-1rm">Bench Press 1RM (lbs)</label>
+                    <label for="bench-1rm">Bench Press 1 Rep Max (lbs)</label>
                     <input type="number" id="bench-1rm" min="0" step="5" placeholder="e.g. 225">
                 </div>
                 
                 <div class="input-group">
-                    <label for="deadlift-1rm">Deadlift 1RM (lbs)</label>
+                    <label for="deadlift-1rm">Deadlift 1 Rep Max (lbs)</label>
                     <input type="number" id="deadlift-1rm" min="0" step="5" placeholder="e.g. 405">
                 </div>
                 
                 <div class="input-group">
-                    <label for="ohp-1rm">Overhead Press 1RM (lbs)</label>
+                    <label for="ohp-1rm">Overhead Press 1 Rep Max (lbs)</label>
                     <input type="number" id="ohp-1rm" min="0" step="5" placeholder="e.g. 135">
                 </div>
                 
                 <div class="input-group">
-                    <div class="notes" style="margin-bottom: 1rem;">
-                        <p><strong>Progression Guide:</strong></p>
-                        <ul>
-                            <li>After each 4-week cycle:</li>
-                            <li>> Increase upper body lifts (Bench, OHP) by 5 lbs</li>
-                            <li>> Increase lower body lifts (Squat, Deadlift) by 10 lbs</li>
-                            <li>Use AMRAP sets to gauge progress</li>
-                            <li>Adjust slower if AMRAP sets are challenging</li>
-                        </ul>
+                    <div class="collapsible-wrapper">
+                        <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
+                            <strong>Progression Guide</strong>
+                            <span class="collapsible-toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content collapsed">
+                            <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
+                                <li>After each 4-week cycle:</li>
+                                <li>> Increase upper body lifts (Bench, OHP) by 5 lbs</li>
+                                <li>> Increase lower body lifts (Squat, Deadlift) by 10 lbs</li>
+                                <li>Use AMRAP sets to gauge progress</li>
+                                <li>Adjust slower if AMRAP sets are challenging</li>
+                            </ul>
+                        </div>
                     </div>
                 </div>
                 
@@ -962,14 +1139,12 @@
                 </div>
             </div>
             
-            <div class="result-section">
-                <h2>Your 5/3/1 Workout Plan <span id="level-display" class="level-display">LVL: 1</span></h2>
-                
+            <div class="result-section active">
                 <div class="week-tabs">
-                    <div class="week-tab active" data-week="1">Week 1 (5/5/5+)</div>
-                    <div class="week-tab" data-week="2">Week 2 (3/3/3+)</div>
-                    <div class="week-tab" data-week="3">Week 3 (5/3/1+)</div>
-                    <div class="week-tab" data-week="4">Week 4 (Deload)</div>
+                    <div class="week-tab active" data-week="1">Week 1<br>(5/5/5+)</div>
+                    <div class="week-tab" data-week="2">Week 2<br>(3/3/3+)</div>
+                    <div class="week-tab" data-week="3">Week 3<br>(5/3/1+)</div>
+                    <div class="week-tab" data-week="4">Week 4<br>(Deload)</div>
                 </div>
                 
                 <div id="workout-results">
@@ -980,6 +1155,20 @@
     </div>
     
     <script>
+        // Toggle collapsible sections
+        function toggleCollapsible(header) {
+            const content = header.nextElementSibling;
+            const isCollapsed = header.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                header.classList.remove('collapsed');
+                content.classList.remove('collapsed');
+            } else {
+                header.classList.add('collapsed');
+                content.classList.add('collapsed');
+            }
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
             // Variables
             let tmPercentage = 90;
@@ -989,6 +1178,7 @@
             let currentDay = 0;
             let userLevel = 1; // Initialize user level
             let amrapResults = {}; // Store AMRAP results for each exercise
+            let checkedDays = {}; // Store checked days: {week: {day: true}}
             
             // Rest timer state
             let currentTimer = null;
@@ -1032,6 +1222,9 @@
                     // Restore AMRAP results BEFORE rendering workout plan
                     amrapResults = profile.amrapResults || {};
                     
+                    // Restore checked days
+                    checkedDays = profile.checkedDays || {};
+                    
                     // Restore rest time settings
                     if (profile.restTimeSettings) {
                         restTimeSettings = profile.restTimeSettings;
@@ -1065,7 +1258,7 @@
 
             // Update level display
             function updateLevelDisplay() {
-                levelDisplay.textContent = `LVL: ${userLevel}`;
+                levelDisplay.textContent = `lvl: ${userLevel}`;
             }
 
             // Save profile to localStorage
@@ -1084,7 +1277,8 @@
                     currentDay,
                     userLevel, // Save user level
                     amrapResults, // Save AMRAP results
-                    restTimeSettings // Save rest time settings
+                    restTimeSettings, // Save rest time settings
+                    checkedDays // Save checked days
                 };
                 
                 localStorage.setItem('531-workout-profile', JSON.stringify(profile));
@@ -1222,9 +1416,29 @@
             const generateButton = document.getElementById('generate-button');
             const printButton = document.getElementById('print-button');
             const weekTabs = document.querySelectorAll('.week-tab');
+            const mainTabs = document.querySelectorAll('.main-tab');
+            const inputSection = document.querySelector('.input-section');
+            const resultSection = document.querySelector('.result-section');
             const tmOptions = document.querySelectorAll('.toggle-option');
             const accessorySelect = document.getElementById('accessory-template');
             const levelDisplay = document.getElementById('level-display');
+            
+            // Main tab switching (for mobile)
+            mainTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabType = tab.dataset.tab;
+                    mainTabs.forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    
+                    if (tabType === 'setup') {
+                        inputSection.classList.add('active');
+                        resultSection.classList.remove('active');
+                    } else {
+                        inputSection.classList.remove('active');
+                        resultSection.classList.add('active');
+                    }
+                });
+            });
             
             // Quiz elements
             const quizButton = document.getElementById('quiz-button');
@@ -1353,16 +1567,155 @@
                 saveProfile();
             });
 
+            // Long press handler for day tabs (mobile)
+            let longPressTimer = null;
+            let longPressTarget = null;
+            let longPressCompleted = false;
+            const longPressCompletedElements = new WeakSet();
+            
+            document.addEventListener('touchstart', function(e) {
+                const dayTab = e.target.closest('.day-tab');
+                if (dayTab) {
+                    longPressTarget = dayTab;
+                    longPressCompleted = false;
+                    longPressTimer = setTimeout(() => {
+                        toggleDayCheckmark(longPressTarget);
+                        longPressCompleted = true;
+                        longPressCompletedElements.add(longPressTarget);
+                        // Temporarily disable pointer events to prevent click
+                        longPressTarget.style.pointerEvents = 'none';
+                        longPressTimer = null;
+                        // Re-enable pointer events and clear flags after click would have fired
+                        setTimeout(() => {
+                            if (longPressTarget) {
+                                longPressTarget.style.pointerEvents = '';
+                            }
+                            longPressCompleted = false;
+                            longPressCompletedElements.delete(longPressTarget);
+                        }, 300);
+                    }, 500); // 500ms for long press
+                }
+            });
+            
+            document.addEventListener('touchend', function(e) {
+                const dayTab = e.target.closest('.day-tab');
+                // If long press completed, prevent click
+                if (dayTab && (longPressCompleted || longPressCompletedElements.has(dayTab))) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    return;
+                }
+                // Cancel long press timer if still running
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+                longPressTarget = null;
+                longPressCompleted = false;
+            });
+            
+            document.addEventListener('touchmove', function(e) {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                    longPressTarget = null;
+                    longPressCompleted = false;
+                }
+            });
+            
             // Add event delegation for day tabs with profile saving
             document.addEventListener('click', function(e) {
-                if (e.target.classList.contains('day-tab')) {
-                    const weekContent = e.target.closest('.week-content');
-                    currentDay = parseInt(e.target.dataset.day);
+                const dayTab = e.target.closest('.day-tab');
+                if (dayTab) {
+                    // Prevent click if it was triggered by a long press
+                    if (longPressCompleted || longPressCompletedElements.has(dayTab)) {
+                        return;
+                    }
+                    const weekContent = dayTab.closest('.week-content');
+                    currentDay = parseInt(dayTab.dataset.day);
                     showDayContent(weekContent, currentDay);
                     resetAllCheckmarks();
                     saveProfile();
                 }
             });
+            
+            // Right click handler for day tabs (desktop)
+            document.addEventListener('contextmenu', function(e) {
+                if (e.target.classList.contains('day-tab')) {
+                    e.preventDefault();
+                    toggleDayCheckmark(e.target);
+                }
+            });
+            
+            // Function to toggle day checkmark
+            function toggleDayCheckmark(dayTab) {
+                const week = parseInt(dayTab.dataset.week);
+                const day = parseInt(dayTab.dataset.day);
+                
+                // Initialize week object if it doesn't exist
+                if (!checkedDays[week]) {
+                    checkedDays[week] = {};
+                }
+                
+                // Toggle checkmark
+                if (checkedDays[week][day]) {
+                    delete checkedDays[week][day];
+                    dayTab.classList.remove('checked');
+                } else {
+                    checkedDays[week][day] = true;
+                    dayTab.classList.add('checked');
+                }
+                
+                // Update week checkmark
+                updateWeekCheckmark(week);
+                
+                // Save profile
+                saveProfile();
+            }
+            
+            // Function to update week checkmark based on all days being checked
+            function updateWeekCheckmark(week) {
+                if (!workoutPlan.weeks || !workoutPlan.weeks[week]) {
+                    return;
+                }
+                
+                const weekTab = document.querySelector(`.week-tab[data-week="${week}"]`);
+                if (!weekTab) {
+                    return;
+                }
+                
+                const daysInWeek = workoutPlan.weeks[week].length;
+                const checkedCount = checkedDays[week] ? Object.keys(checkedDays[week]).length : 0;
+                
+                if (checkedCount === daysInWeek && daysInWeek > 0) {
+                    weekTab.classList.add('checked');
+                    let checkmark = weekTab.querySelector('.checkmark');
+                    if (!checkmark) {
+                        checkmark = document.createElement('span');
+                        checkmark.className = 'checkmark';
+                        checkmark.textContent = '✓';
+                        weekTab.appendChild(checkmark);
+                    }
+                } else {
+                    weekTab.classList.remove('checked');
+                    const checkmark = weekTab.querySelector('.checkmark');
+                    if (checkmark) {
+                        checkmark.remove();
+                    }
+                }
+            }
+            
+            // Function to update all week checkmarks
+            function updateAllWeekCheckmarks() {
+                if (!workoutPlan.weeks) {
+                    return;
+                }
+                
+                Object.keys(workoutPlan.weeks).forEach(week => {
+                    updateWeekCheckmark(parseInt(week));
+                });
+            }
 
             // Load saved profile on page load
             loadProfile();
@@ -1915,9 +2268,11 @@
                         // Add day tabs
                         html += '<div class="day-tabs">';
                         workoutPlan.weeks[week].forEach((day, dayIndex) => {
-                            html += `<div class="day-tab ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">Day ${day.day}</div>`;
+                            const isChecked = checkedDays[week] && checkedDays[week][dayIndex];
+                            html += `<div class="day-tab ${dayIndex === 0 ? 'active' : ''} ${isChecked ? 'checked' : ''}" data-week="${week}" data-day="${dayIndex}">Day ${day.day}<span class="checkmark">✓</span></div>`;
                         });
                         html += '</div>';
+                        html += '<p class="day-checkmark-hint">💡 Long press or right-click day buttons to mark as complete</p>';
                         
                         // Add day content container
                         html += '<div class="day-contents">';
@@ -2086,16 +2441,21 @@
                             html += `
                                     </div>
                                     
-                                    <div class="notes">
-                                        <p>Notes:</p>
-                                        <ul>
-                                            <li>AMRAP = As Many Reps As Possible (with good form)</li>
-                                            <li>Rest 2-3 minutes between main lift sets</li>
-                                            <li>Rest 60-90 seconds between accessory sets</li>
-                                            <li>Accessory work should be done at 7-8 RPE (Rate of Perceived Exertion)</li>
-                                            <li>Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight</li>
-                                            <li>Increase weight only when you can complete all reps with good form</li>
-                                        </ul>
+                                    <div class="collapsible-wrapper">
+                                        <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
+                                            <strong>Notes</strong>
+                                            <span class="collapsible-toggle">▼</span>
+                                        </div>
+                                        <div class="collapsible-content collapsed">
+                                            <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
+                                                <li>AMRAP = As Many Reps As Possible (with good form)</li>
+                                                <li>Rest 2-3 minutes between main lift sets</li>
+                                                <li>Rest 60-90 seconds between accessory sets</li>
+                                                <li>Accessory work should be done at 7-8 RPE (Rate of Perceived Exertion)</li>
+                                                <li>Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight</li>
+                                                <li>Increase weight only when you can complete all reps with good form</li>
+                                            </ul>
+                                        </div>
                                     </div>
                                     
                                     ${isLastDayOfCycle ? generateLevelUpButtons() : ''}
@@ -2109,6 +2469,9 @@
                 }
                 
                 resultsContainer.innerHTML = html;
+                
+                // Update week checkmarks after rendering
+                updateAllWeekCheckmarks();
                 
                 // Add event listeners for level up button
                 const levelUpButton = document.getElementById('level-up-button');
@@ -2728,6 +3091,9 @@
                 
                 // Clear AMRAP results for the new cycle
                 amrapResults = {};
+                
+                // Clear all checkmarks
+                checkedDays = {};
                 
                 // Generate new workout plan
                 generateWorkoutPlan();

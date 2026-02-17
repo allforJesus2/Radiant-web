@@ -1,4 +1,4 @@
-const CACHE_NAME = 'my-cache-v3.2';
+const CACHE_NAME = 'my-cache-v3.3';
 const FILES_TO_CACHE = [
   '/set_activity_level.html',
   '/set_macros.html',
@@ -99,77 +99,59 @@ async function shouldPreferOffline() {
   return false;
 }
 
-// Fetch event - Respect offline preference setting
+// Fetch event - Respect offline preference setting for ALL files
 self.addEventListener('fetch', (event) => {
   const requestUrl = new URL(event.request.url);
   
-  // Handle HTML files based on offline preference
-  if (event.request.mode === 'navigate' || event.request.headers.get('accept').includes('text/html')) {
-    event.respondWith(
-      shouldPreferOffline().then((preferOffline) => {
-        if (preferOffline) {
-          // Cache-first strategy when offline mode is preferred
-          return caches.match(event.request)
-            .then((cachedResponse) => {
-              if (cachedResponse) {
-                return cachedResponse;
-              }
-              // If no cache, try network
-              return fetch(event.request)
-                .then((networkResponse) => {
-                  const responseToCache = networkResponse.clone();
-                  caches.open(CACHE_NAME).then((cache) => {
-                    cache.put(event.request, responseToCache);
-                  });
-                  return networkResponse;
-                });
-            });
-        } else {
-          // Network-first strategy when online mode is preferred
-          return fetch(event.request)
-            .then((networkResponse) => {
-              // Clone the response before using it
-              const responseToCache = networkResponse.clone();
-              
-              // Update cache with new version
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, responseToCache);
-              });
-              
-              return networkResponse;
-            })
-            .catch(() => {
-              // Fallback to cache if network fails
-              return caches.match(event.request);
-            });
-        }
-      })
-    );
-    return;
-  }
-  
-  // Cache-first strategy for other resources
+  // Apply offline preference to all requests
   event.respondWith(
-    caches.match(event.request)
-      .then((cachedResponse) => {
-        if (cachedResponse) {
-          return cachedResponse;
-        }
-        
+    shouldPreferOffline().then((preferOffline) => {
+      if (preferOffline) {
+        // Cache-first strategy when offline mode is preferred
+        // Use current cache version only to ensure updates work correctly
+        return caches.open(CACHE_NAME)
+          .then((cache) => {
+            return cache.match(event.request)
+              .then((cachedResponse) => {
+                if (cachedResponse) {
+                  return cachedResponse;
+                }
+                // If no cache, try network
+                return fetch(event.request)
+                  .then((networkResponse) => {
+                    if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+                      return networkResponse;
+                    }
+                    const responseToCache = networkResponse.clone();
+                    cache.put(event.request, responseToCache);
+                    return networkResponse;
+                  });
+              });
+          });
+      } else {
+        // Network-first strategy when online mode is preferred
         return fetch(event.request)
           .then((networkResponse) => {
             if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
               return networkResponse;
             }
-            
+            // Clone the response before using it
             const responseToCache = networkResponse.clone();
+            
+            // Update cache with new version
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseToCache);
             });
             
             return networkResponse;
+          })
+          .catch(() => {
+            // Fallback to current cache version if network fails
+            return caches.open(CACHE_NAME)
+              .then((cache) => cache.match(event.request));
           });
-      })
+      }
+    })
   );
 });
 

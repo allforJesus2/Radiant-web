@@ -40,37 +40,52 @@ how can we add spacing between suggestions
 
         <div class="top container" style="display: flex;">
 		
-		
-<div class="nutrition-progress-container container">
-            <div class="progress-bar-container">
-                <span class="emoji">🔥 Calories: <span class="fraction"></span></span>
-                <div class="progress-bar">
-                    <div class="progress-container">
-                        <div class="progress" data-goal="calories"></div>
+		<div class="nutrition-progress-wrapper" style="display: flex; align-items: center; gap: 15px; flex-wrap: nowrap;">
+            <!-- Circular calories progress bar -->
+            <div class="calories-circle-container">
+                <div class="circular-progress" data-goal="calories">
+                    <svg class="circular-progress-svg" viewBox="0 0 100 100">
+                        <circle class="circular-progress-bg" cx="50" cy="50" r="45"></circle>
+                        <circle class="circular-progress-fill" cx="50" cy="50" r="45" data-goal="calories"></circle>
+                        <!-- Visual breaks at 33% and 66% -->
+                        <!-- SVG rotated 90deg, so start (0%) is at bottom. Breaks at 120deg and 240deg in unrotated coordinates -->
+                        <!-- Break at 33%: 120deg from start -->
+                        <!-- Inner radius 30, extended outer radius 50 (extends beyond circle radius 45) -->
+                        <line class="circle-break" x1="35" y1="76" x2="25" y2="93.3" stroke="#000" stroke-width="4" stroke-linecap="round"></line>
+                        <!-- Break at 66%: 240deg from start -->
+                        <line class="circle-break" x1="35" y1="24" x2="25" y2="6.7" stroke="#000" stroke-width="4" stroke-linecap="round"></line>
+                    </svg>
+                    <div class="circular-progress-content">
+                        <span class="circular-emoji">🔥 Calories</span>
+                        <span class="circular-fraction"></span>
                     </div>
                 </div>
             </div>
-            <div class="progress-bar-container">
-                <span class="emoji">🥩 Protein: <span class="fraction"></span></span>
-                <div class="progress-bar">
-                    <div class="progress-container">
-                        <div class="progress" data-goal="protein"></div>
+            
+            <!-- Other macros progress bars -->
+            <div class="nutrition-progress-container container">
+                <div class="progress-bar-container">
+                    <span class="emoji">🥩 Protein: <span class="fraction"></span></span>
+                    <div class="progress-bar">
+                        <div class="progress-container">
+                            <div class="progress" data-goal="protein"></div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="progress-bar-container">
-                <span class="emoji">🍞 Carbs: <span class="fraction"></span></span>
-                <div class="progress-bar">
-                    <div class="progress-container">
-                        <div class="progress" data-goal="carbs"></div>
+                <div class="progress-bar-container">
+                    <span class="emoji">🍞 Carbs: <span class="fraction"></span></span>
+                    <div class="progress-bar">
+                        <div class="progress-container">
+                            <div class="progress" data-goal="carbs"></div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="progress-bar-container">
-                <span class="emoji">🥥 Fat: <span class="fraction"></span></span>
-                <div class="progress-bar">
-                    <div class="progress-container">
-                        <div class="progress" data-goal="fat"></div>
+                <div class="progress-bar-container">
+                    <span class="emoji">🥥 Fat: <span class="fraction"></span></span>
+                    <div class="progress-bar">
+                        <div class="progress-container">
+                            <div class="progress" data-goal="fat"></div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -146,6 +161,23 @@ how can we add spacing between suggestions
 				<p id="progressText">Starting...</p>
 			</div>
 		</div>
+
+        <!-- Meal-time Offset Dialog -->
+        <div id="offsetDialog" class="progress-modal" style="display: none;">
+            <div class="progress-content">
+                <h3 id="offsetTitle">Adjust meal times?</h3>
+                <p id="offsetMessage">You logged your first food for today at <span id="offsetTime"></span>. Your breakfast currently starts at <span id="offsetBreakfastStart"></span>. Would you like to shift your meal windows so breakfast aligns with this time?</p>
+
+                <div style="display:flex; gap:8px; justify-content:center; margin-top:16px;">
+                    <button class="btn" id="offsetShiftAll">Shift all windows</button>
+                    <button class="btn" id="offsetSetBreakfast">Set breakfast start</button>
+                    <button class="btn" id="offsetKeep">Keep current windows</button>
+                </div>
+                <div style="margin-top:10px; text-align:center; opacity:0.9; font-size:0.9em;">
+                    <label><input type="checkbox" id="offsetDisableDynamic"> Don't ask again (enable dynamic mealtimes)</label>
+                </div>
+            </div>
+        </div>
 
     </div>
 
@@ -322,6 +354,92 @@ how can we add spacing between suggestions
 
         .meal-toggle-btn {
             transition: transform 0.2s ease, background-color 0.2s ease;
+        }
+
+        /* Circular progress bar styles */
+        .nutrition-progress-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            width: 100%;
+            min-height: 130px; /* Match the height of nutrition-progress-container */
+        }
+
+        .calories-circle-container {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 130px; /* Match the height of nutrition-progress-container */
+        }
+        
+        .nutrition-progress-container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center; /* Center content vertically */
+        }
+
+        .circular-progress {
+            position: relative;
+            width: 100px;
+            height: 100px;
+            flex-shrink: 0;
+        }
+
+        .circular-progress-svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(90deg);
+        }
+
+        .circular-progress-bg {
+            fill: none;
+            stroke: rgba(255, 255, 255, 0.2);
+            stroke-width: 6;
+        }
+
+        .circular-progress-fill {
+            fill: none;
+            stroke: #55cc00;
+            stroke-width: 6;
+            stroke-linecap: round;
+            stroke-dasharray: 283; /* 2 * π * 45 (radius) */
+            stroke-dashoffset: 283;
+            transition: stroke-dashoffset 0.3s ease;
+        }
+
+        .circle-break {
+            opacity: 0.8;
+            z-index: 10;
+        }
+
+        .circular-progress-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .circular-emoji {
+            font-size: 12px;
+            margin-bottom: 2px;
+            white-space: nowrap;
+        }
+
+        .circular-fraction {
+            font-size: 12px;
+            color: var(--text-color);
+            white-space: nowrap;
+        }
+
+        /* Ensure wrapper always keeps horizontal layout */
+        .nutrition-progress-wrapper {
+            flex-wrap: nowrap;
         }
     </style>
 
@@ -848,11 +966,21 @@ function getMealType(timeStr) {
     const totalMinutes = hour * 60 + minute;
     
     // Load user-configured meal times or use defaults
-    const mealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
+    const savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
         breakfast: { start: '06:00', end: '10:00' },
         lunch: { start: '11:00', end: '14:00' },
         dinner: { start: '17:00', end: '21:00' }
     };
+
+    const dynamicConfig = JSON.parse(localStorage.getItem('dynamicMealConfig')) || null;
+
+    // If dynamic config enabled, compute meal times for the given date (use today by default)
+    let mealTimes = savedMealTimes;
+    if (dynamicConfig && dynamicConfig.enabled) {
+        const dateKey = localStorage.getItem('today') || new Date().toLocaleDateString('en-CA');
+        const dyn = computeDynamicMealTimesForDate(dateKey, dynamicConfig);
+        if (dyn) mealTimes = dyn;
+    }
 
     // Convert meal times to minutes for comparison
     function timeToMinutes(timeStr) {
@@ -935,11 +1063,19 @@ function calculateMealTotals(foodItems, mealType) {
 
 // Function to get meal time range as a formatted string
 function getMealTimeRange(mealType) {
-    const mealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
+    const savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
         breakfast: { start: '06:00', end: '10:00' },
         lunch: { start: '11:00', end: '14:00' },
         dinner: { start: '17:00', end: '21:00' }
     };
+
+    const dynamicConfig = JSON.parse(localStorage.getItem('dynamicMealConfig')) || null;
+    let mealTimes = savedMealTimes;
+    if (dynamicConfig && dynamicConfig.enabled) {
+        const dateKey = localStorage.getItem('today') || new Date().toLocaleDateString('en-CA');
+        const dyn = computeDynamicMealTimesForDate(dateKey, dynamicConfig);
+        if (dyn) mealTimes = dyn;
+    }
 
     function formatTimeForDisplay(timeStr) {
         const [hour, minute] = timeStr.split(':').map(Number);
@@ -989,6 +1125,41 @@ function calculateMealTypeTotals(foodItems, mealType) {
     };
 }
 
+// Compute dynamic meal times for a given date using dynamic config
+function computeDynamicMealTimesForDate(dateKey, dynamicConfig) {
+    try {
+        const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+        const dayFoods = foodLog[dateKey] || [];
+
+        let firstTime = null;
+        if (dayFoods.length) {
+            dayFoods.forEach(f => {
+                if (!f.timeAdded) return;
+                if (!firstTime || f.timeAdded.localeCompare(firstTime) < 0) firstTime = f.timeAdded;
+            });
+        }
+
+        if (!firstTime) return null; // no data for this date
+
+        function timeToMinutes(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+        function minutesToTime(m) { m = ((m%1440)+1440)%1440; const hh = String(Math.floor(m/60)).padStart(2,'0'); const mm = String(m%60).padStart(2,'0'); return `${hh}:${mm}`; }
+
+        const bs = timeToMinutes(firstTime);
+        const lunchStart = bs + Math.round((dynamicConfig.lunchAfterHours||5)*60);
+        const dinnerStart = bs + Math.round((dynamicConfig.dinnerAfterHours||10)*60);
+        const dinnerEnd = dinnerStart + Math.round((dynamicConfig.dinnerDurationHours||4)*60);
+
+        return {
+            breakfast: { start: minutesToTime(bs), end: minutesToTime(lunchStart) },
+            lunch: { start: minutesToTime(lunchStart), end: minutesToTime(dinnerStart) },
+            dinner: { start: minutesToTime(dinnerStart), end: minutesToTime(dinnerEnd) }
+        };
+    } catch (e) {
+        console.error('Error computing dynamic meal times:', e);
+        return null;
+    }
+}
+
 // Function to get the current meal type based on current time
 function getCurrentMealType() {
     const currentTime = formatTime(new Date());
@@ -1025,7 +1196,7 @@ function updateProgressBars(totals) {
     const proteinPercentage = (totals.protein / proteinGoal) * 100;
     const carbsPercentage = (totals.carbs / carbsGoal) * 100;
     const fatPercentage = (totals.fat / fatGoal) * 100;
-    const caloriePercentage = (totals.calories / dailyCalorieGoal) * 100;
+    const caloriePercentage = Math.min((totals.calories / dailyCalorieGoal) * 100, 100); // Cap at 100%
 
     // Calculate fractions for nutrients
     const proteinFraction = `${totals.protein} / ${proteinGoal}`;
@@ -1033,18 +1204,27 @@ function updateProgressBars(totals) {
     const fatFraction = `${totals.fat} / ${fatGoal}`;
     const calorieFraction = `${totals.calories} / ${dailyCalorieGoal}`;
 
-    // Update nutritional progress bars
+    // Update circular calories progress bar
+    const circumference = 2 * Math.PI * 45; // radius is 45
+    const caloriesOffset = circumference - (caloriePercentage / 100) * circumference;
+    const caloriesCircle = document.querySelector('.circular-progress-fill[data-goal="calories"]');
+    if (caloriesCircle) {
+        caloriesCircle.style.strokeDashoffset = caloriesOffset;
+    }
+    const circularFraction = document.querySelector('.circular-fraction');
+    if (circularFraction) {
+        circularFraction.textContent = calorieFraction;
+    }
+
+    // Update nutritional progress bars (protein, carbs, fat)
     document.querySelector('[data-goal="protein"]').style.width = `${proteinPercentage}%`;
-    document.querySelector('.progress-bar-container:nth-child(2) .fraction').textContent = proteinFraction; // Update text content
+    document.querySelector('.progress-bar-container:nth-child(1) .fraction').textContent = proteinFraction;
 
     document.querySelector('[data-goal="carbs"]').style.width = `${carbsPercentage}%`;
-    document.querySelector('.progress-bar-container:nth-child(3) .fraction').textContent = carbsFraction; // Update text content
+    document.querySelector('.progress-bar-container:nth-child(2) .fraction').textContent = carbsFraction;
 
     document.querySelector('[data-goal="fat"]').style.width = `${fatPercentage}%`;
-    document.querySelector('.progress-bar-container:nth-child(4) .fraction').textContent = fatFraction; // Update text content
-
-    document.querySelector('[data-goal="calories"]').style.width = `${caloriePercentage}%`;
-    document.querySelector('.progress-bar-container:nth-child(1) .fraction').textContent = calorieFraction; // Update text content
+    document.querySelector('.progress-bar-container:nth-child(3) .fraction').textContent = fatFraction;
 }
 
 
@@ -1065,6 +1245,137 @@ function timeToMinutes(time) {
     var parts = time.split(':');
     return parseInt(parts[0]) * 60 + parseInt(parts[1]);
 }
+
+// Helper: convert minutes since midnight to "HH:MM"
+function minutesToTime(m) {
+    m = ((m % 1440) + 1440) % 1440;
+    var hh = Math.floor(m / 60);
+    var mm = m % 60;
+    return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+}
+
+// Shift all mealTimes by offsetMinutes (can be negative). Persists to localStorage.
+function shiftMealTimes(offsetMinutes) {
+    var savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
+        breakfast: { start: '06:00', end: '10:00' },
+        lunch: { start: '11:00', end: '14:00' },
+        dinner: { start: '17:00', end: '21:00' }
+    };
+
+    function shiftRange(range) {
+        var s = timeToMinutes(range.start);
+        var e = timeToMinutes(range.end);
+        s = s + offsetMinutes;
+        e = e + offsetMinutes;
+        return { start: minutesToTime(s), end: minutesToTime(e) };
+    }
+
+    var newTimes = {
+        breakfast: shiftRange(savedMealTimes.breakfast),
+        lunch: shiftRange(savedMealTimes.lunch),
+        dinner: shiftRange(savedMealTimes.dinner)
+    };
+
+    localStorage.setItem('mealTimes', JSON.stringify(newTimes));
+    return newTimes;
+}
+
+// Set breakfast start to newStart (HH:MM) preserving breakfast duration; other meals optionally shifted by same delta
+function setBreakfastStart(newStart, shiftLinked) {
+    var savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
+        breakfast: { start: '06:00', end: '10:00' },
+        lunch: { start: '11:00', end: '14:00' },
+        dinner: { start: '17:00', end: '21:00' }
+    };
+    var oldStart = timeToMinutes(savedMealTimes.breakfast.start);
+    var oldEnd = timeToMinutes(savedMealTimes.breakfast.end);
+    var duration = oldEnd - oldStart;
+    var newStartM = timeToMinutes(newStart);
+    var delta = newStartM - oldStart;
+
+    var newBreakfast = { start: newStart, end: minutesToTime(newStartM + duration) };
+
+    var newTimes = Object.assign({}, savedMealTimes);
+    newTimes.breakfast = newBreakfast;
+
+    if (shiftLinked) {
+        newTimes.lunch = { start: minutesToTime(timeToMinutes(savedMealTimes.lunch.start) + delta), end: minutesToTime(timeToMinutes(savedMealTimes.lunch.end) + delta) };
+        newTimes.dinner = { start: minutesToTime(timeToMinutes(savedMealTimes.dinner.start) + delta), end: minutesToTime(timeToMinutes(savedMealTimes.dinner.end) + delta) };
+    }
+
+    localStorage.setItem('mealTimes', JSON.stringify(newTimes));
+    return newTimes;
+}
+
+// Modal logic: pending food will be stored until user chooses
+var pendingFoodItem = null;
+
+function showOffsetDialog(foodItem) {
+    pendingFoodItem = foodItem;
+    var hh_mm = foodItem.timeAdded;
+    document.getElementById('offsetTime').textContent = hh_mm;
+    var savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || { breakfast: { start: '06:00', end: '10:00' } };
+    document.getElementById('offsetBreakfastStart').textContent = savedMealTimes.breakfast.start;
+    document.getElementById('offsetDialog').style.display = 'flex';
+    document.getElementById('blurOverlay').classList.add('active');
+}
+
+function hideOffsetDialog() {
+    document.getElementById('offsetDialog').style.display = 'none';
+    document.getElementById('blurOverlay').classList.remove('active');
+    pendingFoodItem = null;
+}
+
+// Apply choice and then persist the pending food item
+function applyOffsetShiftAll() {
+    if (!pendingFoodItem) return hideOffsetDialog();
+    var hh = timeToMinutes(pendingFoodItem.timeAdded);
+    var saved = JSON.parse(localStorage.getItem('mealTimes')) || { breakfast: { start: '06:00', end: '10:00' } };
+    var breakfastStart = timeToMinutes(saved.breakfast.start);
+    var offset = hh - breakfastStart;
+    shiftMealTimes(offset);
+    if (document.getElementById('offsetDisableDynamic').checked) {
+        localStorage.setItem('dynamicMealConfig', JSON.stringify({ enabled: true }));
+    }
+    finalizePendingFood();
+}
+
+function applyOffsetSetBreakfast() {
+    if (!pendingFoodItem) return hideOffsetDialog();
+    var newStart = pendingFoodItem.timeAdded;
+    // by default shift linked windows as well
+    setBreakfastStart(newStart, true);
+    if (document.getElementById('offsetDisableDynamic').checked) {
+        localStorage.setItem('dynamicMealConfig', JSON.stringify({ enabled: true }));
+    }
+    finalizePendingFood();
+}
+
+function applyOffsetKeep() {
+    // Do not change mealTimes, just persist food
+    if (!pendingFoodItem) return hideOffsetDialog();
+    finalizePendingFood();
+}
+
+function finalizePendingFood() {
+    var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    if (!foodLog[today]) foodLog[today] = [];
+    foodLog[today].push(pendingFoodItem);
+    localStorage.setItem('foodLog', JSON.stringify(foodLog));
+    var existingData = foodLog[today];
+    displayFoodItems(existingData);
+    hideOffsetDialog();
+}
+
+// Wire dialog buttons
+document.addEventListener('DOMContentLoaded', function() {
+    var s = document.getElementById('offsetShiftAll');
+    var b = document.getElementById('offsetSetBreakfast');
+    var k = document.getElementById('offsetKeep');
+    if (s) s.addEventListener('click', applyOffsetShiftAll);
+    if (b) b.addEventListener('click', applyOffsetSetBreakfast);
+    if (k) k.addEventListener('click', applyOffsetKeep);
+});
 
 
 // Add event listener for meal filter dropdown
@@ -1105,6 +1416,20 @@ document.getElementById('addBtn').addEventListener('click', function() {
             }
 
             var existingData = foodLog[today];
+
+            // If this is the first food of the day, and it's outside breakfast, show offset dialog
+            if (existingData.length === 0) {
+                var hh_mm_local = hh_mm; // time of this food
+                var mealType = getMealType(hh_mm_local);
+                if (mealType !== 'Breakfast') {
+                    // Defer adding until user chooses in dialog
+                    showOffsetDialog(foodItem);
+                    // Clear inputs
+                    document.querySelector('.food').value = '';
+                    document.querySelector('.grams').value = '';
+                    return; // prevent immediate persist
+                }
+            }
             
             
             var mostRecentIndex = existingData.reduce(function(mostRecentIndex, item, index) {
@@ -1202,7 +1527,12 @@ function displayFoodItems(foodItems) {
                                   mealPlans[dayMealPlan][mealType.toLowerCase()] && 
                                   mealPlans[dayMealPlan][mealType.toLowerCase()].length > 0;
             
-            if (hasRegularItems || hasPlannedItems) {
+            // Always show Breakfast, Lunch, and Dinner sections, even if empty
+            // Only show Snack section if it has items
+            const shouldShowSection = mealType === 'Breakfast' || mealType === 'Lunch' || mealType === 'Dinner' || 
+                                     hasRegularItems || hasPlannedItems;
+            
+            if (shouldShowSection) {
                 // Create meal header container
                 var mealHeaderContainer = document.createElement('div');
                 mealHeaderContainer.className = 'meal-header-container';
@@ -1677,7 +2007,7 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
 		}, 300);
 	}
 
-	// Daily meal plan progress reset functions
+	// Weekly meal plan progress reset functions
 	function checkAndResetDailyProgress() {
 		const userTime = localStorage.getItem('userTime') || '01:00'; // Default to 1:00 AM
 		const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
@@ -1688,19 +2018,30 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
 			lastReset: null
 		};
 		const currentDate = new Date();
-		const currentDateString = currentDate.toDateString();
 		
-		// Check if we need to reset based on userTime
-		if (shouldResetBasedOnUserTime(userTime, mealPlanning.lastReset, currentDate)) {
-			resetAllDailyProgress();
-			mealPlanning.lastReset = currentDateString;
+		// Check if we need to reset based on userTime (weekly reset)
+		if (shouldResetWeekly(userTime, mealPlanning.lastReset, currentDate)) {
+			resetAllCheckmarks();
+			// Store the start of the current week (Sunday) as the last reset date
+			const weekStart = getWeekStart(currentDate);
+			mealPlanning.lastReset = weekStart.toISOString();
 			localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
 		}
 	}
 
-	function shouldResetBasedOnUserTime(userTime, lastResetDate, currentDate) {
+	function getWeekStart(date) {
+		// Get the start of the week (Sunday)
+		const d = new Date(date);
+		const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
+		const diff = d.getDate() - day; // Days to subtract to get to Sunday
+		const weekStart = new Date(d.setDate(diff));
+		weekStart.setHours(0, 0, 0, 0);
+		return weekStart;
+	}
+
+	function shouldResetWeekly(userTime, lastResetDateString, currentDate) {
 		// If no previous reset, reset now
-		if (!lastResetDate) {
+		if (!lastResetDateString) {
 			return true;
 		}
 		
@@ -1713,18 +2054,38 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
 		const currentMinute = currentDate.getMinutes();
 		const currentTimeInMinutes = currentHour * 60 + currentMinute;
 		
-		// Get today's date string
-		const todayString = currentDate.toDateString();
+		// Get the start of the current week (Sunday)
+		const currentWeekStart = getWeekStart(currentDate);
 		
-		// If it's a new day and we're past the userTime, reset
-		if (lastResetDate !== todayString && currentTimeInMinutes >= userTimeInMinutes) {
+		// Parse last reset date
+		let lastResetDate;
+		try {
+			lastResetDate = new Date(lastResetDateString);
+		} catch (e) {
+			// If parsing fails, treat as old format and reset
+			return true;
+		}
+		
+		// Get the start of the week for the last reset
+		const lastResetWeekStart = getWeekStart(lastResetDate);
+		
+		// Check if we're in a new week
+		if (currentWeekStart.getTime() > lastResetWeekStart.getTime()) {
+			// We're in a new week
+			const currentDay = currentDate.getDay(); // 0 = Sunday
+			
+			// If it's Sunday, only reset if we're past the userTime
+			if (currentDay === 0) {
+				return currentTimeInMinutes >= userTimeInMinutes;
+			}
+			// If it's any other day (Monday-Saturday), reset because we're past Sunday userTime
 			return true;
 		}
 		
 		return false;
 	}
 
-	function resetAllDailyProgress() {
+	function resetAllCheckmarks() {
 		// Clear completed and removed meals for all days of the week
 		const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
 			mealPlans: {},
@@ -1736,7 +2097,7 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
 		mealPlanning.completedMeals = {};
 		mealPlanning.removedMeals = {};
 		localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
-		console.log('Daily meal plan progress has been reset for the new day.');
+		console.log('Weekly meal plan progress has been reset for the new week.');
 	}
 
 	function migrateOldMealPlanData() {

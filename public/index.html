@@ -23,6 +23,7 @@
 			border: 1px solid #543;
 			text-align: center;
 			padding: 20px;
+			position: relative;
 		}
 		
 		.btn {
@@ -43,7 +44,21 @@
             margin-bottom: 20px;
         }
 
-	</style>
+		/* Contact link */
+		.contact-link {
+			position: absolute;
+			bottom: 10px;
+			right: 10px;
+			color: #888;
+			font-size: 14px;
+			text-decoration: underline;
+			cursor: pointer;
+		}
+
+		.contact-link:hover {
+			color: #aaa;
+		}
+
 	</style>
 	<script src="offline-preference.js"></script>
 </head>
@@ -55,14 +70,17 @@
 		
         <button class="btn" onclick="checkProfileAndNavigate()">Nutrition 🍎</button>
         <button class="btn"  onclick="window.location.href='workout/531.html'">Exercise 🏋️‍♀️</button>
-        <button class="btn" onclick="window.location.href='sleep.html'">Sleep 💤</button>
+        <button class="btn" onclick="window.location.href='notes.html#sleep'">Sleep 💤</button>
         <button class="btn" onclick="window.location.href='notes.html'">Daily Notes 📝</button>
         <button class="btn" onclick="window.location.href='profile.html'">Profile 👤</button>
 		<button class="btn" onclick="window.location.href='charts.html'">Analysis 📊</button>
 		<button class="btn" onclick="window.location.href='settings.html'">Settings ⚙️</button>
 
+		<!-- Contact link -->
+		<a href="mailto:caoilid@gmail.com?subject=Contact from Radiant Web" class="contact-link" title="Send a message">
+			Suggestions? Email Me!
+		</a>
     </div>
-
 
     <script>
         var dateElement = document.getElementById('date');

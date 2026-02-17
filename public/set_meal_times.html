@@ -15,6 +15,21 @@
 
         <div class="meal-time-config">
             <div class="meal-section">
+                <h2>⚙️ Dynamic Mealtimes</h2>
+                <div style="display: grid; gap:8px;">
+                    <label><input type="checkbox" id="dynamicMealsToggle"> Enable dynamic mealtimes (based on first logged food of the day)</label>
+                    <div id="dynamicOptions" style="display:none;">
+                        <label>Hours until Lunch (from breakfast start):</label>
+                        <input type="number" id="lunchOffsetHours" min="0" step="0.25" value="5" class="time-input">
+                        <label>Hours until Dinner (from breakfast start):</label>
+                        <input type="number" id="dinnerOffsetHours" min="0" step="0.25" value="10" class="time-input">
+                        <label>Dinner Duration (hours):</label>
+                        <input type="number" id="dinnerDurationHours" min="0.5" step="0.25" value="4" class="time-input">
+                        <p style="font-size:0.9em; opacity:0.8;">When enabled, breakfast will start at the first logged food time for the day. Lunch and dinner are placed after the configured offsets.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="meal-section">
                 <h2>🌅 Breakfast</h2>
                 <div class="time-inputs">
                     <label>Start Time:</label>
@@ -228,18 +243,46 @@
             dinner: { start: '17:00', end: '21:00' }
         };
 
+        const defaultDynamicConfig = {
+            enabled: false,
+            lunchAfterHours: 5,
+            dinnerAfterHours: 10,
+            dinnerDurationHours: 4
+        };
+
         // Load saved meal times or use defaults
         function loadMealTimes() {
             const savedTimes = JSON.parse(localStorage.getItem('mealTimes')) || defaultMealTimes;
-            
+            const dynamicConfig = JSON.parse(localStorage.getItem('dynamicMealConfig')) || defaultDynamicConfig;
+
+            // Populate static time inputs
             document.getElementById('breakfastStart').value = savedTimes.breakfast.start;
             document.getElementById('breakfastEnd').value = savedTimes.breakfast.end;
             document.getElementById('lunchStart').value = savedTimes.lunch.start;
             document.getElementById('lunchEnd').value = savedTimes.lunch.end;
             document.getElementById('dinnerStart').value = savedTimes.dinner.start;
             document.getElementById('dinnerEnd').value = savedTimes.dinner.end;
-            
+
+            // Populate dynamic options
+            document.getElementById('dynamicMealsToggle').checked = !!dynamicConfig.enabled;
+            document.getElementById('lunchOffsetHours').value = dynamicConfig.lunchAfterHours;
+            document.getElementById('dinnerOffsetHours').value = dynamicConfig.dinnerAfterHours;
+            document.getElementById('dinnerDurationHours').value = dynamicConfig.dinnerDurationHours;
+
+            toggleDynamicUI();
             updatePreview();
+        }
+
+        function toggleDynamicUI() {
+            const enabled = document.getElementById('dynamicMealsToggle').checked;
+            const dynamicOptions = document.getElementById('dynamicOptions');
+            dynamicOptions.style.display = enabled ? 'block' : 'none';
+
+            // Disable manual time inputs when dynamic is enabled
+            document.querySelectorAll('.time-input').forEach(input => {
+                if (['lunchOffsetHours','dinnerOffsetHours','dinnerDurationHours'].includes(input.id)) return;
+                input.disabled = enabled;
+            });
         }
 
         // Save meal times to localStorage
@@ -259,12 +302,20 @@
                 }
             };
 
+            const dynamicConfig = {
+                enabled: document.getElementById('dynamicMealsToggle').checked,
+                lunchAfterHours: parseFloat(document.getElementById('lunchOffsetHours').value) || defaultDynamicConfig.lunchAfterHours,
+                dinnerAfterHours: parseFloat(document.getElementById('dinnerOffsetHours').value) || defaultDynamicConfig.dinnerAfterHours,
+                dinnerDurationHours: parseFloat(document.getElementById('dinnerDurationHours').value) || defaultDynamicConfig.dinnerDurationHours
+            };
+
             // Validate times
             if (!validateMealTimes(mealTimes)) {
                 return;
             }
 
             localStorage.setItem('mealTimes', JSON.stringify(mealTimes));
+            localStorage.setItem('dynamicMealConfig', JSON.stringify(dynamicConfig));
             showMessage('Meal times saved successfully!', 'success');
             updatePreview();
         }
@@ -328,6 +379,20 @@
                 }
             };
 
+            // If dynamic is enabled, compute example meal times using today's first logged food
+            const dynamicConfig = JSON.parse(localStorage.getItem('dynamicMealConfig')) || defaultDynamicConfig;
+            if (dynamicConfig.enabled) {
+                const example = computeExampleDynamicMealTimes(dynamicConfig);
+                if (example) {
+                    mealTimes.breakfast.start = example.breakfast.start;
+                    mealTimes.breakfast.end = example.breakfast.end;
+                    mealTimes.lunch.start = example.lunch.start;
+                    mealTimes.lunch.end = example.lunch.end;
+                    mealTimes.dinner.start = example.dinner.start;
+                    mealTimes.dinner.end = example.dinner.end;
+                }
+            }
+
             let previewHTML = '';
             
             if (mealTimes.breakfast.start && mealTimes.breakfast.end) {
@@ -371,6 +436,42 @@
             preview.innerHTML = previewHTML;
         }
 
+        // Compute example dynamic meal times (based on first logged food for today if available)
+        function computeExampleDynamicMealTimes(dynamicConfig) {
+            try {
+                const today = localStorage.getItem('today') || new Date().toLocaleDateString('en-CA');
+                const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+                const dayFoods = foodLog[today] || [];
+
+                let firstTime = null;
+                if (dayFoods.length) {
+                    dayFoods.forEach(f => {
+                        if (!f.timeAdded) return;
+                        if (!firstTime || f.timeAdded.localeCompare(firstTime) < 0) firstTime = f.timeAdded;
+                    });
+                }
+
+                if (!firstTime) firstTime = '08:00';
+
+                // Helpers
+                function timeToMinutes(t) { const [h,m]=t.split(':').map(Number); return h*60+m; }
+                function minutesToTime(m) { m = ((m%1440)+1440)%1440; const hh = String(Math.floor(m/60)).padStart(2,'0'); const mm = String(m%60).padStart(2,'0'); return `${hh}:${mm}`; }
+
+                const bs = timeToMinutes(firstTime);
+                const lunchStart = bs + Math.round((dynamicConfig.lunchAfterHours||defaultDynamicConfig.lunchAfterHours)*60);
+                const dinnerStart = bs + Math.round((dynamicConfig.dinnerAfterHours||defaultDynamicConfig.dinnerAfterHours)*60);
+                const dinnerEnd = dinnerStart + Math.round((dynamicConfig.dinnerDurationHours||defaultDynamicConfig.dinnerDurationHours)*60);
+
+                return {
+                    breakfast: { start: minutesToTime(bs), end: minutesToTime(lunchStart) },
+                    lunch: { start: minutesToTime(lunchStart), end: minutesToTime(dinnerStart) },
+                    dinner: { start: minutesToTime(dinnerStart), end: minutesToTime(dinnerEnd) }
+                };
+            } catch (e) {
+                return null;
+            }
+        }
+
         // Reset to defaults
         function resetToDefaults() {
             if (confirm('Are you sure you want to reset to default meal times?')) {
@@ -398,7 +499,7 @@
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
             loadMealTimes();
-            
+            document.getElementById('dynamicMealsToggle').addEventListener('change', () => { toggleDynamicUI(); updatePreview(); });
             // Add event listeners for time inputs
             const timeInputs = document.querySelectorAll('.time-input');
             timeInputs.forEach(input => {

@@ -681,6 +681,13 @@
             loadNotesForDate(currentSelectedDate);
             updateDateDisplay();
             generateCalendar(); // Generate calendar on page load
+            
+            // Check URL hash to activate specific tab
+            const hash = window.location.hash;
+            if (hash === '#sleep') {
+                // Activate sleep tab programmatically
+                switchTab('sleep');
+            }
         });
 
         // Tab switching functionality
@@ -698,8 +705,17 @@
             // Show selected tab content
             document.getElementById(tabName + 'Tab').classList.add('active');
             
-            // Add active class to clicked tab button
-            event.target.classList.add('active');
+            // Add active class to the corresponding tab button
+            // Try to use event.target if available (from click), otherwise find button by onclick attribute
+            let targetButton = null;
+            if (event && event.target) {
+                targetButton = event.target;
+            } else {
+                targetButton = document.querySelector(`button[onclick="switchTab('${tabName}')"]`);
+            }
+            if (targetButton) {
+                targetButton.classList.add('active');
+            }
             
             // If switching to calendar tab, regenerate calendar
             if (tabName === 'calendar') {

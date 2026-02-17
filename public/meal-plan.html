@@ -302,19 +302,30 @@
         function checkAndResetDailyProgress() {
             const userTime = localStorage.getItem('userTime') || '01:00'; // Default to 1:00 AM
             const currentDate = new Date();
-            const currentDateString = currentDate.toDateString();
             
-            // Check if we need to reset based on userTime
-            if (shouldResetBasedOnUserTime(userTime, mealPlanning.lastReset, currentDate)) {
-                resetAllDailyProgress();
-                mealPlanning.lastReset = currentDateString;
+            // Check if we need to reset based on userTime (weekly reset)
+            if (shouldResetWeekly(userTime, mealPlanning.lastReset, currentDate)) {
+                resetAllCheckmarks();
+                // Store the start of the current week (Sunday) as the last reset date
+                const weekStart = getWeekStart(currentDate);
+                mealPlanning.lastReset = weekStart.toISOString();
                 saveMealPlanningData();
             }
         }
 
-        function shouldResetBasedOnUserTime(userTime, lastResetDate, currentDate) {
+        function getWeekStart(date) {
+            // Get the start of the week (Sunday)
+            const d = new Date(date);
+            const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
+            const diff = d.getDate() - day; // Days to subtract to get to Sunday
+            const weekStart = new Date(d.setDate(diff));
+            weekStart.setHours(0, 0, 0, 0);
+            return weekStart;
+        }
+
+        function shouldResetWeekly(userTime, lastResetDateString, currentDate) {
             // If no previous reset, reset now
-            if (!lastResetDate) {
+            if (!lastResetDateString) {
                 return true;
             }
             
@@ -327,23 +338,43 @@
             const currentMinute = currentDate.getMinutes();
             const currentTimeInMinutes = currentHour * 60 + currentMinute;
             
-            // Get today's date string
-            const todayString = currentDate.toDateString();
+            // Get the start of the current week (Sunday)
+            const currentWeekStart = getWeekStart(currentDate);
             
-            // If it's a new day and we're past the userTime, reset
-            if (lastResetDate !== todayString && currentTimeInMinutes >= userTimeInMinutes) {
+            // Parse last reset date
+            let lastResetDate;
+            try {
+                lastResetDate = new Date(lastResetDateString);
+            } catch (e) {
+                // If parsing fails, treat as old format and reset
+                return true;
+            }
+            
+            // Get the start of the week for the last reset
+            const lastResetWeekStart = getWeekStart(lastResetDate);
+            
+            // Check if we're in a new week
+            if (currentWeekStart.getTime() > lastResetWeekStart.getTime()) {
+                // We're in a new week
+                const currentDay = currentDate.getDay(); // 0 = Sunday
+                
+                // If it's Sunday, only reset if we're past the userTime
+                if (currentDay === 0) {
+                    return currentTimeInMinutes >= userTimeInMinutes;
+                }
+                // If it's any other day (Monday-Saturday), reset because we're past Sunday userTime
                 return true;
             }
             
             return false;
         }
 
-        function resetAllDailyProgress() {
+        function resetAllCheckmarks() {
             // Clear completed and removed meals for all days of the week
             mealPlanning.completedMeals = {};
             mealPlanning.removedMeals = {};
             saveMealPlanningData();
-            console.log('Daily meal plan progress has been reset for the new day.');
+            console.log('Weekly meal plan progress has been reset for the new week.');
         }
 
         function saveMealPlanningData() {
@@ -353,7 +384,7 @@
 
         function resetMealPlanProgress() {
             if (confirm('Are you sure you want to reset all meal plan progress? This will clear all completed and removed meals for the entire week.')) {
-                resetAllDailyProgress();
+                resetAllCheckmarks();
                 // Reload the week display to show reset state
                 loadWeekMealPlans();
                 alert('Meal plan progress has been reset successfully!');

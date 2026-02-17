@@ -43,13 +43,18 @@ function fetchValueForKey(foodName, headerKey, callback) {
         const transaction = db.transaction([storeName], 'readonly');
         const store = transaction.objectStore(storeName);
         
-        // Use the index for fast lookup instead of cursor scanning
+        // Use the index for fast lookup
+        if (!store.indexNames || !store.indexNames.contains('nameIndex')) {
+            console.error('nameIndex not found in store');
+            callback(0);
+            return;
+        }
+        
         const index = store.index('nameIndex');
         const request = index.get(foodName);
         
         request.onsuccess = function(event) {
             if (request.result) {
-                // Found the food item instantly!
                 let value;
                 if (headerKey === 'calories') value = request.result.calories;
                 else if (headerKey === 'fat') value = request.result.fat;
@@ -57,13 +62,13 @@ function fetchValueForKey(foodName, headerKey, callback) {
                 else if (headerKey === 'carbohydrate') value = request.result.carbohydrate;
                 else if (headerKey === 'servingWeight1') value = request.result.servingWeight1;
                 else if (headerKey === 'servingDescription1') value = request.result.servingDescription1;
-                else value = 0; // Default value if header key not found
+                else value = 0;
                 
                 console.log('Found food item, value for', headerKey, ':', value);
                 callback(value);
             } else {
                 console.log('Food item not found:', foodName);
-                callback(0); // Return 0 if not found
+                callback(0);
             }
         };
         
@@ -92,6 +97,11 @@ function getNutritionalInfo(foodName, grams) {
             const store = transaction.objectStore(storeName);
             
             // Use the index for fast lookup
+            if (!store.indexNames || !store.indexNames.contains('nameIndex')) {
+                reject(new Error('nameIndex not found in store'));
+                return;
+            }
+            
             const index = store.index('nameIndex');
             const request = index.get(foodName);
             
@@ -99,7 +109,6 @@ function getNutritionalInfo(foodName, grams) {
                 if (request.result) {
                     const foodItem = request.result;
                     
-                    // Calculate all nutritional values at once using new structure
                     const nutritionalInfo = {
                         calories: parseFloat(((grams / 100) * foodItem.calories).toFixed(1)),
                         fat: parseFloat(((grams / 100) * foodItem.fat).toFixed(1)),
@@ -125,11 +134,24 @@ function setupAutocomplete(foodList) {
     var foodInput = document.querySelector('.food');
     var autocompleteList = document.getElementById('autocompleteList');
     var gramsInput = document.querySelector('.grams');
+    var debounceTimer = null;
 
     foodInput.addEventListener('input', function() {
         var userInput = this.value;
 
-        if (userInput.length > 1) {
+        // Clear existing timer
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+        }
+
+        // If input is cleared, clear the list immediately
+        if (userInput.length <= 1) {
+            autocompleteList.innerHTML = '';
+            return;
+        }
+
+        // Set a new timer to update suggestions after 250ms of no input
+        debounceTimer = setTimeout(function() {
             // Split the user input into words
             var inputWords = userInput.toLowerCase().split(' ');
 
@@ -173,8 +195,6 @@ function setupAutocomplete(foodList) {
 
                 autocompleteList.appendChild(listItem);
             });
-        } else {
-            autocompleteList.innerHTML = '';
-        }
+        }, 250);
     });
 }

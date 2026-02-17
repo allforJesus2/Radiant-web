@@ -8,7 +8,7 @@ const MENU_ITEMS = [
     { text: '⏰ Meal Times', href: 'set_meal_times.html' },
     { text: '📝 Recipes', href: 'create-recipe.html' },
     { text: '🏋️‍♀️ 5/3/1 Workout', href: 'workout/531.html' },
-    { text: '💤 Sleep', href: 'sleep.html' },
+    { text: '💤 Sleep', href: 'notes.html#sleep' },
     { text: '📊 Analysis', href: 'charts.html' },
     { text: '👤 Profile', href: 'profile.html' },
     { text: '❌ Close Menu', action: 'close' }
