@@ -413,6 +413,39 @@
             `;
         }
 
+        // ── LocalStorage backup helpers ──────────────────────────────────────
+        const LS_KEY = 'customRecipesBackup';
+
+        function getLocalRecipes() {
+            try {
+                return JSON.parse(localStorage.getItem(LS_KEY)) || [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveLocalRecipes(recipes) {
+            localStorage.setItem(LS_KEY, JSON.stringify(recipes));
+        }
+
+        function upsertLocalRecipe(recipeData, ingredientsList) {
+            const recipes = getLocalRecipes();
+            const idx = recipes.findIndex(r => r.id === recipeData.id);
+            const entry = { ...recipeData, _ingredients: ingredientsList };
+            if (idx >= 0) {
+                recipes[idx] = entry;
+            } else {
+                recipes.push(entry);
+            }
+            saveLocalRecipes(recipes);
+        }
+
+        function removeLocalRecipe(recipeId) {
+            const recipes = getLocalRecipes().filter(r => r.id !== recipeId);
+            saveLocalRecipes(recipes);
+        }
+        // ─────────────────────────────────────────────────────────────────────
+
         function saveRecipe() {
             const recipeNameInput = document.getElementById('recipeName');
             const recipeName = recipeNameInput.value.trim();
@@ -540,6 +573,10 @@
                             if (!foodList.includes(recipeName)) {
                                 foodList.push(recipeName);
                             }
+
+                            // ── LocalStorage backup ──
+                            upsertLocalRecipe(recipeData, recipeIngredients.ingredients);
+                            // ────────────────────────
                             
                             // Show success message
                             const message = isOverwrite ? 
@@ -663,6 +700,10 @@
                             
                             const updateIngredientsRequest = ingredientsStore.put(recipeIngredients);
                             updateIngredientsRequest.onsuccess = function() {
+                                // ── LocalStorage backup ──
+                                upsertLocalRecipe(recipe, recipeIngredients.ingredients);
+                                // ────────────────────────
+
                                 alert('Recipe updated successfully!');
                                 
                                 // Clear the form
@@ -994,20 +1035,24 @@
                         const deleteRequest = store.delete(recipeId);
                         const deleteIngredientsRequest = ingredientsStore.delete(recipeId);
                         
-                        deleteRequest.onsuccess = function() {
-                            deleteIngredientsRequest.onsuccess = function() {
-                                // Remove recipe name from foodList array
-                                const index = foodList.indexOf(recipeName);
-                                if (index > -1) {
-                                    foodList.splice(index, 1);
-                                }
-                                
-                                // Show success message
-                                alert(`Recipe "${recipeName}" has been deleted.`);
-                                
-                                // Refresh the recipes list
-                                loadSavedRecipes();
-                            };
+                            deleteRequest.onsuccess = function() {
+                                deleteIngredientsRequest.onsuccess = function() {
+                                    // Remove recipe name from foodList array
+                                    const index = foodList.indexOf(recipeName);
+                                    if (index > -1) {
+                                        foodList.splice(index, 1);
+                                    }
+
+                                    // ── LocalStorage backup ──
+                                    removeLocalRecipe(recipeId);
+                                    // ────────────────────────
+                                    
+                                    // Show success message
+                                    alert(`Recipe "${recipeName}" has been deleted.`);
+                                    
+                                    // Refresh the recipes list
+                                    loadSavedRecipes();
+                                };
                             
                             deleteIngredientsRequest.onerror = function(e) {
                                 console.error('Error deleting recipe ingredients:', e.target.error);
