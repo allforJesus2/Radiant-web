@@ -1076,6 +1076,11 @@
                         <option value="beginners">5/3/1 for Beginners (FSL + specific accessories)</option>
                     </select>
                 </div>
+                <div id="bbb-accessory-inputs" style="display:none">
+                    <p style="font-size:0.85rem; color:#666; margin-bottom:0;">
+                        BBB pressing days include Chin-ups 5×10 (bodyweight). You can substitute Barbell Curl or Shrugs for the Chin-ups.
+                    </p>
+                </div>
                 <div id="accessory-explanation" class="explanation-box"></div>
                 
                 <!-- Quiz Modal -->
@@ -1200,7 +1205,6 @@
                     document.getElementById('bench-1rm').value = profile.inputs.bench || '';
                     document.getElementById('deadlift-1rm').value = profile.inputs.deadlift || '';
                     document.getElementById('ohp-1rm').value = profile.inputs.ohp || '';
-                    
                     // Restore TM percentage
                     tmPercentage = profile.tmPercentage || 90;
                     tmOptions.forEach(option => {
@@ -1210,6 +1214,7 @@
                     // Restore accessory template
                     accessoryTemplate = profile.accessoryTemplate || 'standard';
                     accessorySelect.value = accessoryTemplate;
+                    updateBbbAccessoryInputsVisibility();
                     
                     // Restore UI state
                     currentWeek = profile.currentWeek || 1;
@@ -1261,6 +1266,13 @@
                 levelDisplay.textContent = `lvl: ${userLevel}`;
             }
 
+            function updateBbbAccessoryInputsVisibility() {
+                const block = document.getElementById('bbb-accessory-inputs');
+                if (block) {
+                    block.style.display = accessorySelect.value === 'bbb' ? 'block' : 'none';
+                }
+            }
+
             // Save profile to localStorage
             function saveProfile() {
                 const profile = {
@@ -1268,7 +1280,7 @@
                         squat: document.getElementById('squat-1rm').value,
                         bench: document.getElementById('bench-1rm').value,
                         deadlift: document.getElementById('deadlift-1rm').value,
-                        ohp: document.getElementById('ohp-1rm').value
+                        ohp: document.getElementById('ohp-1rm').value,
                     },
                     tmPercentage,
                     accessoryTemplate,
@@ -1558,6 +1570,7 @@
             
             accessorySelect.addEventListener('change', () => {
                 accessoryTemplate = accessorySelect.value;
+                updateBbbAccessoryInputsVisibility();
                 
                 // If workout plan already exists, regenerate it with new accessory template
                 if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
@@ -2050,20 +2063,35 @@
                             
                             // Reduce BBB volume during deload week
                             const bbbSets = week === 4 ? '3 sets of 10 reps (deload - may skip entirely)' : '5 sets of 10 reps';
+                            const isPressingDay = (main === 'ohp' || main === 'bench');
+                            const deload = week === 4;
                             
-                            dayPlan.accessories = [
-                                { 
-                                    type: 'Boring But Big', 
-                                    exercise: bbbExercise.main, 
-                                    sets: bbbSets, 
-                                    weight: bbbWeight
-                                },
-                                { 
-                                    type: 'Supplemental',
-                                    exercise: bbbExercise.secondary,
-                                    sets: week === 4 ? 'Optional - consider skipping' : '3-5 sets of 10-20 reps'
-                                }
-                            ];
+                            const bbbBase = {
+                                type: 'Boring But Big',
+                                exercise: bbbExercise.main,
+                                sets: bbbSets,
+                                weight: bbbWeight
+                            };
+                            
+                            if (isPressingDay) {
+                                const chinSets = deload ? '3 sets × 10 reps (deload)' : '5 sets × 10 reps';
+                                dayPlan.accessories = [
+                                    bbbBase,
+                                    { type: 'Chinups', exercise: 'Chin-ups', sets: chinSets,
+                                      note: 'You can substitute Barbell Curl or Shrugs for the lat work' }
+                                ];
+                            } else {
+                                const abSuggestions = [
+                                    'Ab Wheel Rollouts', 'Hanging Leg Raises', 'Flutter Kicks', 'Scissor Kicks',
+                                    'Standing Bag Kicks', 'Planks', 'Weighted Sit-ups', 'Lying Leg Raises',
+                                    'Dragon Flags', 'Russian Twists'
+                                ];
+                                const abSets = deload ? '10–25 total reps (deload)' : '25–50 total reps';
+                                dayPlan.accessories = [
+                                    bbbBase,
+                                    { type: 'AbWork', sets: abSets, suggestions: abSuggestions }
+                                ];
+                            }
                         } else if (accessoryTemplate === 'fsl') {
                             // First set last - use first working set weight for 5x5
                             const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
@@ -2380,16 +2408,35 @@
                                 });
                                 html += `</ul>`;
                             } else if (accessoryTemplate === 'bbb') {
-                                html += `<ul class="accessory-list">
+                                html += `<ul class="accessory-list">`;
+                                day.accessories.forEach((acc, accIndex) => {
+                                    if (acc.type === 'Boring But Big') {
+                                        html += `
                                     <li>
-                                        <span><strong>${day.accessories[0].type}:</strong> ${day.accessories[0].exercise}</span>
-                                        <span>${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-0" title="Start rest timer">⏰</button></span>
-                                    </li>
+                                        <span><strong>${acc.type}:</strong> ${acc.exercise}</span>
+                                        <span>${acc.sets} @ ${acc.weight} lbs <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
+                                    </li>`;
+                                    } else if (acc.type === 'Chinups') {
+                                        html += `
                                     <li>
-                                        <span><strong>Supplemental:</strong> ${day.accessories[1].exercise}</span>
-                                        <span>${day.accessories[1].sets} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-1" title="Start rest timer">⏰</button></span>
+                                        <span><strong>${acc.exercise}:</strong> ${acc.sets} (bodyweight)</span>
+                                        <span><button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
                                     </li>
-                                </ul>`;
+                                    <li style="list-style:none; padding-left:0; margin-top:0.25rem;">
+                                        <span style="font-size:0.9rem; color:#555;"><em>${acc.note}</em></span>
+                                    </li>`;
+                                    } else if (acc.type === 'AbWork') {
+                                        html += `
+                                    <li>
+                                        <span><strong>Ab Work:</strong> ${acc.sets}</span>
+                                        <span><button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
+                                    </li>
+                                    <li style="list-style:none; padding-left:0; margin-top:0.25rem;">
+                                        <span style="font-size:0.9rem; color:#555;"><em>Suggestions:</em> ${acc.suggestions.join(', ')}</span>
+                                    </li>`;
+                                    }
+                                });
+                                html += `</ul>`;
                             } else if (accessoryTemplate === 'fsl') {
                                 html += `<ul class="accessory-list">
                                     <li>
@@ -2451,7 +2498,7 @@
                                                 <li>AMRAP = As Many Reps As Possible (with good form)</li>
                                                 <li>Rest 2-3 minutes between main lift sets</li>
                                                 <li>Rest 60-90 seconds between accessory sets</li>
-                                                <li>Accessory work should be done at 7-8 RPE (Rate of Perceived Exertion)</li>
+                                                <li>Accessory work should be done at 70-80% RPE (Rate of Perceived Exertion)</li>
                                                 <li>Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight</li>
                                                 <li>Increase weight only when you can complete all reps with good form</li>
                                             </ul>
@@ -2522,7 +2569,7 @@
             const explanations = {
                 'standard': 'The Standard template focuses on balanced development with 25-50 reps each of pushing, pulling, and core exercises. This provides a well-rounded approach to assistance work that complements the main lifts without excessive fatigue.',
                 
-                'bbb': 'Boring But Big (BBB) is one of Wendler\'s most popular templates. It adds 5 sets of 10 reps at 50-60% of your training max for the same lift or a complementary lift after your main work. BBB builds muscle mass and work capacity while reinforcing proper movement patterns.',
+                'bbb': 'Boring But Big (BBB) adds 5×10 at ~50% of your training max after the main lift. Pressing days include chin-ups and barbell curl; squat and deadlift days include ab work (pick from the suggestions). Enter a curl working weight when using this template.',
                 
                 'fsl': 'First Set Last (FSL) uses the weight from your first work set (the 5 reps set) for 5 additional sets of 5 reps. This provides additional volume at a moderate intensity, helping to build strength and reinforce technique without excessive fatigue.',
                 
@@ -2639,6 +2686,7 @@
                 
                 // Update explanation
                 updateExplanation();
+                updateBbbAccessoryInputsVisibility();
                 
                 // If workout plan exists, regenerate it
                 if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
@@ -3084,6 +3132,7 @@
                     document.getElementById('ohp-1rm').value = ohp1RM;
                 }
                 // If AMRAP results exist, the 1RM values have already been updated
+                
                 
                 // Increase user level
                 userLevel++;
