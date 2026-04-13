@@ -4,7 +4,7 @@
 echo "🚀 Starting Python HTTP server on port 8000..."
 
 # Navigate to the public directory (where your website files are)
-cd Radiant-web/public
+cd ./public
 
 # Check if we're in the right directory
 if [ ! -f "index.html" ]; then

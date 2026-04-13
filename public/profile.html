@@ -83,6 +83,18 @@
             font-style: italic;
         }
 
+        .settings-hint {
+            text-align: center;
+            margin: -8px 0 28px;
+            font-size: 0.85em;
+            color: #888;
+            font-style: italic;
+        }
+
+        .settings-hint a {
+            color: #9cc3ff;
+        }
+
         .button-group {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -113,6 +125,7 @@
             <!-- Progress indicator will be rendered by navigation.js -->
         </div>
         <h1>Profile Statistics</h1>
+        <p class="settings-hint">You can download a full backup of all your data (including food logs) in <a href="settings.html">Settings</a> — use "Download All Data".</p>
         <form id="profileForm">
             <div class="form-group">
                 <label for="gender">Gender:</label>
