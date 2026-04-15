@@ -49,7 +49,7 @@ how can we add spacing between suggestions
                         <title id="caloriesRingTitle">Calories consumed: 0 of 2400</title>
                         <circle class="circular-progress-bg" cx="50" cy="50" r="45"></circle>
                         <circle class="circular-progress-fill" cx="50" cy="50" r="45" data-goal="calories"></circle>
-                        <circle class="circular-progress-recent" cx="50" cy="50" r="45"></circle>
+                        <circle class="circular-progress-recent" cx="50" cy="50" r="45" stroke-linecap="butt"></circle>
                         <!-- Visual breaks at 33% and 66% -->
                         <!-- SVG rotated 90deg, so start (0%) is at bottom. Breaks at 120deg and 240deg in unrotated coordinates -->
                         <!-- Break at 33%: 120deg from start -->
@@ -457,17 +457,15 @@ how can we add spacing between suggestions
             stroke-linecap: round;
             stroke-dasharray: 283; /* 2 * π * 45 (radius) */
             stroke-dashoffset: 283;
-            transition: stroke-dashoffset 0.3s ease;
         }
 
         .circular-progress-recent {
             fill: none;
             stroke: #ffcc00;
             stroke-width: 6;
-            stroke-linecap: round;
-            stroke-dasharray: 0 283;
-            stroke-dashoffset: 0;
-            transition: stroke-dasharray 0.3s ease;
+            stroke-linecap: butt;
+            stroke-dasharray: 283 283; /* same hidden-state technique as green circle */
+            stroke-dashoffset: 283;   /* fully hidden — no zero-length dash, no dot */
         }
 
         .circle-break {
@@ -513,7 +511,7 @@ how can we add spacing between suggestions
 	var today;
 
 	// Threshold (minutes) used for both deduplication and "recent food" yellow highlight
-	const RECENT_FOOD_MINUTES = 120;
+	const RECENT_FOOD_MINUTES = 60;
 
 	// Progress indicator functions
 	function showProgress(title, text) {
@@ -1033,19 +1031,30 @@ function getMealType(timeStr) {
 }
 
 // Function to calculate totals for a specific meal (or all meals when mealType === 'All').
-// Also computes the "recent" sub-totals (items within RECENT_FOOD_MINUTES) in one pass
-// so both values are always derived from the exact same item set.
+// Returns true if a food item's logged time falls within the RECENT_FOOD_MINUTES window.
+// Uses directional (past-only) comparison so a manually edited future time is never "recent".
+// Midnight wrap: food logged at 23:45 is still recent at 00:30 the next calendar minute.
+function isRecentFood(timeAdded) {
+    if (!timeAdded) return false;
+    const now  = new Date();
+    const nowMin  = now.getHours() * 60 + now.getMinutes();
+    const itemMin = timeToMinutes(timeAdded);
+    let diff = nowMin - itemMin;   // positive  → item is in the past (expected)
+    if (diff < 0) diff += 1440;   // midnight wrap (e.g. now=00:30, item=23:00 → diff=90)
+    return diff <= RECENT_FOOD_MINUTES;
+}
+
+// Computes per-macro totals AND recent sub-totals in a single pass over the same item set,
+// so the two values are always perfectly consistent.
+// Always uses the passed-in foodItems — never re-reads localStorage — so edits
+// are reflected immediately without any race between storage writes and reads.
 function calculateMealTotals(foodItems, mealType) {
     const items = (mealType === 'All')
-        ? (JSON.parse(localStorage.getItem('foodLog')) || {})[today] || []
+        ? foodItems
         : foodItems.filter(item => getMealType(item.timeAdded) === mealType);
 
-    const nowMinutes = timeToMinutes(formatTime(new Date()));
-
     const totals = items.reduce((acc, item) => {
-        const itemMinutes = item.timeAdded ? timeToMinutes(item.timeAdded) : NaN;
-        const diff = isNaN(itemMinutes) ? Infinity : Math.abs(nowMinutes - itemMinutes);
-        const recent = diff <= RECENT_FOOD_MINUTES;
+        const recent = isRecentFood(item.timeAdded);
         return {
             protein:        acc.protein        + (item.protein  || 0),
             carbs:          acc.carbs          + (item.carbs    || 0),
@@ -1201,14 +1210,20 @@ function updateProgressBars(totals) {
         greenCircle.style.strokeDashoffset = C - settledArc;
     }
 
-    // Yellow arc = recent calories (4-value dasharray: 0-length dash, skip-gap, yellow-dash, rest-gap)
+    // Yellow arc = recent calories.
+    // Uses the same dashoffset family as the green circle — no 0-length leading dash, no dot artifact.
+    // dasharray: recentArc (C-recentArc)  — one visible dash of exactly the right length
+    // dashoffset: C - settledArc          — shifts the dash to start at the green arc's end
     const yellowCircle = document.querySelector('.circular-progress-recent');
     if (yellowCircle) {
         if (recentArc > 0.5) {
-            const remainder = Math.max(0, C - settledArc - recentArc);
-            yellowCircle.style.strokeDasharray = `0 ${settledArc} ${recentArc} ${remainder}`;
+            yellowCircle.style.strokeDasharray  = `${recentArc} ${C - recentArc}`;
+            yellowCircle.style.strokeDashoffset = `${C - settledArc}`;
         } else {
-            yellowCircle.style.strokeDasharray = `0 ${C}`;
+            // Mirror the green circle's hidden state: a full-length dash offset by C
+            // produces a full gap — no zero-length dash, no rendering artifact.
+            yellowCircle.style.strokeDasharray  = `${C} ${C}`;
+            yellowCircle.style.strokeDashoffset = `${C}`;
         }
     }
 
@@ -1227,12 +1242,15 @@ function updateProgressBars(totals) {
 
     // ---- Linear macro bars (green = settled, yellow = recent) ----
     function applyMacroBar(barEl, settledAmt, recentAmt, goal) {
-        const settledPct = Math.min((settledAmt / goal) * 100, 100);
-        const totalPct   = Math.min(((settledAmt + recentAmt) / goal) * 100, 100);
+        const totalAmt = settledAmt + recentAmt;
+        const totalPct = Math.min((totalAmt / goal) * 100, 100);
         barEl.style.width = `${totalPct}%`;
-        if (recentAmt > 0 && totalPct > settledPct) {
+        if (recentAmt > 0 && totalAmt > 0) {
+            // settledFrac is the share of the bar element itself that is green,
+            // so the gradient stop is element-relative, not goal-relative.
+            const settledFrac = (settledAmt / totalAmt) * 100;
             barEl.style.background =
-                `linear-gradient(to right, #55cc00 ${settledPct}%, #ffcc00 ${settledPct}% ${totalPct}%)`;
+                `linear-gradient(to right, #55cc00 ${settledFrac}%, #ffcc00 ${settledFrac}%)`;
         } else {
             barEl.style.background = '#55cc00';
         }
