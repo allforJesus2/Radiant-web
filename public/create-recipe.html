@@ -17,7 +17,9 @@
             
             <div class="recipe-name-group">
                 <input type="text" id="recipeName" placeholder="Recipe name..." class="recipe-name-input">
-                <button class="btn" id="saveRecipeBtn" onclick="saveRecipe()">Save</button>
+                <button class="btn" id="saveRecipeBtn" onclick="saveRecipe()" style="display:none">Save</button>
+                <button class="btn" id="cancelEditBtn" onclick="clearRecipeForm()" style="display:none">Cancel Edit</button>
+                <button class="btn" id="saveNewRecipeBtn" onclick="saveAsNew()">Save New</button>
             </div>
             
             <div class="input-group">
@@ -146,6 +148,26 @@
         #saveRecipeBtn {
             white-space: nowrap;
             padding: 7px 10px;
+        }
+
+        #saveNewRecipeBtn {
+            white-space: nowrap;
+            padding: 7px 10px;
+            background-color: #2d5a2d;
+        }
+
+        #saveNewRecipeBtn:hover {
+            background-color: #3d6a3d;
+        }
+
+        #cancelEditBtn {
+            white-space: nowrap;
+            padding: 7px 10px;
+            background-color: #7a3a1e;
+        }
+
+        #cancelEditBtn:hover {
+            background-color: #9a4a2e;
         }
         
         #autocompleteList div {
@@ -605,6 +627,123 @@
             };
         }
 
+        function saveAsNew() {
+            const recipeNameInput = document.getElementById('recipeName');
+            const recipeName = recipeNameInput.value.trim();
+
+            if (!recipeName) {
+                recipeNameInput.focus();
+                alert('Please enter a recipe name.');
+                return;
+            }
+
+            if (ingredients.length === 0) {
+                alert('Please add at least one ingredient.');
+                return;
+            }
+
+            const servingGrams = prompt('Enter default serving size in grams:', '100');
+            if (servingGrams === null) return;
+
+            const servingDescription = prompt('Enter serving description (e.g., "1 slice", "1 cup", "100g"):', '100g');
+            if (servingDescription === null) return;
+
+            if (!servingGrams || isNaN(servingGrams) || parseFloat(servingGrams) <= 0) {
+                alert('Please enter a valid serving size in grams.');
+                return;
+            }
+
+            const per100g = {
+                calories: parseFloat((recipeTotals.calories / totalWeight * 100).toFixed(1)),
+                protein: parseFloat((recipeTotals.protein / totalWeight * 100).toFixed(1)),
+                carbs: parseFloat((recipeTotals.carbs / totalWeight * 100).toFixed(1)),
+                fat: parseFloat((recipeTotals.fat / totalWeight * 100).toFixed(1))
+            };
+
+            const dbName = 'csvDB';
+            const storeName = 'csvStore';
+            const ingredientsStoreName = 'recipeIngredients';
+
+            const dbRequest = indexedDB.open(dbName);
+
+            dbRequest.onsuccess = function(event) {
+                const db = event.target.result;
+
+                if (!db.objectStoreNames.contains(ingredientsStoreName)) {
+                    alert('Ingredients store not found. Please refresh the page and try again.');
+                    return;
+                }
+
+                const transaction = db.transaction([storeName, ingredientsStoreName], 'readwrite');
+                const store = transaction.objectStore(storeName);
+                const ingredientsStore = transaction.objectStore(ingredientsStoreName);
+
+                // Reject if the name already exists
+                const nameIndex = store.index('nameIndex');
+                const checkRequest = nameIndex.get(recipeName);
+
+                checkRequest.onsuccess = function() {
+                    if (checkRequest.result) {
+                        alert(`A recipe named "${recipeName}" already exists. Please choose a different name to save as new.`);
+                        recipeNameInput.focus();
+                        recipeNameInput.select();
+                        return;
+                    }
+
+                    // Assign a fresh ID
+                    const countRequest = store.count();
+                    countRequest.onsuccess = function() {
+                        const recipeId = countRequest.result;
+
+                        const recipeData = {
+                            id: recipeId,
+                            name: recipeName,
+                            foodGroup: 'Custom Recipe',
+                            calories: per100g.calories,
+                            fat: per100g.fat,
+                            protein: per100g.protein,
+                            carbohydrate: per100g.carbs,
+                            sugars: 0,
+                            fiber: 0,
+                            netCarbs: per100g.carbs,
+                            servingWeight1: parseFloat(servingGrams),
+                            servingDescription1: servingDescription,
+                        };
+
+                        const recipeIngredients = {
+                            recipeId: recipeId,
+                            ingredients: ingredients.map(ing => ({ name: ing.name, grams: ing.grams }))
+                        };
+
+                        const saveRequest = store.put(recipeData);
+                        const saveIngredientsRequest = ingredientsStore.put(recipeIngredients);
+
+                        saveRequest.onsuccess = function() {
+                            saveIngredientsRequest.onsuccess = function() {
+                                if (!foodList.includes(recipeName)) {
+                                    foodList.push(recipeName);
+                                }
+                                upsertLocalRecipe(recipeData, recipeIngredients.ingredients);
+                                alert(`Recipe "${recipeName}" saved as new!`);
+                                clearRecipeForm();
+                                loadSavedRecipes();
+                            };
+
+                            saveIngredientsRequest.onerror = function(e) {
+                                console.error('Error saving recipe ingredients:', e.target.error);
+                                alert('Error saving recipe ingredients. Please try again.');
+                            };
+                        };
+
+                        saveRequest.onerror = function(e) {
+                            console.error('Error saving recipe:', e.target.error);
+                            alert('Error saving recipe. Please try again.');
+                        };
+                    };
+                };
+            };
+        }
+
         function updateRecipe(recipeId) {
             const recipeNameInput = document.getElementById('recipeName');
             const recipeName = recipeNameInput.value.trim();
@@ -740,11 +879,14 @@
             updateIngredientsList();
             document.getElementById('recipeResults').innerHTML = '';
             clearInputs();
-            
-            
+
             // Clear editing state
             window.currentEditingRecipeId = null;
-            
+
+            // Hide edit-mode buttons
+            document.getElementById('saveRecipeBtn').style.display = 'none';
+            document.getElementById('cancelEditBtn').style.display = 'none';
+
             // Reset totals
             recipeTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
             totalWeight = 0;
@@ -1141,11 +1283,12 @@
                             // Populate the recipe name input
                             const recipeNameInput = document.getElementById('recipeName');
                             recipeNameInput.value = recipe.name;
+
+                            // Show edit-mode buttons
+                            document.getElementById('saveRecipeBtn').style.display = '';
+                            document.getElementById('cancelEditBtn').style.display = '';
                             
-                            // Store the recipe ID for saving later
-                            window.currentEditingRecipeId = recipeId;
-                            
-                            alert(`Recipe "${recipe.name}" loaded for editing. Make your changes and click "Save Recipe" to update.`);
+                            alert(`Recipe "${recipe.name}" loaded for editing. Make your changes and click "Save" to update.`);
                         };
                     }
                 };

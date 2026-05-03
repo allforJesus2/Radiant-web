@@ -85,12 +85,21 @@
             const currentSetting = localStorage.getItem('preferOfflineData');
             preferOfflineCheckbox.checked = currentSetting === 'true';
             
-            // Save setting when checkbox changes
+            // Save setting when checkbox changes and push to service worker
             preferOfflineCheckbox.addEventListener('change', function() {
-                localStorage.setItem('preferOfflineData', this.checked.toString());
-                
-                // Show confirmation message
-                const message = this.checked 
+                const checked = this.checked;
+                localStorage.setItem('preferOfflineData', checked.toString());
+
+                // Notify the active service worker immediately so it picks up
+                // the new preference without waiting for a page reload.
+                if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+                    navigator.serviceWorker.controller.postMessage({
+                        type: 'SET_OFFLINE_PREFERENCE',
+                        preferOffline: checked,
+                    });
+                }
+
+                const message = checked
                     ? 'Offline mode enabled! The app will now use cached data for faster loading.'
                     : 'Online mode enabled! The app will now fetch fresh data from the internet.';
                 alert(message);

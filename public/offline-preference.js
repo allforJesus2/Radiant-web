@@ -1,19 +1,25 @@
-// Shared script for handling offline preference communication with service worker
+// Push the current offline preference to the service worker whenever a page
+// loads so the in-memory flag in the SW is always up to date after restart.
+(function syncOfflinePreference() {
+  if (!('serviceWorker' in navigator)) return;
 
-// Handle messages from service worker
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'GET_OFFLINE_PREFERENCE') {
-      // Get the offline preference from localStorage
-      const preferOffline = localStorage.getItem('preferOfflineData') === 'true';
-      
-      // Send response back to service worker
-      if (navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({
-          type: 'OFFLINE_PREFERENCE_RESPONSE',
-          preferOffline: preferOffline
-        });
-      }
+  function sendPreference(controller) {
+    const preferOffline = localStorage.getItem('preferOfflineData') === 'true';
+    controller.postMessage({
+      type: 'SET_OFFLINE_PREFERENCE',
+      preferOffline: preferOffline,
+    });
+  }
+
+  // If the SW is already controlling this page, push immediately.
+  if (navigator.serviceWorker.controller) {
+    sendPreference(navigator.serviceWorker.controller);
+  }
+
+  // Also push when a new SW takes control (after an update).
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (navigator.serviceWorker.controller) {
+      sendPreference(navigator.serviceWorker.controller);
     }
   });
-}
+})();

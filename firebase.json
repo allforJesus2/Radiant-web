@@ -4,7 +4,9 @@
     "ignore": [
       "firebase.json",
       "**/.*",
-      "**/node_modules/**"
+      "**/node_modules/**",
+      "assets/FoodData_Central_branded_food_csv_2025-12-18/**",
+      "assets/FoodData_Central_sr_legacy_food_csv_2018-04/**"
     ]
   }
 }

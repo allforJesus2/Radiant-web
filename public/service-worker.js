@@ -1,168 +1,151 @@
-const CACHE_NAME = 'my-cache-v3.3';
+const CACHE_VERSION = 'v3.4';
+const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
+
+// Paths relative to the service worker scope (no leading slash).
+// Using scope-relative paths ensures correctness whether the site is hosted
+// at the root (localhost) or a subdirectory (e.g. GitHub Pages /Radiant-web/).
 const FILES_TO_CACHE = [
-  '/set_activity_level.html',
-  '/set_macros.html',
-  '/set_time.html',
-  '/sleep.html',
-  '/calculate_bmr.html',
-  '/debug.html',
-  '/index.html',
-  '/nutrition.html',
-  '/create-recipe.html',
-  '/charts.html',
-  '/settings.html',
-  '/profile.html',
-  '/dark-theme.css',
-  '/navigation.css',
-  '/navigation.js',
-  '/database-utils.js',
-  '/offline-preference.js',
-  '/workout/workout.html',
-  '/workout/set_workout_day.html',
-  '/workout/workout_routine.html',
-  '/workout/edit_workout_routine.html',
-  '/workout/531.html',
-  '/workout/gzcl.html',
-  '/notes.html',
-  '/menu.js',
-  '/meal-plan.html',
-  '/create-meal-plan.html',
+  'index.html',
+  'nutrition.html',
+  'create-recipe.html',
+  'charts.html',
+  'settings.html',
+  'profile.html',
+  'notes.html',
+  'meal-plan.html',
+  'create-meal-plan.html',
+  'sleep.html',
+  'calculate_bmr.html',
+  'set_activity_level.html',
+  'set_macros.html',
+  'set_time.html',
+  'set_meal_times.html',
+  'debug.html',
+  'dark-theme.css',
+  'navigation.css',
+  'navigation.js',
+  'database-utils.js',
+  'offline-preference.js',
+  'menu.js',
+  'workout/workout.html',
+  'workout/workout_routine.html',
+  'workout/edit_workout_routine.html',
+  'workout/set_workout_day.html',
+  'workout/531.html',
+  'workout/gzcl.html',
+  'workout/workout.css',
+  'workout/workout-utils.js',
+  'chart.min.js',
 ];
 
-// Install event - cache all initial resources
+// In-memory offline preference flag.
+// Reset to false when the SW restarts, but pages push the current value via
+// SET_OFFLINE_PREFERENCE on every load (see offline-preference.js).
+let preferOffline = false;
+
+// Install: cache all app-shell files using scope-relative URLs so the paths
+// work regardless of whether the app is hosted at / or a subdirectory.
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then((cache) => {
-        console.log('Caching app shell and content');
-        return cache.addAll(FILES_TO_CACHE);
-      })
-      .then(() => {
-        // Force activation by skipping waiting
-        return self.skipWaiting();
-      })
-      .catch((error) => {
-        console.error('Cache installation failed:', error);
-      })
+    caches.open(CACHE_NAME).then((cache) => {
+      const scope = self.registration.scope;
+      const urls = FILES_TO_CACHE.map((f) => scope + f);
+      console.log('[SW] Caching', urls.length, 'files at scope:', scope);
+      // addAll fetches & caches all URLs; if any fetch fails the whole
+      // install fails (no silent swallowing) so we know when it breaks.
+      return cache.addAll(urls);
+    }).then(() => {
+      console.log('[SW] Install complete, skipping waiting');
+      return self.skipWaiting();
+    })
+    // No .catch() here — let install fail loudly if caching fails so it
+    // is visible in DevTools instead of silently serving an empty cache.
   );
 });
 
-// Activate event - clean up old caches and take control
+// Activate: remove stale caches and claim all open tabs immediately.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     Promise.all([
-      // Take control of all clients
       self.clients.claim(),
-      
-      // Remove old caches
-      caches.keys().then((cacheNames) => {
-        return Promise.all(
-          cacheNames.map((cacheName) => {
-            if (cacheName !== CACHE_NAME) {
-              console.log('Removing old cache:', cacheName);
-              return caches.delete(cacheName);
-            }
-          })
-        );
-      })
+      caches.keys().then((cacheNames) =>
+        Promise.all(
+          cacheNames
+            .filter((name) => name !== CACHE_NAME)
+            .map((name) => {
+              console.log('[SW] Removing old cache:', name);
+              return caches.delete(name);
+            })
+        )
+      ),
     ])
   );
 });
 
-// Function to check if offline mode is preferred
-async function shouldPreferOffline() {
-  try {
-    // Get the setting from localStorage by sending a message to the client
-    const clients = await self.clients.matchAll();
-    if (clients.length > 0) {
-      // Send a message to get the setting
-      clients[0].postMessage({ type: 'GET_OFFLINE_PREFERENCE' });
-      
-      // Wait for response (with timeout)
-      return new Promise((resolve) => {
-        const timeout = setTimeout(() => resolve(false), 100);
-        
-        const messageHandler = (event) => {
-          if (event.data && event.data.type === 'OFFLINE_PREFERENCE_RESPONSE') {
-            clearTimeout(timeout);
-            self.removeEventListener('message', messageHandler);
-            resolve(event.data.preferOffline);
-          }
-        };
-        
-        self.addEventListener('message', messageHandler);
-      });
-    }
-  } catch (error) {
-    console.log('Could not check offline preference:', error);
-  }
-  return false;
-}
-
-// Fetch event - Respect offline preference setting for ALL files
-self.addEventListener('fetch', (event) => {
-  const requestUrl = new URL(event.request.url);
-  
-  // Apply offline preference to all requests
-  event.respondWith(
-    shouldPreferOffline().then((preferOffline) => {
-      if (preferOffline) {
-        // Cache-first strategy when offline mode is preferred
-        // Use current cache version only to ensure updates work correctly
-        return caches.open(CACHE_NAME)
-          .then((cache) => {
-            return cache.match(event.request)
-              .then((cachedResponse) => {
-                if (cachedResponse) {
-                  return cachedResponse;
-                }
-                // If no cache, try network
-                return fetch(event.request)
-                  .then((networkResponse) => {
-                    if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-                      return networkResponse;
-                    }
-                    const responseToCache = networkResponse.clone();
-                    cache.put(event.request, responseToCache);
-                    return networkResponse;
-                  });
-              });
-          });
-      } else {
-        // Network-first strategy when online mode is preferred
-        return fetch(event.request)
-          .then((networkResponse) => {
-            if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-              return networkResponse;
-            }
-            // Clone the response before using it
-            const responseToCache = networkResponse.clone();
-            
-            // Update cache with new version
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, responseToCache);
-            });
-            
-            return networkResponse;
-          })
-          .catch(() => {
-            // Fallback to current cache version if network fails
-            return caches.open(CACHE_NAME)
-              .then((cache) => cache.match(event.request));
-          });
-      }
-    })
-  );
-});
-
-// Listen for messages from the client
+// Messages from pages.
 self.addEventListener('message', (event) => {
-  if (event.data === 'skipWaiting') {
+  if (!event.data) return;
+
+  // Update in-memory preference when the page pushes a new value.
+  if (event.data.type === 'SET_OFFLINE_PREFERENCE') {
+    preferOffline = !!event.data.preferOffline;
+    console.log('[SW] preferOffline set to', preferOffline);
+    return;
+  }
+
+  // Support both string and object forms of skipWaiting.
+  if (event.data === 'skipWaiting' || event.data.type === 'skipWaiting') {
     self.skipWaiting();
   }
-  
-  // Handle offline preference requests
-  if (event.data && event.data.type === 'GET_OFFLINE_PREFERENCE') {
-    // This will be handled by the client-side code
+});
+
+// Fetch: two strategies controlled by the in-memory preferOffline flag.
+//   preferOffline=true  → cache-first  (fast, works fully offline)
+//   preferOffline=false → network-first with cache fallback (default; always
+//                         serves fresh content when online, cached when not)
+self.addEventListener('fetch', (event) => {
+  // Only handle GET requests.
+  if (event.request.method !== 'GET') return;
+
+  const url = new URL(event.request.url);
+
+  // For cross-origin requests (CDN assets, etc.) try the network and do NOT
+  // attempt a cache fallback for resources that were never cached.
+  if (url.origin !== self.location.origin) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
+  if (preferOffline) {
+    // ── Cache-first ─────────────────────────────────────────────────────
+    event.respondWith(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.match(event.request).then((cached) => {
+          if (cached) return cached;
+          // Not in cache yet — fetch and store it.
+          return fetch(event.request).then((response) => {
+            if (response.ok) cache.put(event.request, response.clone());
+            return response;
+          });
+        })
+      ).catch(() => caches.match(event.request))
+    );
+  } else {
+    // ── Network-first with cache fallback ────────────────────────────────
+    event.respondWith(
+      fetch(event.request)
+        .then((response) => {
+          if (response.ok) {
+            caches.open(CACHE_NAME).then((cache) =>
+              cache.put(event.request, response.clone())
+            );
+          }
+          return response;
+        })
+        .catch(() => {
+          // Network unavailable — serve from cache.
+          return caches.match(event.request);
+        })
+    );
   }
 });
