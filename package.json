@@ -1,0 +1,9 @@
+{
+  "name": "radiant-web",
+  "private": true,
+  "scripts": {
+    "preprocess": "node scripts/fdc-preprocess.js",
+    "preprocess:branded": "node scripts/fdc-preprocess.js --branded",
+    "deploy": "npm run preprocess && firebase deploy"
+  }
+}
