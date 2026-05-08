@@ -107,6 +107,7 @@ how can we add spacing between suggestions
             <input id="foodInput" type="text" class="food" placeholder="Food name...">
             <label for="gramsInput" class="sr-only">Amount in grams</label>
             <input id="gramsInput" class="grams" type="number" inputmode="numeric" placeholder="Grams">
+            <button type="button" class="btn" id="scanBarcodeBtn" title="Scan barcode">📷</button>
             <button class="btn" id="addBtn">Add</button>
         </div>
 
@@ -135,10 +136,10 @@ how can we add spacing between suggestions
 				</select>
 			</div>
 			<div id="databaseSize" style="margin-top: 5px; font-size: 0.9em; color: var(--text-color); opacity: 0.7;">
-				Database size: <span id="dbSizeValue">Calculating...</span>
+				Database size: <span id="dbSizeValue">Calculating…</span>
+				<span id="nutritionWarmStatus" style="margin-left:8px;font-size:0.88em;opacity:0.85;"></span>
 			</div>
 			<div id="settingsPanel" class="settings-panel" style="display: none;">
-				<button class="btn" id="fetchCSVBtn">Fetch and Store CSV Data</button>
 				<button class="btn" onclick="window.location.href='set_meal_times.html'">Meal Times</button>
 				<button class="btn" id="createRecipe">Create Recipe</button>
 				<button class="btn" id="clearLocalStorage">Clear Local Storage</button>
@@ -147,11 +148,6 @@ how can we add spacing between suggestions
 				<button class="btn" onclick="window.location.href='debug.html'">Debug</button>
 				<button class="btn" id="deleteDBButton">Delete 'csvDB' IndexedDB</button>
 				<button class="btn" id="clearCacheButton">Clear Cache & Reload</button>
-				<button class="btn" id="downloadCSV">Download Food Data</button>
-				<div class="file-upload">
-					<label>Select Custom Food Database File</label>        
-					<input class="btn" type="file" id="csvFile" accept=".csv">
-				</div>
 			</div>
 		</div>
 
@@ -189,6 +185,10 @@ how can we add spacing between suggestions
         <div id="editItemDialog" class="progress-modal" style="display:none;">
             <div class="progress-content">
                 <h3 id="editItemTitle">Edit Food Item</h3>
+                <p id="editDataSourceLine" style="text-align:left; margin:0 0 12px; font-size:0.85em; line-height:1.4; opacity:0.88;">
+                    <span style="display:block; margin-bottom:2px; opacity:0.75;">Data source</span>
+                    <span id="editDataSource">—</span>
+                </p>
                 <div style="text-align:left; margin-bottom:12px;">
                     <label for="editGrams" style="display:block; margin-bottom:4px; font-size:0.85em; opacity:0.8;">Amount (grams)</label>
                     <input id="editGrams" type="number" inputmode="numeric" class="btn" style="width:100%; box-sizing:border-box; font-size:1em; padding:6px 10px;">
@@ -205,10 +205,24 @@ how can we add spacing between suggestions
                         <span>Set these items to the new log time when I save</span>
                     </label>
                 </div>
-                <div style="display:flex; gap:8px; justify-content:center;">
+                <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px;">
                     <button class="btn" id="editItemSave">Save</button>
                     <button class="btn" id="editItemCancel">Cancel</button>
                 </div>
+                <div style="text-align:center;">
+                    <button class="btn" id="editItemDetails" style="font-size:0.85em;opacity:0.85;padding:5px 14px;">See Details</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Nutrient Details Modal -->
+        <div id="nutrientDetailModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.82);z-index:10000;align-items:flex-start;justify-content:center;padding:16px;box-sizing:border-box;overflow-y:auto;">
+            <div style="background:var(--button,#333);color:var(--text-color,#fff);padding:16px;border-radius:8px;max-width:480px;width:100%;margin:auto;box-sizing:border-box;">
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+                    <h3 id="nutrientDetailTitle" style="margin:0;font-size:1em;"></h3>
+                    <button class="btn" id="nutrientDetailClose" style="padding:4px 10px;font-size:0.85em;">Close</button>
+                </div>
+                <div id="nutrientDetailBody" style="font-size:0.88em;line-height:1.7;"></div>
             </div>
         </div>
     </div>
@@ -530,6 +544,9 @@ how can we add spacing between suggestions
     </style>
 
     <script src="database-utils.js"></script>
+    <script src="fdc-import.js"></script>
+    <script src="usda-id-to-key.js"></script>
+    <script src="barcode-scanner.js"></script>
     <script src="menu.js"></script>
     <script>
 	
@@ -602,30 +619,9 @@ how can we add spacing between suggestions
 	
 	var foodInput = document.querySelector('.food');
 	var autocompleteList = document.getElementById('autocompleteList');
-	var foodList = []//['Apple', 'Banana', 'Bagel', 'Boiled egg', 'Cherry']; // Your predefined list of foods
 
 
 
-	document.getElementById('fetchCSVBtn').addEventListener('click', function() {
-		showProgress('Fetching Food Database', 'Downloading CSV file...');
-		updateProgress(10, 'Starting download...');
-		
-		fetch('assets/FoodData.csv')
-			.then(response => {
-				updateProgress(30, 'File downloaded, processing data...');
-				return response.text();
-			})
-			.then(csvData => {
-				updateProgress(50, 'Storing data in database...');
-				// Process and store the CSV data
-				parseAndStoreCSV(csvData);
-			})
-			.catch(error => {
-				console.error('Error fetching CSV:', error);
-				hideProgress();
-				alert('Error downloading food database. Please try again.');
-			});
-	});
 
 
 
@@ -650,6 +646,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const request = indexedDB.deleteDatabase(dbName);
 
         request.onsuccess = function() {
+            if (typeof resetDBConnection === 'function') resetDBConnection();
             alert('Database deleted successfully');
         };
 
@@ -687,214 +684,25 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
-	// Add event listener to the input field
-	foodInput.addEventListener('input', function() {
-	  var userInput = this.value;
-	  
-	  if (userInput) {
-		// Filter foodList based on user's input and update autocomplete list
-		var filteredFoods = foodList.filter(function(food) {
-		  return food.toLowerCase().startsWith(userInput.toLowerCase());
-		});
-		
-		// Clear any existing items in the autocomplete list
-		while (autocompleteList.firstChild) {
-		  autocompleteList.removeChild(autocompleteList.firstChild);
-		}
-		
-		// Add new items to the autocomplete list for each matching food
-		filteredFoods.forEach(function(food) {
-		  var listItem = document.createElement('div');
-		  listItem.textContent = food;
-		  listItem.addEventListener('click', function() {
-			foodInput.value = this.textContent; // Set the input field's value to the clicked item's text
-			autocompleteList.innerHTML = ''; // Clear the autocomplete list
-		  });
-		  
-		  autocompleteList.appendChild(listItem);
-		});
-	  } else {
-		// If user has cleared input, clear the autocomplete list
-		autocompleteList.innerHTML = '';
-	  }
-	});
-		
 
 
 
-    // Function to handle file upload
-    function handleFileUpload(evt) {
-        const file = evt.target.files[0];
-        if (!file) return;
-        
-        showProgress('Uploading Custom Database', 'Reading file...');
-        updateProgress(10, 'File selected, processing...');
-        
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            updateProgress(40, 'File read, storing data...');
-            const csvData = e.target.result;
-            parseAndStoreCSV(csvData);
-        };
-        reader.onerror = function() {
-            hideProgress();
-            alert('Error reading file. Please try again.');
-        };
-        reader.readAsText(file);
+
+
+
+
+
+async function initializeFoodList() {
+    try {
+        const { entries } = await loadFoodNamesAndCache();
+        const fi = document.getElementById('foodInput') || document.querySelector('.food');
+        const gi = document.getElementById('gramsInput') || document.querySelector('.grams');
+        const ac = document.getElementById('autocompleteList');
+        setupAutocomplete(entries, fi, gi, ac);
+    } catch (err) {
+        console.error('initializeFoodList', err);
+        setupAutocomplete([]);
     }
-	
-	
-	
-// Function to parse and store CSV data in IndexedDB
-function parseAndStoreCSV(csvData) {
-    console.log('parseAndStoreCSV called'); // Log to confirm function call
-    const lines = csvData.split('\n');
-    const dbName = 'csvDB';
-    const storeName = 'csvStore';
-    const totalLines = lines.length;
-
-    updateProgress(60, 'Opening database...');
-
-    // Open the database - let IndexedDB handle versioning automatically
-    const dbRequest = indexedDB.open(dbName);
-    console.log('Database request made'); // Log to confirm database request
-
-    dbRequest.onupgradeneeded = function(event) {
-        handleDatabaseMigration(event.target.result, event.oldVersion, event.newVersion);
-    };
-
-    dbRequest.onsuccess = function(event) {
-        console.log('Database request successful'); // Log to confirm success
-        const db = event.target.result;
-        console.log('Database object:', db); // Log the database object
-
-        updateProgress(70, 'Starting data storage...');
-
-        const transaction = db.transaction([storeName], 'readwrite');
-        console.log('Transaction started'); // Log to confirm transaction start
-
-        const store = transaction.objectStore(storeName);
-        console.log('Object store accessed'); // Log to confirm object store access
-
-        let processedLines = 0;
-        lines.forEach(function(line, index) {
-            const columns = line.split(',');
-            console.log('Storing line:', index, columns); // Log each line being stored
-            
-            // Store data with separate properties for better indexing
-            const foodItem = {
-                id: index,
-                name: columns[0], // Food name
-                foodGroup: columns[1],
-                calories: parseFloat(columns[2]) || 0,
-                fat: parseFloat(columns[3]) || 0,
-                protein: parseFloat(columns[4]) || 0,
-                carbohydrate: parseFloat(columns[5]) || 0,
-                sugars: parseFloat(columns[6]) || 0,
-                fiber: parseFloat(columns[7]) || 0,
-                netCarbs: parseFloat(columns[8]) || 0,
-                servingWeight1: parseFloat(columns[9]) || 0,
-                servingDescription1: columns[10] || '',
-
-            };
-            
-            store.put(foodItem);
-            
-            processedLines++;
-            // Update progress every 100 lines or at the end
-            if (processedLines % 100 === 0 || processedLines === totalLines) {
-                const progress = 70 + (processedLines / totalLines) * 25; // 70% to 95%
-                updateProgress(Math.round(progress), `Storing data... ${processedLines}/${totalLines} lines`);
-            }
-        });
-
-        transaction.oncomplete = function() {
-            console.log('Transaction complete'); // Log to confirm transaction completion
-            db.close();
-            console.log('Database closed'); // Log to confirm database closure
-            updateProgress(100, 'Database setup complete!');
-            
-            setTimeout(() => {
-                hideProgress();
-                alert('CSV data stored in IndexedDB');
-                initializeFoodList(); // Assuming this function is defined elsewhere
-                updateDatabaseSize(); // Update the database size display
-            }, 500);
-        };
-
-        // Add an onerror event listener to the transaction
-        transaction.onerror = function(event) {
-            console.error('Transaction failed:', event.target.error); // Log the error
-            hideProgress();
-            alert('An error occurred while storing the CSV data in IndexedDB.');
-        };
-    };
-
-    dbRequest.onerror = function(event) {
-        console.error('Database request failed:', event.target.error); // Log the error
-        console.error('Error details:', {
-            name: event.target.error.name,
-            message: event.target.error.message,
-            code: event.target.error.code
-        });
-        hideProgress();
-        alert(`Database error: ${event.target.error.message}. Please try refreshing the page or clearing your browser data.`);
-    };
-}
-   document.getElementById('csvFile').addEventListener('change', handleFileUpload);
-
-
-
-
-
-
-
-
-function initializeFoodList() {
-    const dbName = 'csvDB';
-    const storeName = 'csvStore';
-    const foodList = [];
-	//db.createObjectStore(storeName, { keyPath: 'id' }); // Adjust the key path as needed
-
-    const dbRequest = indexedDB.open(dbName);
-
-    dbRequest.onupgradeneeded = function(event) {
-        handleDatabaseMigration(event.target.result, event.oldVersion, event.newVersion);
-    };
-
-    dbRequest.onsuccess = function(event) {
-        const db = event.target.result;
-        const transaction = db.transaction([storeName], 'readonly');
-        const store = transaction.objectStore(storeName);
-        const request = store.openCursor();
-
-        request.onsuccess = function(event) {
-            const cursor = event.target.result;
-            if (cursor) {
-                // Use the new name property
-                const name = cursor.value.name || 'Unknown';
-                foodList.push(name);
-                cursor.continue();
-            } else {
-                // All records have been processed
-                // Now you can use foodList for autocomplete
-                setupAutocomplete(foodList);
-            }
-        };
-        
-        request.onerror = function(event) {
-            console.error('Error reading food list:', event.target.error);
-        };
-    };
-    
-    dbRequest.onerror = function(event) {
-        console.error('Error opening database for food list:', event.target.error);
-        console.error('Error details:', {
-            name: event.target.error.name,
-            message: event.target.error.message,
-            code: event.target.error.code
-        });
-    };
 }
 
 function showServingBubble(description, targetElement) {
@@ -963,30 +771,6 @@ clearLocalStorageButton.addEventListener('click', function() {
 });
 
 
-// Function to handle the "Download Food Data" button click
-function downloadFoodData() {
-	// Fetch the CSV file
-	fetch('assets/FoodData.csv')
-		.then(response => response.blob()) // Convert the response to a Blob
-		.then(blob => {
-			// Create a URL for the Blob
-			const url = URL.createObjectURL(blob);
-			// Create a download link
-			const link = document.createElement('a');
-			link.href = url;
-			link.download = 'FoodData.csv'; // Set the desired filename
-			// Append the link to the body (optional)
-			document.body.appendChild(link);
-			// Trigger the download
-			link.click();
-			// Remove the link from the body
-			document.body.removeChild(link);
-		})
-		.catch(error => console.error('Error downloading the file:', error));
-}
-
-// Add an event listener to the "Download Food Data" button
-document.getElementById('downloadCSV').addEventListener('click', downloadFoodData);
 
 
 // Function to determine meal type based on time
@@ -1456,30 +1240,44 @@ document.getElementById('mealFilter').addEventListener('change', function() {
 });
 
 document.getElementById('addBtn').addEventListener('click', function() {
-    var foodName = document.querySelector('.food').value;
+    var foodInputEl = document.getElementById('foodInput') || document.querySelector('.food');
+    var foodName = foodInputEl.value.trim();
     var grams = parseFloat(document.querySelector('.grams').value);
+    var rawFdc = foodInputEl.dataset.fdcId;
+    var fdcId =
+        rawFdc !== undefined && rawFdc !== '' && !Number.isNaN(Number(rawFdc))
+            ? Number(rawFdc)
+            : null;
+
     if (!foodName || !grams) {
         alert('Please enter both food name and grams.');
         return;
     }
 
-    // Use the optimized single-query function
-    getNutritionalInfo(foodName, grams)
+    getNutritionalInfo(
+        foodName,
+        grams,
+        fdcId != null ? fdcId : undefined
+    )
         .then(function(nutritionalInfo) {
             const hh_mm = formatTime(new Date());
-            
+
             var foodItem = {
                 name: foodName,
                 grams: grams,
-                calories: nutritionalInfo.calories,
-                fat: nutritionalInfo.fat,
-                protein: nutritionalInfo.protein,
-                carbs: nutritionalInfo.carbs,
                 timeAdded: hh_mm,
             };
+            if (fdcId != null) {
+                foodItem.fdc_id = fdcId;
+            } else {
+                foodItem.fdc_id = null;
+                foodItem.calories = nutritionalInfo.calories;
+                foodItem.fat = nutritionalInfo.fat;
+                foodItem.protein = nutritionalInfo.protein;
+                foodItem.carbs = nutritionalInfo.carbs;
+            }
 
             var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
-            //var today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
 
             if (!foodLog[today]) {
                 foodLog[today] = [];
@@ -1487,23 +1285,27 @@ document.getElementById('addBtn').addEventListener('click', function() {
 
             var existingData = foodLog[today];
 
-            // If this is the first food of the day, and it's outside breakfast, show offset dialog
             if (existingData.length === 0) {
-                var hh_mm_local = hh_mm; // time of this food
+                var hh_mm_local = hh_mm;
                 var mealType = getMealType(hh_mm_local);
                 if (mealType !== 'Breakfast') {
-                    // Defer adding until user chooses in dialog
                     showOffsetDialog(foodItem);
-                    // Clear inputs
-                    document.querySelector('.food').value = '';
+                    foodInputEl.value = '';
                     document.querySelector('.grams').value = '';
-                    return; // prevent immediate persist
+                    delete foodInputEl.dataset.fdcId;
+                    return;
                 }
             }
-            
-            
+
             var mostRecentIndex = existingData.reduce(function(mostRecentIndex, item, index) {
-                if (item.name === foodName) {
+                var sameDb =
+                    fdcId != null &&
+                    item.fdc_id === fdcId;
+                var sameManual =
+                    (fdcId == null) &&
+                    item.fdc_id == null &&
+                    item.name === foodName;
+                if (sameDb || sameManual) {
                     var currentTimeInMinutes = timeToMinutes(hh_mm);
                     var itemTimeInMinutes = timeToMinutes(item.timeAdded);
                     var timeDifference = Math.abs(currentTimeInMinutes - itemTimeInMinutes);
@@ -1514,41 +1316,152 @@ document.getElementById('addBtn').addEventListener('click', function() {
                 return mostRecentIndex;
             }, -1);
 
+            function clearEntryFields() {
+                foodInputEl.value = '';
+                document.querySelector('.grams').value = '';
+                delete foodInputEl.dataset.fdcId;
+            }
+
             if (mostRecentIndex !== -1) {
                 var updatedItem = existingData[mostRecentIndex];
                 updatedItem.grams += grams;
-                getNutritionalInfo(foodName, updatedItem.grams).then(function(updatedNutrition) {
-                    updatedItem.calories = updatedNutrition.calories;
-                    updatedItem.fat = updatedNutrition.fat;
-                    updatedItem.protein = updatedNutrition.protein;
-                    updatedItem.carbs = updatedNutrition.carbs;
+                if (fdcId != null) {
+                    delete updatedItem.calories;
+                    delete updatedItem.protein;
+                    delete updatedItem.carbs;
+                    delete updatedItem.fat;
+                    updatedItem.fdc_id = fdcId;
+                }
+                getNutritionalInfo(
+                    foodName,
+                    updatedItem.grams,
+                    fdcId != null ? fdcId : undefined
+                ).then(function(updatedNutrition) {
+                    if (fdcId == null) {
+                        updatedItem.calories = updatedNutrition.calories;
+                        updatedItem.fat = updatedNutrition.fat;
+                        updatedItem.protein = updatedNutrition.protein;
+                        updatedItem.carbs = updatedNutrition.carbs;
+                    }
                     localStorage.setItem('foodLog', JSON.stringify(foodLog));
-                    console.log('Existing food item updated');
                     displayFoodItems(existingData);
+                    clearEntryFields();
                 });
             } else {
                 existingData.push(foodItem);
                 localStorage.setItem('foodLog', JSON.stringify(foodLog));
-                console.log('Food item added to localStorage');
-                console.log(foodLog);
                 displayFoodItems(existingData);
+                clearEntryFields();
             }
         })
         .catch(function(error) {
             console.error('Error getting nutritional info:', error);
             alert('Food not found in database. Please check the spelling.');
         });
-
-    document.querySelector('.food').value = '';
-    document.querySelector('.grams').value = '';
 });
 
 
-function displayFoodItems(foodItems) {
+function pushScannerFoodItem(payload) {
+    var foodItem = {
+        name: payload.name,
+        grams: payload.grams,
+        timeAdded: formatTime(new Date()),
+    };
+    if (payload.nutrition_source) {
+        foodItem.nutrition_source = payload.nutrition_source;
+    }
+    if (payload.fdc_id != null && payload.fdc_id !== '') {
+        foodItem.fdc_id = payload.fdc_id;
+    } else {
+        foodItem.fdc_id = null;
+        foodItem.calories = payload.calories;
+        foodItem.protein = payload.protein;
+        foodItem.carbs = payload.carbs;
+        foodItem.fat = payload.fat;
+    }
+    var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    if (!foodLog[today]) foodLog[today] = [];
+    var existingData = foodLog[today];
+
+    if (existingData.length === 0) {
+        var mealType = getMealType(foodItem.timeAdded);
+        if (mealType !== 'Breakfast') {
+            showOffsetDialog(foodItem);
+            return;
+        }
+    }
+
+    existingData.push(foodItem);
+    localStorage.setItem('foodLog', JSON.stringify(foodLog));
+    displayFoodItems(existingData);
+}
+
+
+function nutritionStartupPerfMark(label) {
+    try {
+        performance.mark('nutrition:' + label);
+    } catch (e) {}
+}
+
+function nutritionStartupPerfLogSummary() {
+    try {
+        var marks = performance.getEntriesByType('mark').filter(function(m) {
+            return String(m.name).indexOf('nutrition:') === 0;
+        });
+        if (marks.length) {
+            console.log('[nutrition startup]', marks.map(function(e) {
+                return e.name.replace(/^nutrition:/, '') + '@' + Math.round(e.startTime) + 'ms';
+            }).join(', '));
+        }
+    } catch (e) {}
+}
+
+function patchFoodLogDomAfterEnrich(scrollableWindow, foodItems, enrichedList) {
+    scrollableWindow.querySelectorAll('.list-item:not(.planned-meal-item)').forEach(function(el) {
+        var item = el._radiantFoodItem;
+        if (!item) return;
+        var idx = foodItems.indexOf(item);
+        var v = idx >= 0 ? enrichedList[idx] : null;
+        if (!v) return;
+        var span = el.querySelector('.small-text');
+        if (span) {
+            span.textContent = item.grams + 'g, Calories ' + v.calories +
+                ', Protein ' + v.protein + 'g, Carbs ' + v.carbs + 'g, Fat ' + v.fat + 'g';
+        }
+    });
+}
+
+function updateMealHeaderCaloriesFromEnriched(scrollableWindow, enrichedList) {
+    var emojiMap = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snack: '🍎' };
+    scrollableWindow.querySelectorAll('.meal-header-container[data-meal]').forEach(function(container) {
+        var mealType = container.dataset.meal;
+        if (!mealType) return;
+        var mealTotals = calculateMealTotals(enrichedList, mealType);
+        var mealHeader = container.querySelector('.meal-header');
+        if (!mealHeader) return;
+        var timeRange = getMealTimeRange(mealType);
+        var emoji = emojiMap[mealType] || '';
+        mealHeader.innerHTML = '<span>' + emoji + ' ' + mealType + ' ' + timeRange +
+            ' -- Calories: ' + mealTotals.calories + '</span>';
+    });
+}
+
+async function displayFoodItems(foodItems) {
+    if (!foodItems) foodItems = [];
     var scrollableWindow = document.getElementById('scrollableWindow');
     var foodInput = document.querySelector('.food');
     var gramsInput = document.querySelector('.grams');
     var selectedMeal = document.getElementById('mealFilter').value;
+
+    var quickList = foodItems.map(function(it) {
+        return typeof quickDisplayMacrosForLogItem === 'function'
+            ? quickDisplayMacrosForLogItem(it)
+            : Object.assign({}, it);
+    });
+    function viewForItem(item) {
+        var idx = foodItems.indexOf(item);
+        return idx >= 0 ? quickList[idx] : item;
+    }
 
     // --- Snapshot per-meal collapse state before any DOM changes ---
     const collapseState = {};
@@ -1620,7 +1533,7 @@ function displayFoodItems(foodItems) {
             if (!visibleMeals.has(mealType)) return;
 
             const mealKey = mealType.toLowerCase();
-            const mealTotals = calculateMealTotals(foodItems, mealType);
+            const mealTotals = calculateMealTotals(quickList, mealType);
             const timeRange = getMealTimeRange(mealType);
             const emoji = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snack: '🍎' }[mealType] || '';
             const headerText = `<span>${emoji} ${mealType} ${timeRange} -- Calories: ${mealTotals.calories}</span>`;
@@ -1698,7 +1611,7 @@ function displayFoodItems(foodItems) {
             }
 
             meals[mealType].forEach(function(item) {
-                displayFoodItem(item, foodItems, itemFragment, foodInput, gramsInput);
+                displayFoodItem(item, foodItems, itemFragment, foodInput, gramsInput, viewForItem(item));
             });
 
             mealItemsContainer.appendChild(itemFragment);
@@ -1722,13 +1635,26 @@ function displayFoodItems(foodItems) {
         scrollableWindow.innerHTML = '';
         const fragment = document.createDocumentFragment();
         itemsToDisplay.forEach(function(item) {
-            displayFoodItem(item, foodItems, fragment, foodInput, gramsInput);
+            displayFoodItem(item, foodItems, fragment, foodInput, gramsInput, viewForItem(item));
         });
         scrollableWindow.appendChild(fragment);
     }
 
-    var totals = calculateMealTotals(foodItems, selectedMeal);
-    updateProgressBars(totals);
+    var quickTotals = calculateMealTotals(quickList, selectedMeal);
+    updateProgressBars(quickTotals);
+
+    enrichFoodLogDayItems(foodItems).then(function(enrichedList) {
+        patchFoodLogDomAfterEnrich(scrollableWindow, foodItems, enrichedList);
+        if (selectedMeal === 'All') {
+            updateMealHeaderCaloriesFromEnriched(scrollableWindow, enrichedList);
+        }
+        var totals = calculateMealTotals(enrichedList, selectedMeal);
+        updateProgressBars(totals);
+        nutritionStartupPerfMark('enrichDone');
+        nutritionStartupPerfLogSummary();
+    }).catch(function(err) {
+        console.warn('enrichFoodLogDayItems', err);
+    });
 }
 
 // Helper extracted to keep displayFoodItems readable
@@ -1894,12 +1820,45 @@ function updateEditTimeSyncBlockVisibility() {
     block.style.display = show ? 'block' : 'none';
 }
 
+/** @param {{ nutrition_source?: string, fdc_id?: number|null }} item @param {{ source?: string }|null|undefined} foodFromDb */
+function formatNutritionDataSourceLabel(item, foodFromDb) {
+    var code = item.nutrition_source || (foodFromDb && foodFromDb.source);
+    if (code === 'sr_legacy') return 'USDA SR Legacy (offline)';
+    if (code === 'branded') return 'USDA branded (offline)';
+    if (code === 'off_api') return 'Open Food Facts';
+    if (code === 'usda_api') return 'USDA FDC (online)';
+    if (item.fdc_id != null && item.fdc_id !== '') {
+        if (foodFromDb === null) return 'Food not found in local database';
+        return 'USDA database';
+    }
+    return 'Manual entry';
+}
+
+function refreshEditDataSourceRow(item) {
+    var srcEl = document.getElementById('editDataSource');
+    if (!srcEl) return;
+    if (item.nutrition_source) {
+        srcEl.textContent = formatNutritionDataSourceLabel(item, null);
+        return;
+    }
+    if (item.fdc_id != null && item.fdc_id !== '') {
+        srcEl.textContent = 'Loading…';
+        getFoodById(item.fdc_id).then(function(food) {
+            if (!editTarget || editTarget.item !== item) return;
+            srcEl.textContent = formatNutritionDataSourceLabel(item, food);
+        });
+        return;
+    }
+    srcEl.textContent = formatNutritionDataSourceLabel(item, null);
+}
+
 function showEditDialog(item, allFoodItems) {
     var origT = item.timeAdded ? normalizeLogTimeString(item.timeAdded) : null;
     var syncItems = foodItemsInTimeSyncWindow(allFoodItems, item, origT);
     editTarget = { item: item, allFoodItems: allFoodItems, originalTimeAdded: origT, timeSyncGroup: syncItems };
 
     document.getElementById('editItemTitle').textContent = 'Edit: ' + item.name;
+    refreshEditDataSourceRow(item);
     document.getElementById('editGrams').value = item.grams;
     // Ensure HH:MM format (time input requires zero-padded hours)
     var timeVal = item.timeAdded ? normalizeLogTimeString(item.timeAdded) : '';
@@ -1930,6 +1889,108 @@ function hideEditDialog() {
     editTarget = null;
 }
 
+// ---- nutrient details ----
+// Nutrient display metadata — only the things USDA_ID_TO_KEY can't tell us.
+// Keys come from USDA_ID_TO_KEY; only non-'g' units and non-obvious labels need entries here.
+var NUTRIENT_META = {
+    calories:          ['kcal'],
+    fat:               ['g',  'Total Fat'],
+    carbohydrate:      ['g',  'Total Carbs'],
+    fiber:             ['g',  'Dietary Fiber'],
+    sugars:            ['g',  'Total Sugars'],
+    cholesterol:       ['mg'],
+    sodium:            ['mg'], calcium:    ['mg'], iron:       ['mg'],
+    magnesium:         ['mg'], phosphorus: ['mg'], potassium:  ['mg'],
+    zinc:              ['mg'], copper:     ['mg'],
+    selenium:          ['µg'],
+    vitamin_c:         ['mg'], thiamin:    ['mg', 'Thiamin (B1)'],
+    riboflavin:        ['mg', 'Riboflavin (B2)'],
+    niacin:            ['mg', 'Niacin (B3)'],
+    vitamin_b6:        ['mg'], folate:     ['µg', 'Folate (B9)'],
+    vitamin_b12:       ['µg'], vitamin_a:  ['µg'],
+    vitamin_e:         ['mg'], vitamin_d:  ['µg'], vitamin_k:  ['µg'],
+};
+// Keys that mark the start of a new display group (order follows USDA_ID_TO_KEY)
+var NUTRIENT_GROUP_AT = {
+    calories:   'Calories',
+    protein:    'Macronutrients',
+    sodium:     'Minerals',
+    vitamin_c:  'Vitamins',
+    tryptophan: 'Amino Acids',
+};
+function _nutrientLabel(key) {
+    var meta = NUTRIENT_META[key];
+    if (meta && meta[1]) return meta[1];
+    return key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+}
+function _nutrientUnit(key) {
+    var meta = NUTRIENT_META[key];
+    return meta ? meta[0] : 'g';
+}
+
+async function showNutrientDetails(item) {
+    var modal = document.getElementById('nutrientDetailModal');
+    var title = document.getElementById('nutrientDetailTitle');
+    var body  = document.getElementById('nutrientDetailBody');
+    var grams = parseFloat(document.getElementById('editGrams').value) || item.grams || 100;
+    var scale = grams / 100;
+
+    title.textContent = item.name + ' (' + grams + 'g)';
+    body.textContent = 'Loading…';
+    modal.style.display = 'flex';
+
+    var nutrients = null;
+    if (item.fdc_id != null && item.fdc_id !== '') {
+        var food = await getFoodById(item.fdc_id);
+        if (food && food.nutrients) nutrients = food.nutrients;
+    }
+    // Fallback: build from inline macros
+    if (!nutrients) {
+        nutrients = {
+            calories:     (item.calories || 0) / scale,
+            protein:      (item.protein  || 0) / scale,
+            fat:          (item.fat      || 0) / scale,
+            carbohydrate: (item.carbs    || 0) / scale,
+        };
+    }
+
+    var html = '';
+    var pendingGroup = null;
+    var groupHtml = '';
+    function flushGroup() {
+        if (groupHtml) {
+            html += '<div style="margin-top:12px;"><div style="font-weight:bold;opacity:.6;font-size:0.8em;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;">' +
+                pendingGroup + '</div>' + groupHtml + '</div>';
+        }
+        groupHtml = '';
+    }
+    Object.values(USDA_ID_TO_KEY).forEach(function(key) {
+        if (NUTRIENT_GROUP_AT[key]) { flushGroup(); pendingGroup = NUTRIENT_GROUP_AT[key]; }
+        var val = nutrients[key];
+        if (val == null) return;
+        var scaled = Math.round(val * scale * 1000) / 1000;
+        groupHtml += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.08);padding:2px 0;">' +
+            '<span style="opacity:.85;">' + _nutrientLabel(key) + '</span>' +
+            '<span><strong>' + scaled + '</strong> ' + _nutrientUnit(key) + '</span>' +
+            '</div>';
+    });
+    flushGroup();
+    body.innerHTML = html || '<p style="opacity:.7;">No detailed nutrient data available for this item.</p>';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('nutrientDetailClose').addEventListener('click', function() {
+        document.getElementById('nutrientDetailModal').style.display = 'none';
+    });
+    document.getElementById('nutrientDetailModal').addEventListener('click', function(e) {
+        if (e.target === this) this.style.display = 'none';
+    });
+    document.getElementById('editItemDetails').addEventListener('click', function() {
+        if (editTarget) showNutrientDetails(editTarget.item);
+    });
+});
+// ---- end nutrient details ----
+
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('editItemSave').addEventListener('click', function() {
         if (!editTarget) return hideEditDialog();
@@ -1948,13 +2009,26 @@ document.addEventListener('DOMContentLoaded', function() {
         var timeSyncRelevant = !!(newTime && logTimesDifferForEdit(origTime, newTime) && timeSyncGroup.length);
         var shouldSyncGroupTimes = timeSyncRelevant && document.getElementById('editTimeSyncCheckbox').checked;
 
-        getNutritionalInfo(item.name, newGrams)
+        getNutritionalInfo(
+                item.name,
+                newGrams,
+                item != null && item.fdc_id != null && item.fdc_id !== ''
+                    ? item.fdc_id
+                    : undefined
+            )
             .then(function(nutrition) {
-                item.grams    = newGrams;
-                item.calories = nutrition.calories;
-                item.fat      = nutrition.fat;
-                item.protein  = nutrition.protein;
-                item.carbs    = nutrition.carbs;
+                item.grams = newGrams;
+                if (item.fdc_id != null && item.fdc_id !== '') {
+                    delete item.calories;
+                    delete item.protein;
+                    delete item.carbs;
+                    delete item.fat;
+                } else {
+                    item.calories = nutrition.calories;
+                    item.fat = nutrition.fat;
+                    item.protein = nutrition.protein;
+                    item.carbs = nutrition.carbs;
+                }
                 if (newTime) {
                     item.timeAdded = newTime;
                     if (shouldSyncGroupTimes) {
@@ -2001,10 +2075,12 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // ---- end edit modal ----
 
-function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsInput) {
+function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsInput, viewRow) {
+    var v = viewRow || item;
     var listItem = document.createElement('div');
     listItem.className = 'list-item';
-    listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protein ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
+    listItem._radiantFoodItem = item;
+    listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${v.calories}, Protein ${v.protein}g, Carbs ${v.carbs}g, Fat ${v.fat}g</span>`;
 
     var deleteButton = document.createElement('button');
     deleteButton.textContent = '❌';
@@ -2026,6 +2102,11 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
         // Repopulate the input fields with the deleted food info for quick re-add
         foodInput.value = item.name;
         gramsInput.value = item.grams;
+        if (item.fdc_id != null && item.fdc_id !== '') {
+            foodInput.dataset.fdcId = String(item.fdc_id);
+        } else {
+            delete foodInput.dataset.fdcId;
+        }
         gramsInput.focus();
         gramsInput.select();
     });
@@ -2034,20 +2115,39 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
 
     listItem.addEventListener('click', function() {
         foodInput.value = item.name;
+        if (item.fdc_id != null && item.fdc_id !== '') {
+            foodInput.dataset.fdcId = String(item.fdc_id);
+        } else {
+            delete foodInput.dataset.fdcId;
+        }
         
         // Focus and select grams input immediately
         gramsInput.focus();
         gramsInput.select();
         
         // Fetch serving weight and description
-        fetchValueForKey(item.name, 'servingWeight1', function(value) {
-            gramsInput.value = value;
-            gramsInput.select();
-        });
-        
-        fetchValueForKey(item.name, 'servingDescription1', function(description) {
-            showServingBubble(description, gramsInput);
-        });
+        if (item.fdc_id != null && item.fdc_id !== '') {
+            getFoodById(item.fdc_id).then(function(food) {
+                if (!food) return;
+                if (food.serving_weight != null) {
+                    gramsInput.value = food.serving_weight;
+                    gramsInput.select();
+                }
+                if (food.serving_description && typeof showServingBubble === 'function') {
+                    showServingBubble(food.serving_description, gramsInput);
+                }
+            });
+        } else {
+            fetchValueForKey(item.name, 'servingWeight1', function(value) {
+                gramsInput.value = value;
+                gramsInput.select();
+            });
+            fetchValueForKey(item.name, 'servingDescription1', function(description) {
+                if (typeof showServingBubble === 'function') {
+                    showServingBubble(description, gramsInput);
+                }
+            });
+        }
     });
 
     // Right-click opens edit dialog
@@ -2215,100 +2315,90 @@ function toggleMealCategory(mealType, button) {
 		
 		
 
-document.addEventListener('DOMContentLoaded', function() {
-    // Check if 'csvDB' exists in the list of databases
-	
-
-	// Add debugging information
+document.addEventListener('DOMContentLoaded', async function() {
 	console.log('IndexedDB support:', 'indexedDB' in window);
-	
-	// Try to check if database exists, with fallback for older browsers
-	if ('databases' in indexedDB) {
-		indexedDB.databases().then(function(databases) {
-			console.log('Available databases:', databases);
-			// Check if 'csvDB' exists in the list of databases
-			const dbExists = databases.some(db => db.name === 'csvDB');
-			console.log('csvDB exists:', dbExists);
+	nutritionStartupPerfMark('domReady');
 
-			if (!dbExists) {
-				// 'csvDB' does not exist, ask user if they want to download the database
-				console.log('csvDB does not exist.');
-				const userWantsToDownload = confirm('No food database found. Would you like to download the food database now? This will enable food search and nutritional information.');
-				
-				if (userWantsToDownload) {
-					// Show progress indicator
-					showProgress('Initial Database Setup', 'Downloading food database...');
-					updateProgress(10, 'Starting download...');
-					
-					fetch('assets/FoodData.csv')
-						.then(response => {
-							updateProgress(30, 'File downloaded, processing data...');
-							return response.text();
-						})
-						.then(csvData => {
-							updateProgress(50, 'Storing data in database...');
-							// Process and store the CSV data
-							parseAndStoreCSV(csvData);
-						})
-						.catch(error => {
-							console.error('Error fetching CSV:', error);
-							hideProgress();
-							alert('Error downloading food database. Please try again later.');
-						});
-				} else {
-					console.log('User chose not to download the database.');
-					// Optionally show a message that they can download it later from settings
-					alert('You can download the food database later from the Settings menu (⚙️) by clicking "Fetch and Store CSV Data".');
-				}
-			} else {
-				// 'csvDB' exists, you can proceed with opening it or other actions
-				console.log('csvDB exists.');
-			}
-		}).catch(function(error) {
-			console.error('Error fetching databases:', error);
-		});
-	} else {
-		// Fallback for browsers that don't support indexedDB.databases()
-		console.log('indexedDB.databases() not supported, skipping database check');
+	today = new Date().toLocaleDateString('en-CA');
+	localStorage.setItem('today', today);
+
+	function scheduleDeferredDbSize() {
+		function run() {
+			updateDatabaseSize();
+		}
+		if (typeof requestIdleCallback === 'function') {
+			requestIdleCallback(run, { timeout: 4000 });
+		} else {
+			setTimeout(run, 800);
+		}
+	}
+	scheduleDeferredDbSize();
+
+	var warmEl = document.getElementById('nutritionWarmStatus');
+	function setWarm(msg) {
+		if (warmEl) warmEl.textContent = msg || '';
 	}
 
-
-
-
-	// Get the current time in the local time zone
-	//const currentTime = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false });
-
-	//if the user time is 3am we will only update the date if we are past 3am
-	//if the date is technically 3/24/2024 but it is not past 3am we will not update the date
-	//however this means we will need to save today in local storage OR do a day subtraction if its lower than 3am
-
-
-	//this should be the only place global today is defined.
-	today = new Date().toLocaleDateString('en-CA');
-	//console.log(today);
-	localStorage.setItem('today', today);
-	// Display the time
-	//console.log(currentTime);
-
-	//check if we need to revert the day
 	var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
-    //var foodItems = JSON.parse(localStorage.getItem(today)) || [];
 	var foodItems = foodLog[today] || [];
-	//var foodItems = JSON.parse(localStorage.getItem(today)) || [];
-    initializeFoodList();
-	displayFoodItems(foodItems, today);
-	
-    // Set up header using centralized menu system
-    setupHeader();
 
-    // Start rotating hints in the top-left slot
-    startHintCycle();
+	try {
+		await displayFoodItems(foodItems);
+		nutritionStartupPerfMark('firstRenderDone');
 
-    // Add event listener for refresh button
-    document.getElementById('refreshFoodDb').addEventListener('click', refreshFoodDatabase);
-    
-    // Update database size on page load
-    updateDatabaseSize();
+		setupHeader();
+		startHintCycle();
+
+		document.getElementById('refreshFoodDb').addEventListener('click', refreshFoodDatabase);
+
+		var scanBtn = document.getElementById('scanBarcodeBtn');
+		if (scanBtn && typeof openBarcodeScanner === 'function') {
+			scanBtn.addEventListener('click', function() {
+				openBarcodeScanner(pushScannerFoodItem);
+			});
+		}
+	} catch (err) {
+		console.error('nutrition page init', err);
+		var hint = document.getElementById('dbSizeValue');
+		if (hint && (hint.textContent === 'Calculating…' || hint.textContent === 'Calculating...')) {
+			hint.textContent = 'Init error — check console';
+		}
+	}
+
+	setWarm('Loading food database…');
+
+	setTimeout(async function() {
+		try {
+			if (typeof runFdcBootstrap === 'function') {
+				await runFdcBootstrap();
+				nutritionStartupPerfMark('bootstrapDone');
+			}
+		} catch (e) {
+			console.warn('FDC bootstrap', e);
+		}
+
+		try {
+			await initializeFoodList();
+			nutritionStartupPerfMark('autocompleteReady');
+		} catch (e) {
+			console.warn('autocomplete init', e);
+		}
+
+		try {
+			var foodLogRaw = JSON.parse(localStorage.getItem('foodLog')) || {};
+			var mig = await migrateFoodLogIfNeeded(foodLogRaw);
+			nutritionStartupPerfMark('migrationDone');
+			if (mig.changed) {
+				var fl = JSON.parse(localStorage.getItem('foodLog')) || {};
+				displayFoodItems(fl[today] || []);
+			}
+		} catch (e) {
+			console.warn('foodLog migration', e);
+		} finally {
+			setWarm('');
+			updateDatabaseSize();
+		}
+	}, 0);
 });
 
 document.getElementById('settingsToggle').addEventListener('click', function() {
@@ -2324,67 +2414,71 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
 
 	// Function to calculate and display database size
 	function updateDatabaseSize() {
-		const dbName = 'csvDB';
-		const storeName = 'csvStore';
-		
-		const dbRequest = indexedDB.open(dbName);
-		
-		dbRequest.onsuccess = function(event) {
-			const db = event.target.result;
-			const transaction = db.transaction([storeName], 'readonly');
-			const store = transaction.objectStore(storeName);
-			const request = store.count();
-			
-			request.onsuccess = function() {
-				const recordCount = request.result;
-				// Estimate size: each record is approximately 200-300 bytes
-				// We'll use 250 bytes as an average estimate
-				const estimatedSizeBytes = recordCount * 250;
-				const sizeInMB = (estimatedSizeBytes / (1024 * 1024)).toFixed(2);
-				
-				document.getElementById('dbSizeValue').textContent = `${sizeInMB} MB (${recordCount} records)`;
-			};
-			
-			request.onerror = function() {
-				document.getElementById('dbSizeValue').textContent = 'Error calculating size';
-			};
-			
-			db.close();
-		};
-		
-		dbRequest.onerror = function() {
-			document.getElementById('dbSizeValue').textContent = 'Database not found';
-		};
+		var el = document.getElementById('dbSizeValue');
+		if (!el) return;
+		if (typeof getFdcStatus !== 'function') {
+			el.textContent = 'database-utils.js not loaded';
+			return;
+		}
+		var slowTimer = setTimeout(function () {
+			if (el.textContent === 'Calculating...') {
+				el.textContent = 'Still reading database…';
+			}
+		}, 4000);
+		Promise.race([
+			getFdcStatus(),
+			new Promise(function (_, reject) {
+				setTimeout(function () {
+					reject(new Error('timed out (IndexedDB may be blocked)'));
+				}, 12000);
+			}),
+		])
+			.then(function (st) {
+				clearTimeout(slowTimer);
+				var fdc = st.fdcCount || 0;
+				var leg = st.legacyCount || 0;
+				var sr =
+					st.importComplete === true
+						? 'SR Legacy: loaded'
+						: 'SR Legacy: not loaded';
+				var br =
+					st.brandedImportComplete === true
+						? ' · Branded offline: yes'
+						: ' · Branded offline: no';
+				el.textContent =
+					fdc + ' USDA foods · ' + leg + ' CSV rows · ' + sr + br;
+			})
+			.catch(function (err) {
+				clearTimeout(slowTimer);
+				console.warn('getFdcStatus', err);
+				el.textContent =
+					'Could not read DB (' + (err && err.message ? err.message : 'error') + ')';
+			});
 	}
 
 	// Add the refresh function after the initializeFoodList function
 	function refreshFoodDatabase() {
-		// Clear the current foodList
-		foodList = [];
-		
 		showProgress('Refreshing Database', 'Reloading food data...');
-		updateProgress(20, 'Clearing old data...');
-		
-		// Show loading indicator
+		updateProgress(20, 'Reloading autocomplete…');
+
 		const originalPlaceholder = document.querySelector('.food').placeholder;
-		document.querySelector('.food').placeholder = "Refreshing food database...";
-		
-		setTimeout(() => {
-			updateProgress(50, 'Reloading database...');
-			// Call initializeFoodList again
-			initializeFoodList();
-			
-			setTimeout(() => {
+		document.querySelector('.food').placeholder = 'Refreshing food database...';
+
+		initializeFoodList()
+			.then(function () {
 				updateProgress(100, 'Database refreshed!');
-				setTimeout(() => {
+				setTimeout(function () {
 					hideProgress();
 					document.querySelector('.food').placeholder = originalPlaceholder;
-					// Update database size after refresh
 					updateDatabaseSize();
-					alert("Food database refreshed. New recipes should now appear in search.");
-				}, 500);
-			}, 500);
-		}, 300);
+				}, 400);
+			})
+			.catch(function (err) {
+				console.error(err);
+				hideProgress();
+				document.querySelector('.food').placeholder = originalPlaceholder;
+				alert('Refresh failed; see console.');
+			});
 	}
 
 	// Weekly meal plan progress reset functions

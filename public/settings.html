@@ -6,6 +6,8 @@
     <title>Settings</title>
     <link rel="stylesheet" href="dark-theme.css">
     <script src="offline-preference.js"></script>
+    <script src="database-utils.js"></script>
+    <script src="fdc-import.js"></script>
 </head>
 <body>
     <header id="dateHeader">
@@ -14,6 +16,42 @@
     </header>
 
     <div class="container">
+        <h2>Food database (USDA FDC)</h2>
+        <div style="margin: 20px 0;">
+            <div id="fdcStatusText" style="margin-bottom: 12px; font-size: 0.95em; line-height: 1.5;"></div>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 8px;">
+                <button type="button" class="btn" id="fdcRefreshStatus">Refresh status</button>
+                <button type="button" class="btn" id="fdcReimportSr">Re-import SR Legacy</button>
+                <button type="button" class="btn" id="fdcImportBranded">Import branded / offline barcodes</button>
+                <button type="button" class="btn" id="fdcClear" style="background: #633;">Clear USDA data</button>
+                <button type="button" class="btn" id="csvClear" style="background: #633;">Clear legacy CSV data</button>
+            </div>
+            <p class="small-text">SR Legacy loads automatically on first visit. Branded import is optional (~large); until it finishes, barcode scans use USDA API online.</p>
+            <div id="fdcBusy" style="display: none; margin-top: 10px; font-size: 0.9em;"></div>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <label for="usdaApiKeyInput" style="display: block; margin-bottom: 6px; font-weight: bold;">USDA FDC API Key</label>
+            <div style="display: flex; gap: 8px; align-items: stretch;">
+                <input type="password" id="usdaApiKeyInput" class="btn" autocomplete="off" placeholder="Paste key here (free at fdc.nal.usda.gov)" style="flex: 1; min-width: 0; box-sizing: border-box; padding: 8px; font-family: monospace;">
+                <button type="button" class="btn" id="usdaApiKeySave">Save</button>
+                <button type="button" class="btn" id="usdaApiKeyShow" style="padding: 8px 10px;">👁</button>
+            </div>
+            <p class="small-text">Used for barcode lookups when the offline branded database is not imported. The free <a href="https://fdc.nal.usda.gov/api-key-signup" target="_blank" rel="noopener">DEMO_KEY</a> allows only 30 lookups/hour; a personal key allows 1,000/hour.</p>
+            <p id="usdaApiKeyStatus" style="font-size: 0.85em; margin: 4px 0 0;"></p>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <label for="barcodeLookupSource" style="display: block; margin-bottom: 6px; font-weight: bold;">Barcode lookup source</label>
+            <select id="barcodeLookupSource" class="btn" style="padding: 8px; width: 100%; box-sizing: border-box;">
+                <option value="off_then_usda">Open Food Facts first, then USDA (recommended)</option>
+                <option value="both">USDA first, then Open Food Facts</option>
+                <option value="usda">USDA only</option>
+                <option value="off">Open Food Facts only</option>
+            </select>
+            <p class="small-text">Controls which online database is queried when a barcode is not in the local branded DB. Open Food Facts requires no API key and has broader international coverage. USDA has higher-quality US data but the free DEMO_KEY allows only 30 lookups per hour.</p>
+        </div>
+
         <h2>Performance Settings</h2>
         
         <div style="margin: 20px 0;">
@@ -108,8 +146,142 @@
             // Initialize storage size display
             updateStorageSize();
 
+            async function refreshFdcStatusUi() {
+                const el = document.getElementById('fdcStatusText');
+                if (!el || typeof getFdcStatus !== 'function') return;
+                try {
+                    const st = await getFdcStatus();
+                    el.innerHTML =
+                        '<strong>USDA foods:</strong> ' +
+                        st.fdcCount +
+                        '<br><strong>Legacy CSV rows:</strong> ' +
+                        st.legacyCount +
+                        '<br><strong>SR Legacy import:</strong> ' +
+                        (st.importComplete ? 'complete' : 'pending') +
+                        '<br><strong>Branded / offline barcode DB:</strong> ' +
+                        (st.brandedImportComplete ? 'complete' : 'not imported');
+                } catch (e) {
+                    el.textContent = 'Could not read database status.';
+                }
+            }
+
+            var fdcRefreshBtn = document.getElementById('fdcRefreshStatus');
+            if (fdcRefreshBtn) fdcRefreshBtn.addEventListener('click', refreshFdcStatusUi);
+            var fdcReimportBtn = document.getElementById('fdcReimportSr');
+            if (fdcReimportBtn) fdcReimportBtn.addEventListener('click', async function() {
+                if (!confirm('Re-download SR Legacy from bundled files and rebuild the USDA food list?')) return;
+                const busy = document.getElementById('fdcBusy');
+                busy.style.display = 'block';
+                busy.textContent = 'Importing SR Legacy…';
+                try {
+                    await importSrLegacy(
+                        function (done, tot) {
+                            busy.textContent = 'SR Legacy: ' + done + ' / ' + tot;
+                        },
+                        { force: true }
+                    );
+                    if (typeof loadFoodNamesAndCache === 'function') {
+                        await loadFoodNamesAndCache();
+                    }
+                    alert('SR Legacy import finished.');
+                } catch (e) {
+                    alert('Import failed: ' + (e && e.message));
+                }
+                busy.style.display = 'none';
+                refreshFdcStatusUi();
+            });
+            var fdcBrandedBtn = document.getElementById('fdcImportBranded');
+            if (fdcBrandedBtn) fdcBrandedBtn.addEventListener('click', async function() {
+                if (
+                    !confirm(
+                        'This downloads a large branded dataset for offline barcodes. Use Wi‑Fi when possible. Continue?'
+                    )
+                ) {
+                    return;
+                }
+                const busy = document.getElementById('fdcBusy');
+                busy.style.display = 'block';
+                try {
+                    await importBrandedFoods(function (d, t) {
+                        busy.textContent = 'Branded: ' + d + ' / ' + (t || '?');
+                    });
+                    alert('Branded import finished.');
+                } catch (e) {
+                    alert('Branded import failed: ' + (e && e.message));
+                }
+                busy.style.display = 'none';
+                refreshFdcStatusUi();
+            });
+            var fdcClearBtn = document.getElementById('fdcClear');
+            if (fdcClearBtn) fdcClearBtn.addEventListener('click', async function() {
+                if (
+                    !confirm(
+                        'Clear all USDA data (foods + nutrient defs metadata)? Legacy CSV data is not affected.'
+                    )
+                ) {
+                    return;
+                }
+                if (typeof clearFdcStores === 'function') await clearFdcStores();
+                if (typeof resetDBConnection === 'function') resetDBConnection();
+                alert('USDA stores cleared. Reload the nutrition page to re-import SR Legacy.');
+                refreshFdcStatusUi();
+            });
+            var csvClearBtn = document.getElementById('csvClear');
+            if (csvClearBtn) csvClearBtn.addEventListener('click', async function() {
+                if (
+                    !confirm(
+                        'This will permanently delete all legacy CSV food data, including any custom recipes you have saved. This cannot be undone.\n\nContinue?'
+                    )
+                ) {
+                    return;
+                }
+                if (typeof clearCsvStore === 'function') await clearCsvStore();
+                alert('Legacy CSV data cleared.');
+                refreshFdcStatusUi();
+            });
+            refreshFdcStatusUi();
+
             // Add event listener for refresh button
             document.getElementById('refreshStorageSize').addEventListener('click', updateStorageSize);
+
+            // USDA API key management
+            (function () {
+                const keyInput = document.getElementById('usdaApiKeyInput');
+                const saveBtn = document.getElementById('usdaApiKeySave');
+                const showBtn = document.getElementById('usdaApiKeyShow');
+                const statusEl = document.getElementById('usdaApiKeyStatus');
+
+                const stored = localStorage.getItem('usdaFdcApiKey') || '';
+                keyInput.value = stored;
+                statusEl.textContent = stored
+                    ? 'Key saved (' + stored.length + ' characters).'
+                    : 'No personal key saved — using DEMO_KEY (30 lookups/hour).';
+
+                saveBtn.addEventListener('click', function () {
+                    const val = keyInput.value.trim();
+                    if (val) {
+                        localStorage.setItem('usdaFdcApiKey', val);
+                        statusEl.textContent = 'Key saved (' + val.length + ' characters).';
+                    } else {
+                        localStorage.removeItem('usdaFdcApiKey');
+                        statusEl.textContent = 'Key removed — using DEMO_KEY (30 lookups/hour).';
+                    }
+                });
+
+                showBtn.addEventListener('click', function () {
+                    keyInput.type = keyInput.type === 'password' ? 'text' : 'password';
+                });
+            })();
+
+            // Barcode lookup source setting
+            (function () {
+                const sel = document.getElementById('barcodeLookupSource');
+                if (!sel) return;
+                sel.value = localStorage.getItem('barcodeLookupSource') || 'off_then_usda';
+                sel.addEventListener('change', function () {
+                    localStorage.setItem('barcodeLookupSource', sel.value);
+                });
+            })();
         });
 
         document.getElementById('downloadData').addEventListener('click', function() {

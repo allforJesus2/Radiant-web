@@ -284,6 +284,7 @@
     </style>
 
     <script src="database-utils.js"></script>
+    <script src="fdc-import.js"></script>
     <script>
         const ingredients = [];
         let totalWeight = 0;
@@ -308,28 +309,41 @@
         });
 
         function addIngredient() {
-            const foodName = document.querySelector('.food').value;
+            const foodInputEl = document.querySelector('.food');
+            const foodName = foodInputEl.value.trim();
             const grams = parseFloat(document.querySelector('.grams').value);
+            const rawFdc = foodInputEl.dataset.fdcId;
+            const fdcId =
+                rawFdc !== undefined && rawFdc !== '' && !Number.isNaN(Number(rawFdc))
+                    ? Number(rawFdc)
+                    : null;
             
             if (!foodName || !grams) {
                 alert('Please enter both ingredient name and grams');
                 return;
             }
 
-            getNutritionalInfo(foodName, grams).then(nutrition => {
-                ingredients.push({
+            getNutritionalInfo(
+                foodName,
+                grams,
+                fdcId != null ? fdcId : undefined
+            ).then(nutrition => {
+                const ing = {
                     name: foodName,
                     grams: grams,
                     calories: nutrition.calories,
                     protein: nutrition.protein,
                     carbs: nutrition.carbs,
                     fat: nutrition.fat
-                });
+                };
+                if (fdcId != null) ing.fdc_id = fdcId;
+                ingredients.push(ing);
 
                 updateIngredientsList();
                 calculateAndDisplayTotals();
                 clearInputs();
-            });
+                delete foodInputEl.dataset.fdcId;
+            }).catch(() => alert('Food not found in database.'));
         }
 
         function updateIngredientsList() {
@@ -364,14 +378,19 @@
                 const newGrams = parseFloat(newAmount);
                 
                 // Update the ingredient with new nutritional values
-                getNutritionalInfo(ingredient.name, newGrams).then(nutrition => {
+                getNutritionalInfo(
+                    ingredient.name,
+                    newGrams,
+                    ingredient.fdc_id != null ? ingredient.fdc_id : undefined
+                ).then(nutrition => {
                     ingredients[index] = {
                         name: ingredient.name,
                         grams: newGrams,
                         calories: nutrition.calories,
                         protein: nutrition.protein,
                         carbs: nutrition.carbs,
-                        fat: nutrition.fat
+                        fat: nutrition.fat,
+                        fdc_id: ingredient.fdc_id
                     };
                     
                     updateIngredientsList();
@@ -868,9 +887,11 @@
         }
 
         function clearInputs() {
-            document.querySelector('.food').value = '';
+            var fi = document.querySelector('.food');
+            fi.value = '';
+            delete fi.dataset.fdcId;
             document.querySelector('.grams').value = '';
-            document.querySelector('.food').focus();
+            fi.focus();
         }
 
         function clearRecipeForm() {
@@ -891,104 +912,24 @@
             recipeTotals = { calories: 0, protein: 0, carbs: 0, fat: 0 };
             totalWeight = 0;
         }
-        
-        // Function to fetch nutritional info for a given food and grams
-        function getNutritionalInfo(foodName, grams) {
-            // Placeholder for the nutritionalInfo object that will be populated
-            var nutritionalInfo = {
-                calories: 0,
-                fat: 0,
-                protein: 0,
-                carbs: 0
-            };
 
-            // Create an array of Promises for each fetch operation
-            var fetchPromises = ['calories', 'fat', 'protein', 'carbohydrate'].map(function(headerKey) {
-                return new Promise(function(resolve, reject) {
-                    fetchValueForKey(foodName, headerKey, function(value) {
-                        // Calculate the nutritional value based on grams
-                        var calculatedValue = parseFloat(((grams / 100) * value).toFixed(1));
-                        // Update the nutritionalInfo object
-                        switch (headerKey) {
-                            case 'calories':
-                                nutritionalInfo.calories = calculatedValue;
-                                break;
-                            case 'fat':
-                                nutritionalInfo.fat = calculatedValue;
-                                break;
-                            case 'protein':
-                                nutritionalInfo.protein = calculatedValue;
-                                break;
-                            case 'carbohydrate':
-                                nutritionalInfo.carbs = calculatedValue;
-                                break;
-                            default:
-                                console.error('Invalid header key:', headerKey);
-                        }
-                        resolve();
-                    });
-                });
-            });
-
-            // Return a Promise that resolves with the nutritionalInfo object once all fetch operations have completed
-            return Promise.all(fetchPromises).then(function() {
-                return nutritionalInfo;
-            });
-        }
         
 
         
-        // Initialize food list from IndexedDB
-        function initializeFoodList() {
-            const dbName = 'csvDB';
-            const storeName = 'csvStore';
-            const ingredientsStoreName = 'recipeIngredients';
-            
-            const dbRequest = indexedDB.open(dbName);
-
-            dbRequest.onupgradeneeded = function(event) {
-                const db = event.target.result;
-                const oldVersion = event.oldVersion;
-                
-                // Create the main store if it doesn't exist
-                if (!db.objectStoreNames.contains(storeName)) {
-                    const objectStore = db.createObjectStore(storeName, { keyPath: 'id' });
-                    objectStore.createIndex('nameIndex', 'name', { unique: true });
-                } else if (oldVersion < 2) {
-                    // Upgrade existing store to add index if needed
-                    const transaction = event.target.transaction;
-                    const objectStore = transaction.objectStore(storeName);
-                    if (!objectStore.indexNames.contains('nameIndex')) {
-                        objectStore.createIndex('nameIndex', 'name', { unique: true });
-                    }
-                }
-                
-                // Create ingredients store if it doesn't exist (version 3+)
-                if (!db.objectStoreNames.contains(ingredientsStoreName)) {
-                    db.createObjectStore(ingredientsStoreName, { keyPath: 'recipeId' });
-                }
-            };
-
-            dbRequest.onsuccess = function(event) {
-                const db = event.target.result;
-                const transaction = db.transaction([storeName], 'readonly');
-                const store = transaction.objectStore(storeName);
-                const request = store.openCursor();
-
-                request.onsuccess = function(event) {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        // Use the new name property
-                        const name = cursor.value.name || 'Unknown';
-                        foodList.push(name);
-                        cursor.continue();
-                    } else {
-                        // All records have been processed
-                        // Now you can use foodList for autocomplete
-                        setupAutocomplete(foodList);
-                    }
-                };
-            };
+        async function initializeFoodList() {
+            try {
+                if (typeof runFdcBootstrap === 'function') await runFdcBootstrap();
+                const { entries } = await loadFoodNamesAndCache();
+                setupAutocomplete(
+                    entries,
+                    document.querySelector('.food'),
+                    document.querySelector('.grams'),
+                    document.getElementById('autocompleteList')
+                );
+            } catch (e) {
+                console.error(e);
+                setupAutocomplete([]);
+            }
         }
         
 
@@ -1356,8 +1297,8 @@
         }
 
         // Initialize autocomplete and load saved recipes when the page loads
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeFoodList();
+        document.addEventListener('DOMContentLoaded', async function() {
+            await initializeFoodList();
             loadSavedRecipes();
         });
         

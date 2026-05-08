@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3.4';
+const CACHE_VERSION = 'v3.6';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
 
 // Paths relative to the service worker scope (no leading slash).
@@ -25,6 +25,9 @@ const FILES_TO_CACHE = [
   'navigation.css',
   'navigation.js',
   'database-utils.js',
+  'fdc-import.js',
+  'usda-id-to-key.js',
+  'barcode-scanner.js',
   'offline-preference.js',
   'menu.js',
   'workout/workout.html',
@@ -109,8 +112,11 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // For cross-origin requests (CDN assets, etc.) try the network and do NOT
-  // attempt a cache fallback for resources that were never cached.
+  if (url.pathname.includes('/assets/processed/')) {
+    event.respondWith(fetch(event.request));
+    return;
+  }
+
   if (url.origin !== self.location.origin) {
     event.respondWith(fetch(event.request));
     return;

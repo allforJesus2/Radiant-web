@@ -6,6 +6,7 @@
     <title>Nutrition Analysis</title>
     <link rel="stylesheet" href="dark-theme.css">
     <script src="chart.min.js"></script>
+    <script src="database-utils.js"></script>
     <style>
         .chart-container {
             background-color: transparent;
@@ -251,6 +252,19 @@
                 month: 'short', 
                 day: 'numeric' 
             });
+        }
+
+        async function enrichFullFoodLog(foodLog) {
+            const out = {};
+            for (const day of Object.keys(foodLog)) {
+                const items = foodLog[day];
+                if (!Array.isArray(items)) {
+                    out[day] = items;
+                    continue;
+                }
+                out[day] = await enrichFoodLogDayItems(items);
+            }
+            return out;
         }
 
         function calculateDailyTotals(foods) {
@@ -768,15 +782,21 @@
             `).join('');
         }
 
-        document.addEventListener('DOMContentLoaded', function() {
-            // Get food log from localStorage
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                await loadFoodNamesAndCache();
+            } catch (e) {
+                console.warn('charts cache', e);
+            }
             try {
                 const logStr = localStorage.getItem('foodLog');
                 window.foodLog = JSON.parse(logStr);
                 if (!window.foodLog) throw new Error('No food log found');
+                await migrateFoodLogIfNeeded(window.foodLog);
+                window.foodLog = JSON.parse(localStorage.getItem('foodLog'));
+                window.foodLog = await enrichFullFoodLog(window.foodLog);
             } catch (e) {
                 console.error('Error loading food log:', e);
-                // Use dummy data if no food log found
                 window.foodLog = {
                     "2024-12-25": [
                         {"name": "Oatmeal", "grams": 200, "calories": 340, "fat": 6.5, "protein": 12, "carbs": 62, "timeAdded": "8:30"},
@@ -789,11 +809,8 @@
                 };
             }
 
-            // Create charts and update food totals
             createCharts(window.foodLog);
             updateFoodTotals();
-
-            // Set up date selectors
             populateDateSelectors(window.foodLog);
         });
     </script>
