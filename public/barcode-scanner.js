@@ -132,7 +132,7 @@
         fdc_id: fdcId,
         name: displayName,
         name_lc: displayName.toLowerCase(),
-        gtin_upc: food.gtinUpc || '',
+        gtin_upc: normalizeUpc(food.gtinUpc || code),
         brand_owner: food.brandOwner || '',
         source: 'usda_api',
         serving_weight: defaultGrams,
@@ -445,11 +445,7 @@
       }
       closeScan();
 
-      const meta = await getFdcMeta();
-      let food = null;
-      if (meta.brandedImportComplete) {
-        food = await lookupByBarcode(code);
-      }
+      let food = await lookupByBarcode(code);
 
       if (food) {
         const per100 = extractMacrosForScanner(food.nutrients);

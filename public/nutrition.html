@@ -1239,6 +1239,92 @@ document.getElementById('mealFilter').addEventListener('change', function() {
     displayFoodItems(foodItems);
 });
 
+/**
+ * Append a food log row or merge grams into a matching row within RECENT_FOOD_MINUTES (same fdc_id or same manual name).
+ * @param {object} p
+ * @param {string} p.foodName
+ * @param {number|null} p.fdcId
+ * @param {number} p.grams
+ * @param {object} p.foodItem — object to push when not merging (name, grams, timeAdded, …)
+ * @param {string} [p.nutrition_source] — applied to the merged row when set
+ * @param {function} [p.done] — after localStorage + displayFoodItems; also run when showing first-meal offset dialog
+ */
+function mergeOrAppendFoodLogItem(p) {
+    var foodName = p.foodName;
+    var fdcId = p.fdcId;
+    var grams = p.grams;
+    var foodItem = p.foodItem;
+    var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    if (!foodLog[today]) foodLog[today] = [];
+    var existingData = foodLog[today];
+
+    if (existingData.length === 0) {
+        var mealType = getMealType(foodItem.timeAdded);
+        if (mealType !== 'Breakfast') {
+            showOffsetDialog(foodItem);
+            if (p.done) p.done();
+            return;
+        }
+    }
+
+    var hh_mm = foodItem.timeAdded;
+    var mostRecentIndex = existingData.reduce(function(mostRecentIndex, item, index) {
+        var sameDb =
+            fdcId != null &&
+            item.fdc_id === fdcId;
+        var sameManual =
+            (fdcId == null) &&
+            item.fdc_id == null &&
+            item.name === foodName;
+        if (sameDb || sameManual) {
+            var currentTimeInMinutes = timeToMinutes(hh_mm);
+            var itemTimeInMinutes = timeToMinutes(item.timeAdded);
+            var timeDifference = Math.abs(currentTimeInMinutes - itemTimeInMinutes);
+            if (timeDifference <= RECENT_FOOD_MINUTES) {
+                return index;
+            }
+        }
+        return mostRecentIndex;
+    }, -1);
+
+    function finish() {
+        localStorage.setItem('foodLog', JSON.stringify(foodLog));
+        displayFoodItems(existingData);
+        if (p.done) p.done();
+    }
+
+    if (mostRecentIndex !== -1) {
+        var updatedItem = existingData[mostRecentIndex];
+        updatedItem.grams += grams;
+        if (p.nutrition_source) {
+            updatedItem.nutrition_source = p.nutrition_source;
+        }
+        if (fdcId != null) {
+            delete updatedItem.calories;
+            delete updatedItem.protein;
+            delete updatedItem.carbs;
+            delete updatedItem.fat;
+            updatedItem.fdc_id = fdcId;
+        }
+        getNutritionalInfo(
+            foodName,
+            updatedItem.grams,
+            fdcId != null ? fdcId : undefined
+        ).then(function(updatedNutrition) {
+            if (fdcId == null) {
+                updatedItem.calories = updatedNutrition.calories;
+                updatedItem.fat = updatedNutrition.fat;
+                updatedItem.protein = updatedNutrition.protein;
+                updatedItem.carbs = updatedNutrition.carbs;
+            }
+            finish();
+        });
+    } else {
+        existingData.push(foodItem);
+        finish();
+    }
+}
+
 document.getElementById('addBtn').addEventListener('click', function() {
     var foodInputEl = document.getElementById('foodInput') || document.querySelector('.food');
     var foodName = foodInputEl.value.trim();
@@ -1277,82 +1363,19 @@ document.getElementById('addBtn').addEventListener('click', function() {
                 foodItem.carbs = nutritionalInfo.carbs;
             }
 
-            var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
-
-            if (!foodLog[today]) {
-                foodLog[today] = [];
-            }
-
-            var existingData = foodLog[today];
-
-            if (existingData.length === 0) {
-                var hh_mm_local = hh_mm;
-                var mealType = getMealType(hh_mm_local);
-                if (mealType !== 'Breakfast') {
-                    showOffsetDialog(foodItem);
-                    foodInputEl.value = '';
-                    document.querySelector('.grams').value = '';
-                    delete foodInputEl.dataset.fdcId;
-                    return;
-                }
-            }
-
-            var mostRecentIndex = existingData.reduce(function(mostRecentIndex, item, index) {
-                var sameDb =
-                    fdcId != null &&
-                    item.fdc_id === fdcId;
-                var sameManual =
-                    (fdcId == null) &&
-                    item.fdc_id == null &&
-                    item.name === foodName;
-                if (sameDb || sameManual) {
-                    var currentTimeInMinutes = timeToMinutes(hh_mm);
-                    var itemTimeInMinutes = timeToMinutes(item.timeAdded);
-                    var timeDifference = Math.abs(currentTimeInMinutes - itemTimeInMinutes);
-                    if (timeDifference <= RECENT_FOOD_MINUTES) {
-                        return index;
-                    }
-                }
-                return mostRecentIndex;
-            }, -1);
-
             function clearEntryFields() {
                 foodInputEl.value = '';
                 document.querySelector('.grams').value = '';
                 delete foodInputEl.dataset.fdcId;
             }
 
-            if (mostRecentIndex !== -1) {
-                var updatedItem = existingData[mostRecentIndex];
-                updatedItem.grams += grams;
-                if (fdcId != null) {
-                    delete updatedItem.calories;
-                    delete updatedItem.protein;
-                    delete updatedItem.carbs;
-                    delete updatedItem.fat;
-                    updatedItem.fdc_id = fdcId;
-                }
-                getNutritionalInfo(
-                    foodName,
-                    updatedItem.grams,
-                    fdcId != null ? fdcId : undefined
-                ).then(function(updatedNutrition) {
-                    if (fdcId == null) {
-                        updatedItem.calories = updatedNutrition.calories;
-                        updatedItem.fat = updatedNutrition.fat;
-                        updatedItem.protein = updatedNutrition.protein;
-                        updatedItem.carbs = updatedNutrition.carbs;
-                    }
-                    localStorage.setItem('foodLog', JSON.stringify(foodLog));
-                    displayFoodItems(existingData);
-                    clearEntryFields();
-                });
-            } else {
-                existingData.push(foodItem);
-                localStorage.setItem('foodLog', JSON.stringify(foodLog));
-                displayFoodItems(existingData);
-                clearEntryFields();
-            }
+            mergeOrAppendFoodLogItem({
+                foodName: foodName,
+                fdcId: fdcId,
+                grams: grams,
+                foodItem: foodItem,
+                done: clearEntryFields,
+            });
         })
         .catch(function(error) {
             console.error('Error getting nutritional info:', error);
@@ -1362,16 +1385,23 @@ document.getElementById('addBtn').addEventListener('click', function() {
 
 
 function pushScannerFoodItem(payload) {
+    var foodName = payload.name;
+    var grams = payload.grams;
+    var fdcId =
+        payload.fdc_id != null && payload.fdc_id !== '' && !Number.isNaN(Number(payload.fdc_id))
+            ? Number(payload.fdc_id)
+            : null;
+
     var foodItem = {
-        name: payload.name,
-        grams: payload.grams,
+        name: foodName,
+        grams: grams,
         timeAdded: formatTime(new Date()),
     };
     if (payload.nutrition_source) {
         foodItem.nutrition_source = payload.nutrition_source;
     }
-    if (payload.fdc_id != null && payload.fdc_id !== '') {
-        foodItem.fdc_id = payload.fdc_id;
+    if (fdcId != null) {
+        foodItem.fdc_id = fdcId;
     } else {
         foodItem.fdc_id = null;
         foodItem.calories = payload.calories;
@@ -1379,21 +1409,14 @@ function pushScannerFoodItem(payload) {
         foodItem.carbs = payload.carbs;
         foodItem.fat = payload.fat;
     }
-    var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
-    if (!foodLog[today]) foodLog[today] = [];
-    var existingData = foodLog[today];
 
-    if (existingData.length === 0) {
-        var mealType = getMealType(foodItem.timeAdded);
-        if (mealType !== 'Breakfast') {
-            showOffsetDialog(foodItem);
-            return;
-        }
-    }
-
-    existingData.push(foodItem);
-    localStorage.setItem('foodLog', JSON.stringify(foodLog));
-    displayFoodItems(existingData);
+    mergeOrAppendFoodLogItem({
+        foodName: foodName,
+        fdcId: fdcId,
+        grams: grams,
+        foodItem: foodItem,
+        nutrition_source: payload.nutrition_source || undefined,
+    });
 }
 
 

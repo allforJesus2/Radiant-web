@@ -14,6 +14,46 @@ let autocompleteQueryId = 0;
 let _autocompleteEntries = [];
 let _fdcCount = 0;
 
+// ---- Recent food selection boost ----
+const RECENT_SELECTIONS_KEY = 'recentFoodSelections';
+const RECENT_SELECTIONS_MAX = 50;
+let _recentSelections = null; // lazy-loaded cache
+
+function _loadRecentSelections() {
+  if (_recentSelections) return _recentSelections;
+  try {
+    const raw = localStorage.getItem(RECENT_SELECTIONS_KEY);
+    _recentSelections = raw ? JSON.parse(raw) : [];
+  } catch {
+    _recentSelections = [];
+  }
+  return _recentSelections;
+}
+
+function _selectionKey(entry) {
+  return entry.fdc_id != null
+    ? `fdc:${entry.fdc_id}`
+    : `name:${String(entry.name).toLowerCase()}`;
+}
+
+function recordFoodSelection(entry) {
+  const key = _selectionKey(entry);
+  const list = _loadRecentSelections().filter((s) => s !== key);
+  list.unshift(key);
+  _recentSelections = list.slice(0, RECENT_SELECTIONS_MAX);
+  try {
+    localStorage.setItem(RECENT_SELECTIONS_KEY, JSON.stringify(_recentSelections));
+  } catch { /* storage full — ignore */ }
+}
+
+function _recentSelectionBoost(entry) {
+  const list = _loadRecentSelections();
+  const idx = list.indexOf(_selectionKey(entry));
+  if (idx === -1) return 0;
+  // Most recent (idx 0) → +300k, fades to 0 at RECENT_SELECTIONS_MAX
+  return Math.round(300_000 * (1 - idx / RECENT_SELECTIONS_MAX));
+}
+
 /** SR Legacy trailing note from USDA Food Distribution Program — strip for display/storage. */
 const USDA_FDP_NAME_SUFFIX =
   /\s*\(includes foods for usda['\u2019]s food distribution program\)\s*$/i;
@@ -210,15 +250,14 @@ async function getFoodFromCsvStore(name) {
 }
 
 /**
- * Local USDA barcode lookup — only after branded import (caller checks meta).
+ * Local fdcStore barcode lookup by GTIN/UPC (offline branded import, USDA SR,
+ * or any item previously saved from the scanner).
  * @param {string} upc
  * @returns {Promise<object|null>}
  */
 async function lookupByBarcode(upc) {
   const normalized = normalizeUpc(upc);
   if (!normalized || normalized.length < 8) return null;
-  const meta = await getFdcMeta();
-  if (!meta.brandedImportComplete) return null;
 
   const db = await getDB();
   const tx = db.transaction(['fdcStore'], 'readonly');
@@ -510,8 +549,18 @@ function foodAutocompleteRank(entry, userInput) {
   if (nm === q) rank += 1_000_000;
   else if (nm.startsWith(q)) {
     const next = nm.charAt(q.length);
-    if (!next || /[,\s(/]/.test(next)) rank += 920_000;
-    else rank += 650_000;
+    if (!next || /[,(/]/.test(next)) {
+      rank += 920_000;
+    } else {
+      // Reward how much of the lead word the query covers.
+      // "app" in "apples," (lead word len 6) → coverage 0.50 → +100k
+      // "app" in "applebee's," (lead word len 10) → coverage 0.30 → +60k
+      const rest = nm.slice(q.length);
+      const delimIdx = rest.search(/[,(]/);
+      const leadWordEnd = delimIdx === -1 ? nm.length : q.length + delimIdx;
+      const coverage = q.length / leadWordEnd;
+      rank += 650_000 + Math.round(coverage * 200_000);
+    }
   } else {
     const pos = nm.indexOf(q);
     if (pos !== -1) rank += 420_000 - pos * 2_500;
@@ -528,6 +577,8 @@ function foodAutocompleteRank(entry, userInput) {
 
   const src = entry.source || '';
   if (src === 'branded') rank -= 40;
+
+  rank += _recentSelectionBoost(entry);
 
   return rank;
 }
@@ -926,6 +977,7 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
         div.dataset.fdcId = String(entry.fdc_id);
       }
       div.addEventListener('click', function () {
+        recordFoodSelection(entry);
         inputEl.value = entry.name;
         if (entry.fdc_id != null && entry.fdc_id !== '') {
           inputEl.dataset.fdcId = String(entry.fdc_id);
