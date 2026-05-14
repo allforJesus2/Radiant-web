@@ -4,6 +4,7 @@
   "scripts": {
     "preprocess": "node scripts/fdc-preprocess.js",
     "preprocess:branded": "node scripts/fdc-preprocess.js --branded",
-    "deploy": "npm run preprocess && firebase deploy"
+    "bump-sw-version": "node scripts/bump-sw-version.js",
+    "deploy": "npm run preprocess && npm run bump-sw-version && firebase deploy"
   }
 }

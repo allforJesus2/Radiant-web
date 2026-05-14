@@ -23,6 +23,7 @@ function setupHeader(headerText = null) {
 
     // Create a centered header container
     const headerContainer = document.createElement('div');
+    headerContainer.className = 'header-date-center';
     headerContainer.textContent = headerText || new Date().toLocaleDateString('en-CA');
     headerContainer.style.color = 'white';
     headerContainer.style.position = 'absolute';

@@ -20,8 +20,10 @@ how can we add spacing between suggestions
 <body>
 
  <header id="dateHeader">
-     <button id="undoBtn" class="btn" style="display:none;" aria-live="polite"></button>
-     <span id="hintText" aria-live="polite"></span>
+     <div class="header-hint-slot">
+         <button id="undoBtn" class="btn" style="display:none;" aria-live="polite"></button>
+         <span id="hintText" aria-live="polite"><span class="hint-scroll-inner"></span></span>
+     </div>
  </header>
 
  <!-- Blur overlay for menu popup -->
@@ -102,12 +104,12 @@ how can we add spacing between suggestions
 
 
 
-        <div>
+        <div class="food-entry-row">
             <label for="foodInput" class="sr-only">Food name</label>
             <input id="foodInput" type="text" class="food" placeholder="Food name...">
+            <button type="button" class="btn" id="scanBarcodeBtn" title="Scan barcode">📷</button>
             <label for="gramsInput" class="sr-only">Amount in grams</label>
             <input id="gramsInput" class="grams" type="number" inputmode="numeric" placeholder="Grams">
-            <button type="button" class="btn" id="scanBarcodeBtn" title="Scan barcode">📷</button>
             <button class="btn" id="addBtn">Add</button>
         </div>
 
@@ -205,11 +207,9 @@ how can we add spacing between suggestions
                         <span>Set these items to the new log time when I save</span>
                     </label>
                 </div>
-                <div style="display:flex; gap:8px; justify-content:center; margin-bottom:8px;">
+                <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:8px;">
                     <button class="btn" id="editItemSave">Save</button>
                     <button class="btn" id="editItemCancel">Cancel</button>
-                </div>
-                <div style="text-align:center;">
                     <button class="btn" id="editItemDetails" style="font-size:0.85em;opacity:0.85;padding:5px 14px;">See Details</button>
                 </div>
             </div>
@@ -230,6 +230,27 @@ how can we add spacing between suggestions
 
 
     <style>
+        .food-entry-row {
+            display: flex;
+            align-items: center;
+            flex-wrap: nowrap;
+            gap: 4px;
+            width: 100%;
+        }
+        .food-entry-row .food {
+            flex: 2 1 0;
+            min-width: 0;
+            width: auto;
+        }
+        .food-entry-row .grams {
+            flex: 1 1 0;
+            min-width: 0;
+            width: auto;
+        }
+        .food-entry-row .btn {
+            flex-shrink: 0;
+        }
+
         .sr-only {
             position: absolute;
             width: 1px;
@@ -333,14 +354,16 @@ how can we add spacing between suggestions
             background: rgba(255,255,255,0.3);
         }
 
-        /* Progress Modal Styles */
+        /* Progress Modal Styles (match menu: blur backdrop, not heavy dim) */
         .progress-modal {
             position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background-color: rgba(0, 0, 0, 0.7);
+            background-color: rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
             display: flex;
             justify-content: center;
             align-items: center;
@@ -395,6 +418,21 @@ how can we add spacing between suggestions
             align-items: center;
             justify-content: space-between;
             text-align: right;
+            position: relative;
+        }
+
+        #dateHeader .header-date-center {
+            z-index: 1;
+        }
+
+        /* Left column: keep hints from growing the header or intruding under the centered date */
+        #dateHeader .header-hint-slot {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            flex: 0 1 auto;
+            min-width: 0;
+            max-width: min(272px, calc(50vw - 5.75rem));
         }
 
         #undoBtn {
@@ -415,13 +453,22 @@ how can we add spacing between suggestions
             transition: opacity 0.5s ease;
             pointer-events: none;
             user-select: none;
-            display: block;
-            max-width: calc(50% - 80px);
-            white-space: normal;
+            flex: 1;
+            min-width: 0;
+            line-height: 1.3;
+            height: calc(2 * 1.3em); /* viewport — avoids layout jumping */
+            overflow: hidden;
             overflow-wrap: anywhere;
             word-break: break-word;
-            line-height: 1.3;
             text-align: left;
+        }
+
+        /* Full hint text laid out inside the fixed viewport; JS pans translateY slowly when it overflows */
+        #hintText .hint-scroll-inner {
+            display: block;
+            width: 100%;
+            transform: translateY(0);
+            will-change: transform;
         }
 
         .blur-overlay {
@@ -438,6 +485,30 @@ how can we add spacing between suggestions
 
         .blur-overlay.active {
             display: block;
+        }
+
+        /* Food row: delete + edit (20% smaller than default emoji buttons) */
+        .list-item-actions {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 7px;
+        }
+
+        .list-item-actions .delete-btn,
+        .list-item-actions .edit-item-btn {
+            position: static;
+            transform: none;
+            font-size: 0.8em;
+            line-height: 1;
+        }
+
+        .planned-meal-item > .delete-btn {
+            font-size: 0.8em;
         }
 
         .meal-toggle-btn:hover {
@@ -1748,7 +1819,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // Hints rotate in the top-left slot (shared with the undo button).
 // The cycle pauses automatically while the undo button is visible.
 const HINTS = [
-    'Long-press or right-click to edit an item',
+    'Tap ✏️ (or right-click) on a food row to edit it',
     'Delete an item to copy it to the entry field',
     'Search with multiple partial words',
     'Tap a meal header to collapse it',
@@ -1767,46 +1838,131 @@ const HINTS = [
     'View nutrient analysis in the nutrient analysis page',
     
 ];
+var HINT_SHORT_DISPLAY_MS = 10000;
+var HINT_EXTRA_DWELL_AFTER_SCROLL_MS = 10000;
+
 let _hintIdx    = Math.floor(Math.random() * HINTS.length);
 let _hintTimer  = null;
 let _hintPaused = false;
 
-function _applyHint() {
-    const el = document.getElementById('hintText');
-    if (!el || _hintPaused) return;
-    el.textContent = HINTS[_hintIdx];
-    el.style.opacity = '1';
-    _hintIdx = (_hintIdx + 1) % HINTS.length;
+let _hintAnimGen = 0;
+let _hintActiveAnim = null;
+
+function cancelHintAnimations() {
+    _hintAnimGen++;
+    if (_hintActiveAnim) {
+        try { _hintActiveAnim.cancel(); } catch (ignore) {}
+        _hintActiveAnim = null;
+    }
 }
 
-function _scheduleCycle() {
+function _fadeThenApplyHint() {
+    var el = document.getElementById('hintText');
+    if (!el || _hintPaused) return;
+    el.style.opacity = '0';
+    setTimeout(function() {
+        if (_hintPaused) return;
+        _applyHint();
+    }, 500);
+}
+
+function queueNextHint(delayMs) {
+    clearTimeout(_hintTimer);
     _hintTimer = setTimeout(function() {
-        const el = document.getElementById('hintText');
-        if (!el || _hintPaused) return;
-        el.style.opacity = '0';                    // fade out
+        if (_hintPaused) return;
+        _fadeThenApplyHint();
+    }, delayMs);
+}
+
+function _scheduleHintPanOnce(gen, outer, inner, maxPx) {
+    var pauseMs = 1800;
+    var pxPerMs = 1 / 42; /* ~42px/sec vertical drift */
+    var scrollMs = Math.max(3400, maxPx / pxPerMs);
+    var totalMs = pauseMs + scrollMs + pauseMs;
+    var a = pauseMs / totalMs;
+    var b = (pauseMs + scrollMs) / totalMs;
+
+    if (_hintPaused || gen !== _hintAnimGen || !outer.isConnected) return;
+
+    inner.style.transform = 'translateY(0)';
+    inner.getAnimations().forEach(function(an) {
+        try { an.cancel(); } catch (ignore) {}
+    });
+    var anim = inner.animate([
+        { transform: 'translateY(0)', offset: 0 },
+        { transform: 'translateY(0)', offset: a },
+        { transform: 'translateY(' + (-maxPx) + 'px)', offset: b },
+        { transform: 'translateY(' + (-maxPx) + 'px)', offset: 1 }
+    ], {
+        duration: totalMs,
+        easing: 'linear',
+        fill: 'forwards'
+    });
+    _hintActiveAnim = anim;
+    anim.finished.then(function() {
+        if (_hintPaused || gen !== _hintAnimGen) return;
         setTimeout(function() {
-            _applyHint();                           // swap text + fade in
-            _scheduleCycle();                       // queue next
-        }, 500);
-    }, 15000);
+            if (_hintPaused || gen !== _hintAnimGen) return;
+            _fadeThenApplyHint();
+        }, HINT_EXTRA_DWELL_AFTER_SCROLL_MS);
+    }).catch(function() {});
+}
+
+function measureAndRunHintPan() {
+    clearTimeout(_hintTimer);
+    _hintTimer = null;
+    cancelHintAnimations();
+    var gen = _hintAnimGen;
+    var outer = document.getElementById('hintText');
+    if (!outer || _hintPaused) return;
+    var inner = outer.querySelector('.hint-scroll-inner');
+    if (!inner) return;
+
+    inner.textContent = HINTS[_hintIdx];
+
+    requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+            if (gen !== _hintAnimGen || _hintPaused) return;
+            var maxPx = inner.scrollHeight - outer.clientHeight;
+            if (maxPx <= 2) {
+                inner.style.transform = 'translateY(0)';
+                inner.getAnimations().forEach(function(an) {
+                    try { an.cancel(); } catch (ignore) {}
+                });
+                _hintIdx = (_hintIdx + 1) % HINTS.length;
+                queueNextHint(HINT_SHORT_DISPLAY_MS);
+                return;
+            }
+            _hintIdx = (_hintIdx + 1) % HINTS.length;
+            _scheduleHintPanOnce(gen, outer, inner, maxPx);
+        });
+    });
+}
+
+function _applyHint() {
+    var el = document.getElementById('hintText');
+    if (!el || _hintPaused) return;
+    el.style.opacity = '1';
+    measureAndRunHintPan();
 }
 
 function startHintCycle() {
     _hintPaused = false;
     clearTimeout(_hintTimer);
+    _hintTimer = null;
     _applyHint();
-    _scheduleCycle();
 }
 
 function pauseHints() {
     _hintPaused = true;
     clearTimeout(_hintTimer);
-    const el = document.getElementById('hintText');
+    cancelHintAnimations();
+    var el = document.getElementById('hintText');
     if (el) el.style.opacity = '0';
 }
 // ---- end hint cycle ----
 
-// ---- Inline edit modal (long-press / right-click on a food item) ----
+// ---- Inline edit modal (✏️ or right-click on a food row) ----
 var editTarget = null; // { item, allFoodItems, originalTimeAdded, timeSyncGroup }
 
 function normalizeLogTimeString(t) {
@@ -1902,8 +2058,6 @@ function showEditDialog(item, allFoodItems) {
     document.getElementById('editItemDialog').style.display = 'flex';
     document.getElementById('blurOverlay').classList.add('active');
     updateEditTimeSyncBlockVisibility();
-    // Focus first input
-    setTimeout(function() { document.getElementById('editGrams').focus(); }, 50);
 }
 
 function hideEditDialog() {
@@ -2098,17 +2252,26 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 // ---- end edit modal ----
 
+/** Grams shown after delete; `.grams` clears itself on focus, so assign value after focus(). */
+function deletedGramsForInputField(grams) {
+    if (grams == null || grams === '') return '';
+    var n = Number(grams);
+    if (!Number.isFinite(n) || n < 0) return '';
+    return String(n);
+}
+
 function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsInput, viewRow) {
     var v = viewRow || item;
     var listItem = document.createElement('div');
     listItem.className = 'list-item';
     listItem._radiantFoodItem = item;
-    listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${v.calories}, Protein ${v.protein}g, Carbs ${v.carbs}g, Fat ${v.fat}g</span>`;
+    var foodEmoji = getFoodEmoji(item.name);
+    listItem.innerHTML = `${foodEmoji ? foodEmoji + ' ' : ''}${item.name}<br><span class="small-text">${item.grams}g, Calories ${v.calories}, Protein ${v.protein}g, Carbs ${v.carbs}g, Fat ${v.fat}g</span>`;
 
     var deleteButton = document.createElement('button');
     deleteButton.textContent = '❌';
     deleteButton.className = 'delete-btn';
-    deleteButton.style.float = 'right';
+    deleteButton.setAttribute('aria-label', 'Remove food item');
     deleteButton.addEventListener('click', function(e) {
         e.stopPropagation();
 
@@ -2124,17 +2287,31 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
 
         // Repopulate the input fields with the deleted food info for quick re-add
         foodInput.value = item.name;
-        gramsInput.value = item.grams;
         if (item.fdc_id != null && item.fdc_id !== '') {
             foodInput.dataset.fdcId = String(item.fdc_id);
         } else {
             delete foodInput.dataset.fdcId;
         }
+        var gramsStr = deletedGramsForInputField(item.grams);
         gramsInput.focus();
+        gramsInput.value = gramsStr;
         gramsInput.select();
     });
 
-    listItem.appendChild(deleteButton);
+    var editButton = document.createElement('button');
+    editButton.textContent = '✏️';
+    editButton.className = 'edit-item-btn';
+    editButton.setAttribute('aria-label', 'Edit food item');
+    editButton.addEventListener('click', function(e) {
+        e.stopPropagation();
+        showEditDialog(item, allFoodItems);
+    });
+
+    var itemActions = document.createElement('div');
+    itemActions.className = 'list-item-actions';
+    itemActions.appendChild(deleteButton);
+    itemActions.appendChild(editButton);
+    listItem.appendChild(itemActions);
 
     listItem.addEventListener('click', function() {
         foodInput.value = item.name;
@@ -2173,26 +2350,13 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
         }
     });
 
-    // Right-click opens edit dialog
-    listItem.addEventListener('contextmenu', function(e) {
-        e.preventDefault();
-        showEditDialog(item, allFoodItems);
-    });
-
-    // Long-press (touch) opens edit dialog
-    var longPressTimer = null;
-    listItem.addEventListener('touchstart', function(e) {
-        longPressTimer = setTimeout(function() {
-            longPressTimer = null;
+    // Right-click opens edit dialog (fine pointer only — touch/tablet keeps ✏️, no dedicated long-press)
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+        listItem.addEventListener('contextmenu', function(e) {
+            e.preventDefault();
             showEditDialog(item, allFoodItems);
-        }, 500);
-    }, { passive: true });
-    listItem.addEventListener('touchend', function() {
-        clearTimeout(longPressTimer);
-    });
-    listItem.addEventListener('touchmove', function() {
-        clearTimeout(longPressTimer);
-    });
+        });
+    }
 
     scrollableWindow.appendChild(listItem);
 }
@@ -2204,7 +2368,8 @@ function displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, c
     listItem.style.backgroundColor = 'rgba(255, 255, 200, 0.15)';
     listItem.style.cursor = 'pointer'; // Make it clear it's clickable
     
-    listItem.innerHTML = `${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protein ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
+    var plannedEmoji = getFoodEmoji(item.name);
+    listItem.innerHTML = `${plannedEmoji ? plannedEmoji + ' ' : ''}${item.name}<br><span class="small-text">${item.grams}g, Calories ${item.calories}, Protein ${item.protein}g, Carbs ${item.carbs}g, Fat ${item.fat}g</span>`;
 
     // Add red X button for removal
     var removeButton = document.createElement('button');

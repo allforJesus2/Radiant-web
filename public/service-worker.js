@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3.6';
+const CACHE_VERSION = 'v3.7';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
 
 // Paths relative to the service worker scope (no leading slash).
@@ -142,8 +142,9 @@ self.addEventListener('fetch', (event) => {
       fetch(event.request)
         .then((response) => {
           if (response.ok) {
+            const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) =>
-              cache.put(event.request, response.clone())
+              cache.put(event.request, clone)
             );
           }
           return response;

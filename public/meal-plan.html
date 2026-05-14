@@ -482,9 +482,10 @@
                             mealItem.classList.add('removed');
                         }
                         
+                        const mealEmoji = typeof getFoodEmoji === 'function' ? getFoodEmoji(item.name) : '';
                         mealItem.innerHTML = `
                             <div>
-                                <strong>${item.name}</strong><br>
+                                <strong>${mealEmoji ? mealEmoji + ' ' : ''}${item.name}</strong><br>
                                 <span class="small-text">${item.grams}g - ${item.calories} cal, ${item.protein}g protein, ${item.carbs}g carbs, ${item.fat}g fat</span>
                             </div>
                             <button class="check-btn ${isCompleted ? 'completed' : ''}" ${isCompleted ? `onclick="uncheckMealItem('${item.name}', ${dayOfWeek}, this)"` : 'disabled'}>${isCompleted ? '✓' : (isRemoved ? '❌' : '○')}</button>
