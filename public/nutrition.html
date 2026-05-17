@@ -15,7 +15,12 @@ how can we add spacing between suggestions
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="dark-theme.css">
-</head>
+<style>
+.meal-header-container .small-text {
+    font-weight: normal;
+    font-size: .9em;
+}
+</style>
 
 <body>
 
@@ -94,6 +99,12 @@ how can we add spacing between suggestions
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div id="nutritionProfileCharacter" class="nutrition-profile-character nutrition-profile-character--hidden">
+                <a href="profile.html" class="nutrition-profile-character-link" title="Profile" aria-label="Open profile">
+                    <img id="nutritionProfileCharacterImg" class="nutrition-profile-character-img" width="88" height="88" alt="">
+                </a>
             </div>
         </div>
 
@@ -471,21 +482,6 @@ how can we add spacing between suggestions
             will-change: transform;
         }
 
-        .blur-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.3);
-            backdrop-filter: blur(5px);
-            z-index: 999;
-            display: none;
-        }
-
-        .blur-overlay.active {
-            display: block;
-        }
 
         /* Food row: delete + edit (20% smaller than default emoji buttons) */
         .list-item-actions {
@@ -540,6 +536,36 @@ how can we add spacing between suggestions
             display: flex;
             flex-direction: column;
             justify-content: center; /* Center content vertically */
+            flex: 1;
+            min-width: 0;
+        }
+
+        .nutrition-profile-character {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nutrition-profile-character.nutrition-profile-character--hidden {
+            display: none;
+        }
+
+        .nutrition-profile-character-link {
+            display: block;
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        .nutrition-profile-character-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
         }
 
         .circular-progress {
@@ -963,6 +989,27 @@ function calculateMealTotals(foodItems, mealType) {
     };
 }
 
+function calculatePlannedMealTotals(mealType, mealPlans, dayMealPlan, completedMeals, removedMeals) {
+    if (!dayMealPlan || !mealPlans || !mealPlans[dayMealPlan]) return null;
+    const mealKey = mealType.toLowerCase();
+    const planned = mealPlans[dayMealPlan][mealKey];
+    if (!planned || planned.length === 0) return null;
+    const active = planned.filter(item => !completedMeals.includes(item.name) && !removedMeals.includes(item.name));
+    if (active.length === 0) return null;
+    const totals = active.reduce((acc, item) => ({
+        calories: acc.calories + (item.calories || 0),
+        protein:  acc.protein  + (item.protein  || 0),
+        carbs:    acc.carbs    + (item.carbs    || 0),
+        fat:      acc.fat      + (item.fat      || 0),
+    }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+    return {
+        calories: Math.round(totals.calories),
+        protein:  Math.round(totals.protein),
+        carbs:    Math.round(totals.carbs),
+        fat:      Math.round(totals.fat),
+    };
+}
+
 // Function to get meal time range as a formatted string
 function getMealTimeRange(mealType) {
     const savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
@@ -1052,6 +1099,58 @@ function groupByMeal(foodItems) {
     });
     return meals;
 }
+
+/** Filenames from assets/character images/ (same source as profile.html). */
+var nutritionPortraitManifestFiles = [];
+fetch('assets/character-images-manifest.json')
+    .then(function (response) {
+        return response.json();
+    })
+    .then(function (manifest) {
+        nutritionPortraitManifestFiles = Array.isArray(manifest.files) ? manifest.files : [];
+        updateNutritionProfileCharacterPortrait();
+    })
+    .catch(function () {
+        nutritionPortraitManifestFiles = [];
+        updateNutritionProfileCharacterPortrait();
+    });
+
+function nutritionPortraitUrl(filename) {
+    return 'assets/character images/' + encodeURIComponent(filename);
+}
+
+function updateNutritionProfileCharacterPortrait() {
+    var wrap = document.getElementById('nutritionProfileCharacter');
+    var imgEl = document.getElementById('nutritionProfileCharacterImg');
+    if (!wrap || !imgEl) {
+        return;
+    }
+    var saved = '';
+    try {
+        var stats = JSON.parse(localStorage.getItem('profileStatistics') || '{}');
+        saved = (stats.characterImage || '').trim();
+    } catch (e) {
+        saved = '';
+    }
+    var effective = saved || nutritionPortraitManifestFiles[0] || '';
+    if (!effective) {
+        wrap.classList.add('nutrition-profile-character--hidden');
+        imgEl.removeAttribute('src');
+        delete imgEl.dataset.currentPortrait;
+        return;
+    }
+    var url = nutritionPortraitUrl(effective);
+    imgEl.alt = 'Profile character';
+    if (imgEl.dataset.currentPortrait !== url) {
+        imgEl.dataset.currentPortrait = url;
+        imgEl.src = url;
+    }
+    wrap.classList.remove('nutrition-profile-character--hidden');
+}
+
+window.addEventListener('pageshow', function () {
+    updateNutritionProfileCharacterPortrait();
+});
 
 function updateProgressBars(totals) {
     const macros = JSON.parse(localStorage.getItem('macros'));
@@ -1150,6 +1249,8 @@ function updateProgressBars(totals) {
     applyMacroBar(document.querySelector('[data-goal="fat"]'), settled.fat, recent.fat, fatGoal);
     document.querySelector('.progress-bar-container:nth-child(3) .fraction').textContent =
         `${totals.fat} / ${fatGoal}`;
+
+    updateNutritionProfileCharacterPortrait();
 }
 
 
@@ -1525,18 +1626,45 @@ function patchFoodLogDomAfterEnrich(scrollableWindow, foodItems, enrichedList) {
     });
 }
 
+function buildMealHeaderHtml(emoji, mealType, timeRange, loggedTotals, plannedTotals) {
+    let macroLine;
+    if (plannedTotals) {
+        macroLine =
+            `Calories ${loggedTotals.calories} / ${plannedTotals.calories}, ` +
+            `Protein ${loggedTotals.protein} / ${plannedTotals.protein}g, ` +
+            `Carbs ${loggedTotals.carbs} / ${plannedTotals.carbs}g, ` +
+            `Fat ${loggedTotals.fat} / ${plannedTotals.fat}g`;
+    } else {
+        macroLine =
+            `Calories ${loggedTotals.calories}, ` +
+            `Protein ${loggedTotals.protein}g, ` +
+            `Carbs ${loggedTotals.carbs}g, ` +
+            `Fat ${loggedTotals.fat}g`;
+    }
+    return (
+        `<span>${emoji} ${mealType} ${timeRange}</span>` +
+        `<br><span class="small-text">${macroLine}</span>`
+    );
+}
+
 function updateMealHeaderCaloriesFromEnriched(scrollableWindow, enrichedList) {
     var emojiMap = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snack: '🍎' };
+    var todayDayOfWeek = new Date().getDay();
+    var mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {};
+    var dayMealPlan = (mealPlanning.mealPlanDays || {})[todayDayOfWeek];
+    var mealPlans = mealPlanning.mealPlans || {};
+    var completedMeals = (mealPlanning.completedMeals || {})[todayDayOfWeek] || [];
+    var removedMeals = (mealPlanning.removedMeals || {})[todayDayOfWeek] || [];
     scrollableWindow.querySelectorAll('.meal-header-container[data-meal]').forEach(function(container) {
         var mealType = container.dataset.meal;
         if (!mealType) return;
         var mealTotals = calculateMealTotals(enrichedList, mealType);
+        var plannedTotals = calculatePlannedMealTotals(mealType, mealPlans, dayMealPlan, completedMeals, removedMeals);
         var mealHeader = container.querySelector('.meal-header');
         if (!mealHeader) return;
         var timeRange = getMealTimeRange(mealType);
         var emoji = emojiMap[mealType] || '';
-        mealHeader.innerHTML = '<span>' + emoji + ' ' + mealType + ' ' + timeRange +
-            ' -- Calories: ' + mealTotals.calories + '</span>';
+        mealHeader.innerHTML = buildMealHeaderHtml(emoji, mealType, timeRange, mealTotals, plannedTotals);
     });
 }
 
@@ -1630,7 +1758,8 @@ async function displayFoodItems(foodItems) {
             const mealTotals = calculateMealTotals(quickList, mealType);
             const timeRange = getMealTimeRange(mealType);
             const emoji = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snack: '🍎' }[mealType] || '';
-            const headerText = `<span>${emoji} ${mealType} ${timeRange} -- Calories: ${mealTotals.calories}</span>`;
+            const plannedTotals = calculatePlannedMealTotals(mealType, mealPlans, dayMealPlan, completedMeals, removedMeals);
+            const headerText = buildMealHeaderHtml(emoji, mealType, timeRange, mealTotals, plannedTotals);
 
             // Reuse existing header container if present, otherwise create it
             let mealHeaderContainer = scrollableWindow.querySelector(`.meal-header-container[data-meal="${mealType}"]`);
@@ -1648,7 +1777,7 @@ async function displayFoodItems(foodItems) {
                 mealHeaderContainer.className = 'meal-header-container';
                 mealHeaderContainer.dataset.meal = mealType;
                 mealHeaderContainer.style.cssText =
-                    'display:flex;justify-content:space-between;align-items:center;' +
+                    'display:flex;justify-content:space-between;align-items:flex-start;' +
                     'background-color:var(--background-color);padding:6px 10px;margin-top:8px;' +
                     'border-bottom:1px solid var(--border-color);font-weight:bold;' +
                     'font-size:14px;color:var(--text-color);opacity:0.8;';
@@ -1695,6 +1824,10 @@ async function displayFoodItems(foodItems) {
             // Populate items into the (cleared or new) items container
             const itemFragment = document.createDocumentFragment();
 
+            [...meals[mealType]].reverse().forEach(function(item) {
+                displayFoodItem(item, foodItems, itemFragment, foodInput, gramsInput, viewForItem(item));
+            });
+
             if (hasPlannedItemsFor(mealType, dayMealPlan, mealPlans, completedMeals, removedMeals)) {
                 const plannedItems = mealPlans[dayMealPlan][mealKey];
                 plannedItems
@@ -1703,10 +1836,6 @@ async function displayFoodItems(foodItems) {
                         displayPlannedMealItem(item, itemFragment, foodInput, gramsInput, completedMeals);
                     });
             }
-
-            meals[mealType].forEach(function(item) {
-                displayFoodItem(item, foodItems, itemFragment, foodInput, gramsInput, viewForItem(item));
-            });
 
             mealItemsContainer.appendChild(itemFragment);
         });

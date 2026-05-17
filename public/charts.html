@@ -96,31 +96,6 @@
             background-color: rgba(255, 255, 255, 0.1);
         }
 
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 16px;
-        }
-
-        header h1 {
-            margin: 0;
-            flex-grow: 1;
-            text-align: center;
-        }
-
-        header a {
-            color: var(--text);
-            text-decoration: none;
-            padding: 8px 16px;
-            border-radius: 4px;
-            background-color: var(--button);
-        }
-
-        header a:hover {
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
         @media (max-width: 768px) {
             .chart-container {
                 padding: 8px;
@@ -141,10 +116,8 @@
     </style>
 </head>
 <body>
-    <header id="dateHeader">
-        <h1>Nutrition Analysis</h1>
-        <a href="index.html">Home</a>
-    </header>
+    <header id="dateHeader"></header>
+    <div class="blur-overlay" id="blurOverlay"></div>
 
     <!-- Modified date selector with buttons -->
     <div class="date-selector">
@@ -238,6 +211,7 @@
         </table>
     </div>
 
+    <script src="menu.js"></script>
     <script>
         let calorieChart = null;
         let macroChart = null;
@@ -783,6 +757,7 @@
         }
 
         document.addEventListener('DOMContentLoaded', async function() {
+            setupHeader('Nutrition Analysis');
             try {
                 await loadFoodNamesAndCache();
             } catch (e) {

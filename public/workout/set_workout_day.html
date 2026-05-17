@@ -9,12 +9,12 @@
     <script src="workout-utils.js"></script>
 </head>
 <body>
-    <div class="nav-bar">
-        <a href="../index.html">Home</a>
+    <header id="dateHeader" class="nav-bar">
         <a href="workout.html">Today's Workout</a>
         <a href="workout_routine.html">Workout Routines</a>
         <a href="set_workout_day.html">Schedule</a>
-    </div>
+    </header>
+    <div class="blur-overlay" id="blurOverlay"></div>
     
     <div class="container">
         <h1>Set Your Workout Schedule</h1>
@@ -298,6 +298,12 @@
             
             alert(`${currentScheduleType === 'cycle' ? 'Cycle' : 'Weekly'} schedule saved successfully!`);
         }
+    </script>
+    <script src="../menu.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        setupHeader('Set Your Workout Schedule', { basePath: '../' });
+    });
     </script>
 </body>
 </html>

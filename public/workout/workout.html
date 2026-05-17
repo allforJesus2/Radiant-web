@@ -9,12 +9,12 @@
     <script src="workout-utils.js"></script>
 </head>
 <body>
-    <div class="nav-bar">
-        <a href="../index.html">Home</a>
+    <header id="dateHeader" class="nav-bar">
         <a href="workout.html">Today's Workout</a>
         <a href="workout_routine.html">Workout Routines</a>
         <a href="set_workout_day.html">Schedule</a>
-    </div>
+    </header>
+    <div class="blur-overlay" id="blurOverlay"></div>
     
     <div class="container">
         <div class="header-container">
@@ -272,6 +272,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     displayWorkoutSchedule();
 });
+    </script>
+    <script src="../menu.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        setupHeader("Today's Workout", { basePath: '../' });
+    });
     </script>
 </body>
 </html>

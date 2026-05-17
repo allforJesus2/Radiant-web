@@ -10,10 +10,8 @@
     <script src="fdc-import.js"></script>
 </head>
 <body>
-    <header id="dateHeader">
-        <h1>Settings</h1>
-        <a href="index.html">Home</a>
-    </header>
+    <header id="dateHeader"></header>
+    <div class="blur-overlay" id="blurOverlay"></div>
 
     <div class="container">
         <h2>Food database (USDA FDC)</h2>
@@ -86,6 +84,7 @@
         </div>
     </div>
 
+    <script src="menu.js"></script>
     <script>
         // Function to calculate localStorage size
         function calculateStorageSize() {
@@ -117,6 +116,7 @@
 
         // Load and handle offline preference setting
         document.addEventListener('DOMContentLoaded', function() {
+            setupHeader('Settings');
             const preferOfflineCheckbox = document.getElementById('preferOfflineData');
             
             // Load current setting from localStorage

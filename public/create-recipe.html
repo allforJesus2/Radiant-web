@@ -7,9 +7,9 @@
 </head>
 <body>
     <header id="dateHeader">
-        <a href="index.html">Home</a>
         <a href="nutrition.html" style="margin-left: 20px;">Nutrition Tracker</a>
     </header>
+    <div class="blur-overlay" id="blurOverlay"></div>
 
     <div class="container">
         <div class="top container">
@@ -285,6 +285,7 @@
 
     <script src="database-utils.js"></script>
     <script src="fdc-import.js"></script>
+    <script src="menu.js"></script>
     <script>
         const ingredients = [];
         let totalWeight = 0;
@@ -1298,6 +1299,7 @@
 
         // Initialize autocomplete and load saved recipes when the page loads
         document.addEventListener('DOMContentLoaded', async function() {
+            setupHeader('Create New Recipe');
             await initializeFoodList();
             loadSavedRecipes();
         });

@@ -2,141 +2,154 @@
  * IndexedDB layer (v3): fdcStore, nutrientStore, fdcMeta, csvStore fallback, recipeIngredients.
  */
 
+/**
+ * Match `token` as its own word (delimited by non-alphanumeric), not as a substring of a longer token
+ * (e.g. "water" vs "watermelon", "tea" vs "steak", "egg" vs "eggplant").
+ * Optional trailing English plural (`apples`, `tomatoes`) via `(?:es|s)?`.
+ */
+function foodEmojiToken(lowerFoodName, token) {
+    if (!token) return false;
+    const t = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^a-z0-9])${t}(?:es|s)?([^a-z0-9]|$)`, 'i').test(lowerFoodName);
+}
+
 function getFoodEmoji(name) {
     if (!name) return '';
     const s = name.toLowerCase();
     const hits = [];
 
     // Prepared dishes & meals (most specific first)
-    if (s.includes('sushi'))                                   hits.push('🍣');
-    if (s.includes('ramen'))                                   hits.push('🍜');
-    if (s.includes('dumpling'))                                hits.push('🥟');
-    if (s.includes('pizza'))                                   hits.push('🍕');
-    if (s.includes('burger') || s.includes('hamburger'))       hits.push('🍔');
-    if (s.includes('hot dog') || s.includes('hotdog'))         hits.push('🌭');
-    if (s.includes('taco'))                                    hits.push('🌮');
-    if (s.includes('burrito'))                                 hits.push('🌯');
-    if (s.includes('sandwich') || s.includes('sub'))           hits.push('🥪');
-    if (s.includes('pasta') || s.includes('spaghetti') || s.includes('noodle') || s.includes('macaroni')) hits.push('🍝');
-    if (s.includes('soup') || s.includes('stew') || s.includes('chili') || s.includes('chowder')) hits.push('🍲');
-    if (s.includes('salad'))                                   hits.push('🥗');
-    if (s.includes('pancake') || s.includes('flapjack'))       hits.push('🥞');
-    if (s.includes('waffle'))                                  hits.push('🧇');
+    if (foodEmojiToken(s, 'sushi'))                                   hits.push('🍣');
+    if (foodEmojiToken(s, 'ramen'))                                   hits.push('🍜');
+    if (foodEmojiToken(s, 'dumpling'))                                hits.push('🥟');
+    if (foodEmojiToken(s, 'pizza'))                                   hits.push('🍕');
+    if (foodEmojiToken(s, 'burger') || foodEmojiToken(s, 'hamburger')) hits.push('🍔');
+    if (s.includes('hot dog') || foodEmojiToken(s, 'hotdog'))         hits.push('🌭');
+    if (foodEmojiToken(s, 'taco'))                                    hits.push('🌮');
+    if (foodEmojiToken(s, 'burrito'))                                 hits.push('🌯');
+    if (foodEmojiToken(s, 'sandwich') || foodEmojiToken(s, 'sub'))           hits.push('🥪');
+    if (foodEmojiToken(s, 'pasta') || foodEmojiToken(s, 'spaghetti') || foodEmojiToken(s, 'noodle') || foodEmojiToken(s, 'macaroni')) hits.push('🍝');
+    if (foodEmojiToken(s, 'soup') || foodEmojiToken(s, 'stew') || foodEmojiToken(s, 'chili') || foodEmojiToken(s, 'chowder')) hits.push('🍲');
+    if (foodEmojiToken(s, 'salad'))                                   hits.push('🥗');
+    if (foodEmojiToken(s, 'pancake') || foodEmojiToken(s, 'flapjack'))       hits.push('🥞');
+    if (foodEmojiToken(s, 'waffle'))                                  hits.push('🧇');
     if (s.includes('fried rice'))                              hits.push('🍳');
     if (s.includes('stir fry') || s.includes('stir-fry'))      hits.push('🥘');
 
     // Baked goods & sweets
-    if (s.includes('croissant'))                               hits.push('🥐');
-    if (s.includes('bagel'))                                   hits.push('🥯');
-    if (s.includes('pretzel'))                                 hits.push('🥨');
-    if (s.includes('cupcake'))                                 hits.push('🧁');
-    if (s.includes('birthday cake') || (s.includes('cake') && !s.includes('pancake') && !s.includes('cheesecake'))) hits.push('🎂');
-    if (s.includes('cheesecake'))                              hits.push('🍰');
-    if (s.includes('pie') && !s.includes('pineapple'))         hits.push('🥧');
-    if (s.includes('cookie') || s.includes('biscuit'))         hits.push('🍪');
-    if (s.includes('donut') || s.includes('doughnut'))         hits.push('🍩');
-    if (s.includes('chocolate'))                               hits.push('🍫');
-    if (s.includes('candy') || s.includes('gummy'))            hits.push('🍬');
-    if (s.includes('lollipop'))                                hits.push('🍭');
-    if (s.includes('ice cream') || s.includes('ice-cream') || s.includes('gelato')) hits.push('🍦');
-    if (s.includes('popcorn'))                                 hits.push('🍿');
+    if (foodEmojiToken(s, 'croissant'))                               hits.push('🥐');
+    if (foodEmojiToken(s, 'bagel'))                                   hits.push('🥯');
+    if (foodEmojiToken(s, 'pretzel'))                                 hits.push('🥨');
+    if (foodEmojiToken(s, 'cupcake'))                                 hits.push('🧁');
+    if (s.includes('birthday cake') || (foodEmojiToken(s, 'cake') && !foodEmojiToken(s, 'pancake') && !foodEmojiToken(s, 'cheesecake'))) hits.push('🎂');
+    if (foodEmojiToken(s, 'cheesecake'))                              hits.push('🍰');
+    if (foodEmojiToken(s, 'pie') && !foodEmojiToken(s, 'pineapple'))         hits.push('🥧');
+    if (foodEmojiToken(s, 'cookie') || foodEmojiToken(s, 'biscuit'))         hits.push('🍪');
+    if (foodEmojiToken(s, 'donut') || foodEmojiToken(s, 'doughnut'))         hits.push('🍩');
+    if (foodEmojiToken(s, 'chocolate'))                               hits.push('🍫');
+    if (foodEmojiToken(s, 'candy') || foodEmojiToken(s, 'gummy'))            hits.push('🍬');
+    if (foodEmojiToken(s, 'lollipop'))                                hits.push('🍭');
+    if (s.includes('ice cream') || s.includes('ice-cream') || foodEmojiToken(s, 'gelato')) hits.push('🍦');
+    if (foodEmojiToken(s, 'popcorn'))                                 hits.push('🍿');
 
     // Proteins (cooked/processed before raw)
-    if (s.includes('bacon'))                                   hits.push('🥓');
-    if (s.includes('sausage') || s.includes('pepperoni') || s.includes('salami')) hits.push('🌭');
+    if (foodEmojiToken(s, 'bacon'))                                   hits.push('🥓');
+    if (foodEmojiToken(s, 'sausage') || foodEmojiToken(s, 'pepperoni') || foodEmojiToken(s, 'salami')) hits.push('🌭');
     if (s.includes('fried chicken'))                           hits.push('🍗');
-    if (s.includes('chicken'))                                 hits.push('🍗');
-    if (s.includes('turkey'))                                  hits.push('🦃');
-    if (s.includes('beef') || s.includes('steak') || s.includes('brisket') || s.includes('ground beef')) hits.push('🥩');
-    if (s.includes('pork') || s.includes('ham') || s.includes('prosciutto')) hits.push('🥓');
-    if (s.includes('lamb') || s.includes('mutton'))            hits.push('🥩');
-    if (s.includes('shrimp') || s.includes('prawn'))           hits.push('🍤');
-    if (s.includes('lobster') || s.includes('crab'))           hits.push('🦞');
-    if (s.includes('salmon'))                                  hits.push('🐟');
-    if (s.includes('tuna'))                                    hits.push('🐟');
-    if (s.includes('fish') && !s.includes('starfish'))         hits.push('🐟');
-    if (s.includes('egg'))                                     hits.push('🥚');
+    if (foodEmojiToken(s, 'chicken'))                                 hits.push('🍗');
+    if (foodEmojiToken(s, 'turkey'))                                  hits.push('🦃');
+    if (foodEmojiToken(s, 'beef') || foodEmojiToken(s, 'steak') || foodEmojiToken(s, 'brisket') || s.includes('ground beef')) hits.push('🥩');
+    if (foodEmojiToken(s, 'pork') || foodEmojiToken(s, 'ham') || foodEmojiToken(s, 'prosciutto')) hits.push('🥓');
+    if (foodEmojiToken(s, 'lamb') || foodEmojiToken(s, 'mutton'))            hits.push('🥩');
+    if (foodEmojiToken(s, 'shrimp') || foodEmojiToken(s, 'prawn'))           hits.push('🍤');
+    if (foodEmojiToken(s, 'lobster') || foodEmojiToken(s, 'crab'))           hits.push('🦞');
+    if (foodEmojiToken(s, 'salmon'))                                  hits.push('🐟');
+    if (foodEmojiToken(s, 'tuna'))                                    hits.push('🐟');
+    if (foodEmojiToken(s, 'fish'))         hits.push('🐟');
+    if (foodEmojiToken(s, 'egg'))                                     hits.push('🥚');
 
     // Dairy
-    if (s.includes('cheese'))                                  hits.push('🧀');
-    if (s.includes('butter'))                                  hits.push('🧈');
-    if (s.includes('milk') || s.includes('yogurt') || s.includes('kefir')) hits.push('🥛');
+    if (foodEmojiToken(s, 'cheese'))                                  hits.push('🧀');
+    if (foodEmojiToken(s, 'butter'))                                  hits.push('🧈');
+    if (foodEmojiToken(s, 'milk') || foodEmojiToken(s, 'yogurt') || foodEmojiToken(s, 'kefir')) hits.push('🥛');
 
     // Compound fruits (before simple to avoid substring false-positives)
-    if (s.includes('pineapple'))                               hits.push('🍍');
+    if (foodEmojiToken(s, 'pineapple'))                               hits.push('🍍');
     if (s.includes('strawberr'))                               hits.push('🍓');
     if (s.includes('blueberr'))                                hits.push('🫐');
-    if (s.includes('watermelon'))                              hits.push('🍉');
-    if (s.includes('grapefruit'))                              hits.push('🍊');
+    if (foodEmojiToken(s, 'watermelon'))                              hits.push('🍉');
+    if (foodEmojiToken(s, 'grapefruit'))                              hits.push('🍊');
     if (s.includes('blackberr') || s.includes('raspberr'))     hits.push('🍇');
 
     // Simple fruits
-    if (s.includes('apple') && !s.includes('pineapple'))       hits.push('🍎');
-    if (s.includes('banana'))                                  hits.push('🍌');
+    if (foodEmojiToken(s, 'apple'))       hits.push('🍎');
+    if (foodEmojiToken(s, 'banana'))                                  hits.push('🍌');
     if (s.includes('blood orange'))                            hits.push('🍊');
-    if (s.includes('orange') && !s.includes('grapefruit') && !s.includes('blood orange')) hits.push('🍊');
-    if (s.includes('grape') && !s.includes('grapefruit'))      hits.push('🍇');
-    if (s.includes('peach'))                                   hits.push('🍑');
-    if (s.includes('pear'))                                    hits.push('🍐');
+    if (foodEmojiToken(s, 'orange') && !foodEmojiToken(s, 'grapefruit') && !s.includes('blood orange')) hits.push('🍊');
+    if (foodEmojiToken(s, 'grape'))      hits.push('🍇');
+    if (foodEmojiToken(s, 'peach'))                                   hits.push('🍑');
+    if (foodEmojiToken(s, 'pear'))                                    hits.push('🍐');
     if (s.includes('cherr'))                                   hits.push('🍒');
-    if (s.includes('mango'))                                   hits.push('🥭');
-    if (s.includes('lemon') || s.includes('lime'))             hits.push('🍋');
-    if (s.includes('kiwi'))                                    hits.push('🥝');
-    if (s.includes('coconut'))                                 hits.push('🥥');
-    if (s.includes('pomegranate'))                             hits.push('🍎');
-    if (s.includes('melon') && !s.includes('watermelon'))      hits.push('🍈');
-    if (s.includes('plum') || s.includes('prune'))             hits.push('🍑');
+    if (foodEmojiToken(s, 'mango'))                                   hits.push('🥭');
+    if (foodEmojiToken(s, 'lemon') || foodEmojiToken(s, 'lime'))             hits.push('🍋');
+    if (foodEmojiToken(s, 'kiwi'))                                    hits.push('🥝');
+    if (foodEmojiToken(s, 'coconut'))                                 hits.push('🥥');
+    if (foodEmojiToken(s, 'pomegranate'))                             hits.push('🍎');
+    if (foodEmojiToken(s, 'melon'))      hits.push('🍈');
+    if (foodEmojiToken(s, 'plum') || foodEmojiToken(s, 'prune'))             hits.push('🍑');
 
     // Vegetables (compound before simple)
-    if (s.includes('sweet potato') || s.includes('yam'))       hits.push('🍠');
+    if (s.includes('sweet potato') || foodEmojiToken(s, 'yam'))       hits.push('🍠');
     if (s.includes('bell pepper') || s.includes('sweet pepper')) hits.push('🫑');
     if (s.includes('hot pepper') || s.includes('chili pepper') || s.includes('jalape')) hits.push('🌶️');
-    if (s.includes('broccoli'))                                hits.push('🥦');
-    if (s.includes('carrot'))                                  hits.push('🥕');
-    if (s.includes('corn') || s.includes('maize'))             hits.push('🌽');
-    if (s.includes('potato') && !s.includes('sweet potato'))   hits.push('🥔');
-    if (s.includes('tomato'))                                  hits.push('🍅');
-    if (s.includes('mushroom'))                                hits.push('🍄');
-    if (s.includes('pepper') && !s.includes('bell pepper') && !s.includes('hot pepper') && !s.includes('chili pepper')) hits.push('🌶️');
-    if (s.includes('lettuce') || s.includes('spinach') || s.includes('kale') || s.includes('arugula')) hits.push('🥬');
-    if (s.includes('cucumber'))                                hits.push('🥒');
-    if (s.includes('onion') || s.includes('scallion') || s.includes('leek')) hits.push('🧅');
-    if (s.includes('garlic'))                                  hits.push('🧄');
-    if (s.includes('eggplant') || s.includes('aubergine'))     hits.push('🍆');
-    if (s.includes('zucchini') || s.includes('courgette'))     hits.push('🥒');
-    if (s.includes('pumpkin') || s.includes('squash'))         hits.push('🎃');
-    if (s.includes('cauliflower'))                             hits.push('🥦');
-    if (s.includes('asparagus'))                               hits.push('🌿');
-    if (s.includes('celery'))                                  hits.push('🥬');
-    if (s.includes('beet') || s.includes('beetroot'))          hits.push('🫀');
-    if (s.includes('avocado'))                                 hits.push('🥑');
+    if (foodEmojiToken(s, 'broccoli'))                                hits.push('🥦');
+    if (foodEmojiToken(s, 'carrot'))                                  hits.push('🥕');
+    if (foodEmojiToken(s, 'corn') || foodEmojiToken(s, 'maize'))             hits.push('🌽');
+    if (foodEmojiToken(s, 'potato') && !s.includes('sweet potato'))   hits.push('🥔');
+    if (foodEmojiToken(s, 'tomato'))                                  hits.push('🍅');
+    if (foodEmojiToken(s, 'mushroom'))                                hits.push('🍄');
+    if (foodEmojiToken(s, 'pepper') && !s.includes('bell pepper') && !s.includes('hot pepper') && !s.includes('chili pepper')) hits.push('🌶️');
+    if (foodEmojiToken(s, 'lettuce') || foodEmojiToken(s, 'spinach') || foodEmojiToken(s, 'kale') || foodEmojiToken(s, 'arugula')) hits.push('🥬');
+    if (foodEmojiToken(s, 'cucumber'))                                hits.push('🥒');
+    if (foodEmojiToken(s, 'onion') || foodEmojiToken(s, 'scallion') || foodEmojiToken(s, 'leek')) hits.push('🧅');
+    if (foodEmojiToken(s, 'garlic'))                                  hits.push('🧄');
+    if (foodEmojiToken(s, 'eggplant') || foodEmojiToken(s, 'aubergine'))     hits.push('🍆');
+    if (foodEmojiToken(s, 'zucchini') || foodEmojiToken(s, 'courgette'))     hits.push('🥒');
+    if (foodEmojiToken(s, 'pumpkin') || foodEmojiToken(s, 'squash'))         hits.push('🎃');
+    if (foodEmojiToken(s, 'cauliflower'))                             hits.push('🥦');
+    if (foodEmojiToken(s, 'asparagus'))                               hits.push('🌿');
+    if (foodEmojiToken(s, 'celery'))                                  hits.push('🥬');
+    if (foodEmojiToken(s, 'beet') || foodEmojiToken(s, 'beetroot'))          hits.push('🫀');
+    if (foodEmojiToken(s, 'avocado'))                                 hits.push('🥑');
 
     // Grains & breads
-    if (s.includes('bread') || s.includes('loaf') || s.includes('baguette')) hits.push('🍞');
-    if (s.includes('rice') && !s.includes('fried rice'))       hits.push('🍚');
-    if (s.includes('oat') || s.includes('granola') || s.includes('muesli')) hits.push('🥣');
-    if (s.includes('cereal'))                                  hits.push('🥣');
-    if (s.includes('tortilla') || s.includes('wrap'))          hits.push('🫓');
+    if (foodEmojiToken(s, 'bread') || foodEmojiToken(s, 'loaf') || foodEmojiToken(s, 'baguette')) hits.push('🍞');
+    if (foodEmojiToken(s, 'rice') && !s.includes('fried rice'))       hits.push('🍚');
+    if (s.includes('oat') || foodEmojiToken(s, 'granola') || foodEmojiToken(s, 'muesli')) hits.push('🥣');
+    if (foodEmojiToken(s, 'cereal'))                                  hits.push('🥣');
+    if (foodEmojiToken(s, 'tortilla') || foodEmojiToken(s, 'wrap'))          hits.push('🫓');
 
     // Legumes & nuts
     if (s.includes('peanut butter'))                           hits.push('🥜');
-    if (s.includes('almond') || s.includes('walnut') || s.includes('cashew') || s.includes('pistachio') || s.includes('pecan')) hits.push('🥜');
-    if (s.includes('peanut') && !s.includes('peanut butter'))  hits.push('🥜');
-    if (s.includes('bean') || s.includes('lentil') || s.includes('chickpea') || s.includes('tofu') || s.includes('edamame')) hits.push('🫘');
+    if (foodEmojiToken(s, 'almond') || foodEmojiToken(s, 'walnut') || foodEmojiToken(s, 'cashew') || foodEmojiToken(s, 'pistachio') || foodEmojiToken(s, 'pecan')) hits.push('🥜');
+    if (foodEmojiToken(s, 'peanut') && !s.includes('peanut butter'))  hits.push('🥜');
+    if (foodEmojiToken(s, 'pea') || foodEmojiToken(s, 'edamame') || foodEmojiToken(s, 'soy') || foodEmojiToken(s, 'soybean') || foodEmojiToken(s, 'soya')) hits.push('🫛');
+    if (foodEmojiToken(s, 'bean') || foodEmojiToken(s, 'lentil') || foodEmojiToken(s, 'chickpea') || foodEmojiToken(s, 'tofu')) hits.push('🫘');
 
     // Condiments & misc
-    if (s.includes('honey'))                                   hits.push('🍯');
-    if (s.includes('oil'))                                     hits.push('🫙');
-    if (s.includes('salt') || s.includes('sugar') || s.includes('flour')) hits.push('🧂');
+    if (foodEmojiToken(s, 'honey'))                                   hits.push('🍯');
+    if (foodEmojiToken(s, 'oil'))                                     hits.push('🟡');
+    if (foodEmojiToken(s, 'flour'))                                   hits.push('🌾');
+    if (foodEmojiToken(s, 'salt') || foodEmojiToken(s, 'sugar'))             hits.push('🧂');
 
     // Drinks
-    if (s.includes('coffee') || s.includes('espresso') || s.includes('latte') || s.includes('cappuccino')) hits.push('☕');
-    if (s.includes('tea') && !s.includes('steak'))             hits.push('🍵');
-    if (s.includes('juice'))                                   hits.push('🧃');
-    if (s.includes('smoothie'))                                hits.push('🥤');
-    if (s.includes('beer') || s.includes('ale') || s.includes('lager')) hits.push('🍺');
-    if (s.includes('wine'))                                    hits.push('🍷');
-    if (s.includes('water'))                                   hits.push('💧');
+    if (foodEmojiToken(s, 'coffee') || foodEmojiToken(s, 'espresso') || foodEmojiToken(s, 'latte') || foodEmojiToken(s, 'cappuccino')) hits.push('☕');
+    if (foodEmojiToken(s, 'tea'))             hits.push('🍵');
+    if (foodEmojiToken(s, 'juice'))                                   hits.push('🧃');
+    if (foodEmojiToken(s, 'smoothie'))                                hits.push('🥤');
+    if (foodEmojiToken(s, 'beer') || foodEmojiToken(s, 'ale') || foodEmojiToken(s, 'lager')) hits.push('🍺');
+    if (foodEmojiToken(s, 'wine'))                                    hits.push('🍷');
+    if (foodEmojiToken(s, 'water'))                                   hits.push('💧');
 
     return hits.slice(0, 2).join('');
 }
