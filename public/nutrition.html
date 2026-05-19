@@ -103,7 +103,9 @@ how can we add spacing between suggestions
 
             <div id="nutritionProfileCharacter" class="nutrition-profile-character nutrition-profile-character--hidden">
                 <a href="profile.html" class="nutrition-profile-character-link" title="Profile" aria-label="Open profile">
-                    <img id="nutritionProfileCharacterImg" class="nutrition-profile-character-img" width="88" height="88" alt="">
+                    <span class="nutrition-profile-character-viewport" id="nutritionProfileCharacterViewport">
+                        <img id="nutritionProfileCharacterImg" class="nutrition-profile-character-img" width="88" height="88" alt="" draggable="false">
+                    </span>
                 </a>
             </div>
         </div>
@@ -154,7 +156,7 @@ how can we add spacing between suggestions
 			</div>
 			<div id="settingsPanel" class="settings-panel" style="display: none;">
 				<button class="btn" onclick="window.location.href='set_meal_times.html'">Meal Times</button>
-				<button class="btn" id="createRecipe">Create Recipe</button>
+				<button class="btn" id="createRecipe" onclick="window.location.href='create-recipe.html'">Create Recipe</button>
 				<button class="btn" id="clearLocalStorage">Clear Local Storage</button>
 				<button class="btn" onclick="window.location.href='profile.html'">Profile</button>
 				<button class="btn" id="nutrientAnalysis">Nutrient Analysis</button>
@@ -556,16 +558,34 @@ how can we add spacing between suggestions
             width: 88px;
             height: 88px;
             border-radius: 50%;
-            overflow: hidden;
             border: 1px solid rgba(255, 255, 255, 0.1);
             flex-shrink: 0;
+            text-decoration: none;
+        }
+
+        .nutrition-profile-character-viewport {
+            position: relative;
+            display: block;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            overflow: hidden;
         }
 
         .nutrition-profile-character-img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 100%;
             display: block;
+            transform: translate(-50%, -50%) translate(var(--char-pan-x, 0px), var(--char-pan-y, 0px)) scale(var(--char-scale, 1));
+            transform-origin: center center;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
         }
 
         .circular-progress {
@@ -1119,16 +1139,61 @@ function nutritionPortraitUrl(filename) {
     return 'assets/character images/' + encodeURIComponent(filename);
 }
 
+/** profile.html preview is 156px; nutrition portrait link is 88px */
+var NUTRITION_PORTRAIT_PAN_SCALE = 88 / 156;
+var NUTRITION_CHARACTER_VIEW_MIN_SCALE = 1;
+var NUTRITION_CHARACTER_VIEW_MAX_SCALE = 4;
+
+function nutritionDefaultCharacterView() {
+    return { scale: 1, x: 0, y: 0 };
+}
+
+function nutritionGetCharacterView(filename, characterImageViews) {
+    var key = typeof filename === 'string' ? filename.trim() : '';
+    if (!key) {
+        return nutritionDefaultCharacterView();
+    }
+    var stored = characterImageViews && characterImageViews[key];
+    if (!stored || typeof stored !== 'object') {
+        return nutritionDefaultCharacterView();
+    }
+    var scale = Number(stored.scale);
+    var x = Number(stored.x);
+    var y = Number(stored.y);
+    return {
+        scale: Number.isFinite(scale)
+            ? Math.min(NUTRITION_CHARACTER_VIEW_MAX_SCALE, Math.max(NUTRITION_CHARACTER_VIEW_MIN_SCALE, scale))
+            : 1,
+        x: Number.isFinite(x) ? x : 0,
+        y: Number.isFinite(y) ? y : 0
+    };
+}
+
+function nutritionApplyCharacterViewToPortrait(viewport, filename, characterImageViews) {
+    if (!viewport) {
+        return;
+    }
+    var view = nutritionGetCharacterView(filename, characterImageViews);
+    viewport.style.setProperty('--char-scale', String(view.scale));
+    viewport.style.setProperty('--char-pan-x', (view.x * NUTRITION_PORTRAIT_PAN_SCALE) + 'px');
+    viewport.style.setProperty('--char-pan-y', (view.y * NUTRITION_PORTRAIT_PAN_SCALE) + 'px');
+}
+
 function updateNutritionProfileCharacterPortrait() {
     var wrap = document.getElementById('nutritionProfileCharacter');
+    var viewport = document.getElementById('nutritionProfileCharacterViewport');
     var imgEl = document.getElementById('nutritionProfileCharacterImg');
     if (!wrap || !imgEl) {
         return;
     }
     var saved = '';
+    var characterImageViews = {};
     try {
         var stats = JSON.parse(localStorage.getItem('profileStatistics') || '{}');
         saved = (stats.characterImage || '').trim();
+        if (stats.characterImageViews && typeof stats.characterImageViews === 'object') {
+            characterImageViews = stats.characterImageViews;
+        }
     } catch (e) {
         saved = '';
     }
@@ -1145,6 +1210,7 @@ function updateNutritionProfileCharacterPortrait() {
         imgEl.dataset.currentPortrait = url;
         imgEl.src = url;
     }
+    nutritionApplyCharacterViewToPortrait(viewport, effective, characterImageViews);
     wrap.classList.remove('nutrition-profile-character--hidden');
 }
 
@@ -1481,7 +1547,8 @@ function mergeOrAppendFoodLogItem(p) {
         getNutritionalInfo(
             foodName,
             updatedItem.grams,
-            fdcId != null ? fdcId : undefined
+            fdcId != null ? fdcId : undefined,
+            p.foodSource
         ).then(function(updatedNutrition) {
             if (fdcId == null) {
                 updatedItem.calories = updatedNutrition.calories;
@@ -1506,6 +1573,8 @@ document.getElementById('addBtn').addEventListener('click', function() {
         rawFdc !== undefined && rawFdc !== '' && !Number.isNaN(Number(rawFdc))
             ? Number(rawFdc)
             : null;
+    var foodSource =
+        foodInputEl.dataset.foodSource === 'recipe' ? 'recipe' : undefined;
 
     if (!foodName || !grams) {
         alert('Please enter both food name and grams.');
@@ -1515,7 +1584,8 @@ document.getElementById('addBtn').addEventListener('click', function() {
     getNutritionalInfo(
         foodName,
         grams,
-        fdcId != null ? fdcId : undefined
+        fdcId != null ? fdcId : undefined,
+        foodSource
     )
         .then(function(nutritionalInfo) {
             const hh_mm = formatTime(new Date());
@@ -1539,6 +1609,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
                 foodInputEl.value = '';
                 document.querySelector('.grams').value = '';
                 delete foodInputEl.dataset.fdcId;
+                delete foodInputEl.dataset.foodSource;
             }
 
             mergeOrAppendFoodLogItem({
@@ -1546,6 +1617,7 @@ document.getElementById('addBtn').addEventListener('click', function() {
                 fdcId: fdcId,
                 grams: grams,
                 foodItem: foodItem,
+                foodSource: foodSource,
                 done: clearEntryFields,
             });
         })
@@ -2250,6 +2322,10 @@ async function showNutrientDetails(item) {
         var food = await getFoodById(item.fdc_id);
         if (food && food.nutrients) nutrients = food.nutrients;
     }
+    if (!nutrients && item.fdc_id == null) {
+        var recipeFood = await getFoodFromRecipeStore(item.name);
+        if (recipeFood && recipeFood.nutrients) nutrients = recipeFood.nutrients;
+    }
     // Fallback: build from inline macros
     if (!nutrients) {
         nutrients = {
@@ -2320,7 +2396,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 newGrams,
                 item != null && item.fdc_id != null && item.fdc_id !== ''
                     ? item.fdc_id
-                    : undefined
+                    : undefined,
+                item.fdc_id == null ? 'recipe' : undefined
             )
             .then(function(nutrition) {
                 item.grams = newGrams;

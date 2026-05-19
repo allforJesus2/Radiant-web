@@ -1,5 +1,5 @@
 /**
- * IndexedDB layer (v3): fdcStore, nutrientStore, fdcMeta, csvStore fallback, recipeIngredients.
+ * IndexedDB layer: fdcStore, nutrientStore, fdcMeta, recipeStore, recipeIngredients.
  */
 
 /**
@@ -156,7 +156,7 @@ function getFoodEmoji(name) {
 
 const DB_NAME = 'csvDB';
 
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 const META_KEY = 'status';
 const ARRAY_MODE_MAX_FOODS = 50000;
 const AUTOCOMPLETE_LIMIT = 30;
@@ -276,8 +276,29 @@ function getDB() {
       const db = ev.target.result;
       const { oldVersion } = ev;
       try {
-        if (!db.objectStoreNames.contains('csvStore')) {
-          const os = db.createObjectStore('csvStore', { keyPath: 'id' });
+        if (
+          oldVersion > 0 &&
+          oldVersion < 5 &&
+          db.objectStoreNames.contains('csvStore')
+        ) {
+          const tx = ev.target.transaction;
+          const oldStore = tx.objectStore('csvStore');
+          const newStore = db.createObjectStore('recipeStore', { keyPath: 'id' });
+          newStore.createIndex('nameIndex', 'name', { unique: true });
+          oldStore.openCursor().onsuccess = (e) => {
+            const cursor = e.target.result;
+            if (cursor) {
+              newStore.put(cursor.value);
+              cursor.continue();
+            } else {
+              db.deleteObjectStore('csvStore');
+            }
+          };
+        } else if (
+          !db.objectStoreNames.contains('recipeStore') &&
+          !db.objectStoreNames.contains('csvStore')
+        ) {
+          const os = db.createObjectStore('recipeStore', { keyPath: 'id' });
           os.createIndex('nameIndex', 'name', { unique: true });
         }
         if (!db.objectStoreNames.contains('recipeIngredients')) {
@@ -392,12 +413,12 @@ async function getFoodByName(name) {
   });
 }
 
-async function getFoodFromCsvStore(name) {
+async function getFoodFromRecipeStore(name) {
   if (!name) return null;
   const db = await getDB();
-  if (!db.objectStoreNames.contains('csvStore')) return null;
-  const tx = db.transaction(['csvStore'], 'readonly');
-  const st = tx.objectStore('csvStore');
+  if (!db.objectStoreNames.contains('recipeStore')) return null;
+  const tx = db.transaction(['recipeStore'], 'readonly');
+  const st = tx.objectStore('recipeStore');
   if (!st.indexNames.contains('nameIndex')) return null;
   const ix = st.index('nameIndex');
   return idbRequest(ix.get(name));
@@ -553,16 +574,16 @@ function defaultMeta() {
   };
 }
 
-async function clearCsvStore() {
+async function clearRecipeStore() {
   const db = await getDB();
-  if (!db.objectStoreNames.contains('csvStore')) return;
+  if (!db.objectStoreNames.contains('recipeStore')) return;
   await new Promise((resolve, reject) => {
-    const tx = db.transaction(['csvStore'], 'readwrite');
+    const tx = db.transaction(['recipeStore'], 'readwrite');
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
-    tx.objectStore('csvStore').clear();
+    tx.objectStore('recipeStore').clear();
   });
-  _autocompleteEntries = _autocompleteEntries.filter((e) => e.source !== 'csv');
+  _autocompleteEntries = _autocompleteEntries.filter((e) => e.source !== 'recipe');
 }
 
 async function clearFdcStores() {
@@ -591,8 +612,8 @@ async function getFdcStatus() {
   if (db.objectStoreNames.contains('fdcStore')) {
     fdcCount = await countStore('fdcStore');
   }
-  if (db.objectStoreNames.contains('csvStore')) {
-    legacyCount = await countStore('csvStore');
+  if (db.objectStoreNames.contains('recipeStore')) {
+    legacyCount = await countStore('recipeStore');
   }
   return Object.assign({}, meta, {
     fdcCount,
@@ -652,9 +673,9 @@ async function loadFoodNamesAndCache() {
   const fdcNamesLower = new Set(byName.keys());
   _autocompleteEntries = Array.from(byName.values());
 
-  if (db.objectStoreNames.contains('csvStore')) {
-    const tx = db.transaction(['csvStore'], 'readonly');
-    const st = tx.objectStore('csvStore');
+  if (db.objectStoreNames.contains('recipeStore')) {
+    const tx = db.transaction(['recipeStore'], 'readonly');
+    const st = tx.objectStore('recipeStore');
     if (st.indexNames.contains('nameIndex')) {
       await new Promise((resolve, reject) => {
         const req = st.openCursor();
@@ -667,7 +688,7 @@ async function loadFoodNamesAndCache() {
               _autocompleteEntries.push({
                 name: nm,
                 fdc_id: null,
-                source: 'csv',
+                source: 'recipe',
               });
               fdcNamesLower.add(String(nm).toLowerCase());
             }
@@ -757,6 +778,52 @@ function sortFoodAutocompleteMatches(matches, userInput) {
  * @param {number} limit
  * @returns {Promise<Array<{name:string, fdc_id:number, source:string}>>}
  */
+/**
+ * Prefix search for custom recipes in recipeStore (foodGroup === 'Custom Recipe').
+ * @param {string} userInput
+ * @param {number} limit
+ * @returns {Promise<Array<{name:string, fdc_id:null, source:string}>>}
+ */
+async function searchCustomRecipesByPrefix(userInput, limit = AUTOCOMPLETE_LIMIT) {
+  const words = String(userInput)
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (!words.length) return [];
+
+  const db = await getDB();
+  if (!db.objectStoreNames.contains('recipeStore')) return [];
+
+  const matches = [];
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(['recipeStore'], 'readonly');
+    const req = tx.objectStore('recipeStore').openCursor();
+    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const c = req.result;
+      if (!c) {
+        resolve(
+          sortFoodAutocompleteMatches(matches, userInput).slice(0, limit)
+        );
+        return;
+      }
+      const row = c.value;
+      if ((row.foodGroup || '') === 'Custom Recipe' && row.name) {
+        const nm = String(row.name).toLowerCase();
+        if (words.every((w) => nm.includes(w))) {
+          matches.push({
+            name: row.name,
+            fdc_id: null,
+            source: 'recipe',
+          });
+        }
+      }
+      c.continue();
+    };
+  });
+}
+
 async function searchFoodsByPrefix(userInput, limit = AUTOCOMPLETE_LIMIT) {
   const myId = ++autocompleteQueryId;
   const words = String(userInput)
@@ -821,7 +888,18 @@ function fetchValueForKey(foodName, headerKey, callback) {
     .catch(() => callback(0));
 }
 
-async function fetchValueForKeyAsync(foodName, headerKey) {
+async function fetchValueForKeyAsync(foodName, headerKey, foodSource) {
+  if (foodSource === 'recipe') {
+    const csv = await getFoodFromRecipeStore(foodName);
+    if (!csv) return headerKey === 'servingDescription1' ? '' : 0;
+    if (headerKey === 'calories') return csv.calories || 0;
+    if (headerKey === 'fat') return csv.fat || 0;
+    if (headerKey === 'protein') return csv.protein || 0;
+    if (headerKey === 'carbohydrate') return csv.carbohydrate || 0;
+    if (headerKey === 'servingWeight1') return csv.servingWeight1 || 0;
+    if (headerKey === 'servingDescription1') return csv.servingDescription1 || '';
+    return 0;
+  }
   const fdc = await getFoodByName(foodName);
   if (fdc) {
     if (headerKey === 'servingWeight1') {
@@ -844,14 +922,14 @@ async function fetchValueForKeyAsync(foodName, headerKey) {
         0
       );
   }
-  const csv = await getFoodFromCsvStore(foodName);
-  if (!csv) return headerKey === 'servingDescription1' ? '' : 0;
-  if (headerKey === 'calories') return csv.calories || 0;
-  if (headerKey === 'fat') return csv.fat || 0;
-  if (headerKey === 'protein') return csv.protein || 0;
-  if (headerKey === 'carbohydrate') return csv.carbohydrate || 0;
-  if (headerKey === 'servingWeight1') return csv.servingWeight1 || 0;
-  if (headerKey === 'servingDescription1') return csv.servingDescription1 || '';
+  const recipeRow = await getFoodFromRecipeStore(foodName);
+  if (!recipeRow) return headerKey === 'servingDescription1' ? '' : 0;
+  if (headerKey === 'calories') return recipeRow.calories || 0;
+  if (headerKey === 'fat') return recipeRow.fat || 0;
+  if (headerKey === 'protein') return recipeRow.protein || 0;
+  if (headerKey === 'carbohydrate') return recipeRow.carbohydrate || 0;
+  if (headerKey === 'servingWeight1') return recipeRow.servingWeight1 || 0;
+  if (headerKey === 'servingDescription1') return recipeRow.servingDescription1 || '';
   return 0;
 }
 
@@ -859,9 +937,10 @@ async function fetchValueForKeyAsync(foodName, headerKey) {
  * @param {string|number} nameOrId food name or fdc_id when second arg is grams only
  * @param {number} grams
  * @param {number|null|undefined} explicitFdcId optional fdc_id from autocomplete
+ * @param {string|null|undefined} foodSource optional 'recipe' to skip fdcStore lookup
  * @returns {Promise<{calories:number, protein:number, fat:number, carbs:number}>}
  */
-async function getNutritionalInfo(nameOrId, grams, explicitFdcId) {
+async function getNutritionalInfo(nameOrId, grams, explicitFdcId, foodSource) {
   const g = Number(grams);
   let food = null;
   if (
@@ -877,11 +956,14 @@ async function getNutritionalInfo(nameOrId, grams, explicitFdcId) {
   ) {
     food = await getFoodById(nameOrId);
   }
-  if (!food && nameOrId != null) {
+  if (!food && nameOrId != null && foodSource === 'recipe') {
+    food = await getFoodFromRecipeStore(String(nameOrId));
+  }
+  if (!food && nameOrId != null && foodSource !== 'recipe') {
     food = await getFoodByName(String(nameOrId));
   }
   if (!food) {
-    food = await getFoodFromCsvStore(String(nameOrId));
+    food = await getFoodFromRecipeStore(String(nameOrId));
     if (food) {
       return {
         calories: Math.round(((g / 100) * (food.calories || 0)) * 10) / 10,
@@ -942,7 +1024,8 @@ async function enrichFoodLogItemForDisplay(item) {
     const n = await getNutritionalInfo(
       item.name,
       item.grams,
-      item.fdc_id != null ? item.fdc_id : undefined
+      item.fdc_id != null ? item.fdc_id : undefined,
+      item.fdc_id == null ? 'recipe' : undefined
     );
     out.calories = n.calories;
     out.protein = n.protein;
@@ -1107,6 +1190,17 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
           showServingBubble(food.serving_description, gramsEl);
         }
       });
+    } else if (entry.source === 'recipe') {
+      getFoodFromRecipeStore(entry.name).then((recipeRow) => {
+        if (!recipeRow || !gramsEl) return;
+        if (recipeRow.servingWeight1 != null) {
+          gramsEl.value = recipeRow.servingWeight1;
+          gramsEl.select();
+        }
+        if (typeof showServingBubble === 'function' && recipeRow.servingDescription1) {
+          showServingBubble(recipeRow.servingDescription1, gramsEl);
+        }
+      });
     } else {
       fetchValueForKey(entry.name, 'servingWeight1', function (value) {
         if (value && gramsEl) {
@@ -1139,6 +1233,11 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
         } else {
           delete inputEl.dataset.fdcId;
         }
+        if (entry.source === 'recipe') {
+          inputEl.dataset.foodSource = 'recipe';
+        } else {
+          delete inputEl.dataset.foodSource;
+        }
         ac.innerHTML = '';
         gramsEl.focus();
         gramsEl.select();
@@ -1155,6 +1254,7 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
     if (userInput.length <= 1) {
       ac.innerHTML = '';
       delete inputEl.dataset.fdcId;
+      delete inputEl.dataset.foodSource;
       return;
     }
 
@@ -1162,8 +1262,27 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
       const words = userInput.toLowerCase().split(/\s+/).filter(Boolean);
 
       if (_fdcCount > ARRAY_MODE_MAX_FOODS && (await getFdcMeta()).brandedImportComplete) {
-        const found = await searchFoodsByPrefix(userInput, AUTOCOMPLETE_LIMIT);
-        renderList(found);
+        const [fdcFound, customFound] = await Promise.all([
+          searchFoodsByPrefix(userInput, AUTOCOMPLETE_LIMIT),
+          searchCustomRecipesByPrefix(userInput, AUTOCOMPLETE_LIMIT),
+        ]);
+        const seen = new Set();
+        const merged = [];
+        customFound.forEach((e) => {
+          const k = e.name.toLowerCase();
+          if (!seen.has(k)) {
+            seen.add(k);
+            merged.push(e);
+          }
+        });
+        fdcFound.forEach((e) => {
+          const k = e.name.toLowerCase();
+          if (!seen.has(k)) {
+            seen.add(k);
+            merged.push(e);
+          }
+        });
+        renderList(merged.slice(0, AUTOCOMPLETE_LIMIT));
         return;
       }
 

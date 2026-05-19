@@ -235,7 +235,7 @@
                 ) {
                     return;
                 }
-                if (typeof clearCsvStore === 'function') await clearCsvStore();
+                if (typeof clearRecipeStore === 'function') await clearRecipeStore();
                 alert('Legacy CSV data cleared.');
                 refreshFdcStatusUi();
             });

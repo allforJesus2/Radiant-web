@@ -292,39 +292,33 @@
         });
 
 
-        function initializeFoodList() {
-            const dbName = 'csvDB';
-            const storeName = 'csvStore';
-
-            const dbRequest = indexedDB.open(dbName);
-
-            dbRequest.onsuccess = function(event) {
-                const db = event.target.result;
-                const transaction = db.transaction([storeName], 'readonly');
-                const store = transaction.objectStore(storeName);
-                const request = store.openCursor();
-
-                request.onsuccess = function(event) {
-                    const cursor = event.target.result;
-                    if (cursor) {
-                        const name = cursor.value.name || 'Unknown';
-                        foodList.push(name);
-                        cursor.continue();
-                    } else {
-                        // All records have been processed
-                        // Now you can use foodList for autocomplete
-                        setupAutocomplete(foodList);
-                    }
-                };
-                
-                request.onerror = function(event) {
-                    console.error('Error reading food list:', event.target.error);
-                };
-            };
-            
-            dbRequest.onerror = function(event) {
-                console.error('Error opening database for food list:', event.target.error);
-            };
+        async function initializeFoodList() {
+            try {
+                const db = await getDB();
+                if (!db.objectStoreNames.contains('recipeStore')) {
+                    setupAutocomplete(foodList);
+                    return;
+                }
+                await new Promise((resolve, reject) => {
+                    const tx = db.transaction(['recipeStore'], 'readonly');
+                    const req = tx.objectStore('recipeStore').openCursor();
+                    req.onerror = () => reject(req.error);
+                    req.onsuccess = () => {
+                        const cursor = req.result;
+                        if (cursor) {
+                            const name = cursor.value.name || 'Unknown';
+                            foodList.push(name);
+                            cursor.continue();
+                        } else {
+                            resolve();
+                        }
+                    };
+                });
+                setupAutocomplete(foodList);
+            } catch (e) {
+                console.error('Error reading food list:', e);
+                setupAutocomplete(foodList);
+            }
         }
 
         function setupAutocomplete(foodList) {

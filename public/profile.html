@@ -195,17 +195,70 @@
             display: block;
         }
 
-        .character-preview img {
+        .character-preview-viewport {
+            position: relative;
             width: 100%;
             height: 100%;
-            max-width: 100%;
-            max-height: 100%;
             border-radius: 50%;
-            object-fit: cover;
-            display: block;
+            overflow: hidden;
+            touch-action: none;
+            cursor: grab;
         }
 
-        .character-preview.is-empty img {
+        .character-preview-viewport.is-dragging {
+            cursor: grabbing;
+        }
+
+        .character-preview-viewport img {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: auto;
+            height: auto;
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+            transform: translate(-50%, -50%) translate(var(--char-pan-x, 0px), var(--char-pan-y, 0px)) scale(var(--char-scale, 1));
+            transform-origin: center center;
+            will-change: transform;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .character-preview.is-empty .character-preview-viewport {
+            display: none;
+        }
+
+        .character-preview-hint {
+            margin: 8px 0 0;
+            font-size: 0.8em;
+            color: #888;
+            text-align: center;
+            max-width: 280px;
+        }
+
+        .character-preview-hint.is-hidden {
+            display: none;
+        }
+
+        .character-change-btn {
+            margin-top: 6px;
+            padding: 4px 10px;
+            font-size: 0.85em;
+            border: none;
+            border-radius: 4px;
+            background: transparent;
+            color: #9cc3ff;
+            cursor: pointer;
+            text-decoration: underline;
+        }
+
+        .character-change-btn:hover {
+            color: #b8d4ff;
+        }
+
+        .character-change-btn.is-hidden {
             display: none;
         }
 
@@ -270,8 +323,12 @@
             <span class="visually-hidden" id="characterPickerSrLabel">Profile picture</span>
             <input type="hidden" id="characterImageFilename" name="characterImage" value="">
             <button type="button" id="characterPreviewToggle" class="character-preview is-empty" aria-expanded="false" aria-controls="characterOptionsPanel" aria-labelledby="characterPickerSrLabel">
-                <img id="characterPreviewImg" alt="">
+                <span class="character-preview-viewport" id="characterPreviewViewport" aria-hidden="true">
+                    <img id="characterPreviewImg" alt="" draggable="false">
+                </span>
             </button>
+            <p class="character-preview-hint is-hidden" id="characterPreviewHint">Drag to reposition · scroll or pinch to zoom · double-click to reset</p>
+            <button type="button" class="character-change-btn is-hidden" id="characterChangeBtn">Change picture</button>
             <div id="characterOptionsPanel" class="character-options-panel">
                 <ul id="characterImageGrid" class="character-grid" role="listbox" aria-label="Profile pictures"></ul>
             </div>
@@ -341,114 +398,149 @@
 
     <script>
     const CHARACTER_FOLDER = 'assets/character images/';
-    /** @type {string[]} */
+    const MIN_SCALE = 1, MAX_SCALE = 4;
     let characterManifestFiles = [];
+    let characterImageViews = {};
+    let didDrag = false;
 
-    function characterImageUrl(filename) {
-        return CHARACTER_FOLDER + encodeURIComponent(filename);
+    const el = id => document.getElementById(id);
+    function charUrl(f) { return CHARACTER_FOLDER + encodeURIComponent(f); }
+    function currentChar() { return el('characterImageFilename').value.trim() || characterManifestFiles[0] || ''; }
+    function clamp(s) { return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s)); }
+
+    function getView(file) {
+        const v = characterImageViews[file] || {};
+        return { scale: clamp(+v.scale || 1), x: +v.x || 0, y: +v.y || 0 };
     }
 
-    function effectiveCharacterFile() {
-        const saved = document.getElementById('characterImageFilename').value.trim();
-        if (saved) {
-            return saved;
-        }
-        return characterManifestFiles[0] || '';
+    function applyView(file) {
+        const vp = el('characterPreviewViewport');
+        if (!vp || !file) return;
+        const v = getView(file);
+        vp.style.setProperty('--char-scale', v.scale);
+        vp.style.setProperty('--char-pan-x', v.x + 'px');
+        vp.style.setProperty('--char-pan-y', v.y + 'px');
     }
 
-    function characterSaveValue() {
-        const saved = document.getElementById('characterImageFilename').value.trim();
-        if (saved) {
-            return saved;
-        }
-        return characterManifestFiles[0] || '';
+    function saveView(file, v) {
+        if (!file) return;
+        characterImageViews[file] = { scale: clamp(v.scale), x: v.x, y: v.y };
+        applyView(file);
+        persistCharacterImage();
     }
 
-    function syncCharacterPreviewAndGrid() {
-        const previewBtn = document.getElementById('characterPreviewToggle');
-        const imgEl = document.getElementById('characterPreviewImg');
-        const effective = effectiveCharacterFile();
-
-        document.querySelectorAll('#characterImageGrid button.is-selected').forEach(function (b) {
-            b.classList.remove('is-selected');
-        });
-
-        if (effective) {
-            previewBtn.classList.remove('is-empty');
-            imgEl.src = characterImageUrl(effective);
-            imgEl.alt = 'Profile character';
-            document.querySelectorAll('#characterImageGrid button[data-character-file]').forEach(function (btn) {
-                if (btn.dataset.characterFile === effective) {
-                    btn.classList.add('is-selected');
-                }
-            });
+    function syncPreview() {
+        const file = currentChar(), has = !!file;
+        el('characterPreviewToggle').classList.toggle('is-empty', !has);
+        el('characterPreviewHint')?.classList.toggle('is-hidden', !has);
+        el('characterChangeBtn')?.classList.toggle('is-hidden', !has);
+        document.querySelectorAll('#characterImageGrid button.is-selected').forEach(b => b.classList.remove('is-selected'));
+        if (has) {
+            el('characterPreviewImg').src = charUrl(file);
+            el('characterPreviewImg').alt = 'Profile character';
+            applyView(file);
+            document.querySelector(`#characterImageGrid button[data-character-file="${CSS.escape(file)}"]`)?.classList.add('is-selected');
         } else {
-            previewBtn.classList.add('is-empty');
-            imgEl.removeAttribute('src');
-            imgEl.alt = '';
+            el('characterPreviewImg').removeAttribute('src');
+            el('characterPreviewImg').alt = '';
         }
+    }
+
+    function initZoomPan() {
+        const vp = el('characterPreviewViewport'), btn = el('characterPreviewToggle');
+        if (!vp || !btn) return;
+        let ptrs = new Map(), dragStart = null, pinchStart = null;
+
+        btn.addEventListener('click', e => {
+            if (didDrag) { e.preventDefault(); e.stopPropagation(); didDrag = false; return; }
+            if (btn.classList.contains('is-empty')) toggleCharacterPicker();
+        });
+        btn.addEventListener('dblclick', e => {
+            if (!btn.classList.contains('is-empty')) { e.preventDefault(); saveView(currentChar(), { scale: 1, x: 0, y: 0 }); }
+        });
+        vp.addEventListener('wheel', e => {
+            e.preventDefault();
+            const f = currentChar(), v = getView(f);
+            saveView(f, { ...v, scale: clamp(v.scale + (e.deltaY > 0 ? -0.08 : 0.08)) });
+        }, { passive: false });
+        vp.addEventListener('pointerdown', e => {
+            if (btn.classList.contains('is-empty')) return;
+            vp.setPointerCapture(e.pointerId);
+            ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (ptrs.size === 1) {
+                dragStart = { x: e.clientX, y: e.clientY, view: getView(currentChar()) };
+                didDrag = false;
+            } else if (ptrs.size === 2) {
+                const [a, b] = Array.from(ptrs.values());
+                pinchStart = { dist: Math.hypot(a.x - b.x, a.y - b.y), view: getView(currentChar()) };
+                dragStart = null;
+            }
+        });
+        vp.addEventListener('pointermove', e => {
+            if (!ptrs.has(e.pointerId)) return;
+            ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            const f = currentChar();
+            if (ptrs.size >= 2 && pinchStart) {
+                const [a, b] = Array.from(ptrs.values());
+                saveView(f, { ...pinchStart.view, scale: clamp(pinchStart.view.scale * Math.hypot(a.x - b.x, a.y - b.y) / pinchStart.dist) });
+                didDrag = true; vp.classList.add('is-dragging'); return;
+            }
+            if (ptrs.size === 1 && dragStart) {
+                const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
+                if (Math.abs(dx) > 3 || Math.abs(dy) > 3) { didDrag = true; vp.classList.add('is-dragging'); }
+                saveView(f, { scale: dragStart.view.scale, x: dragStart.view.x + dx, y: dragStart.view.y + dy });
+            }
+        });
+        function endPtr(e) {
+            ptrs.delete(e.pointerId);
+            if (ptrs.size < 2) pinchStart = null;
+            if (ptrs.size === 0) {
+                dragStart = null; vp.classList.remove('is-dragging');
+                try { vp.releasePointerCapture(e.pointerId); } catch (_) {}
+            } else if (ptrs.size === 1) {
+                const pos = Array.from(ptrs.values())[0];
+                dragStart = { x: pos.x, y: pos.y, view: getView(currentChar()) };
+            }
+        }
+        vp.addEventListener('pointerup', endPtr);
+        vp.addEventListener('pointercancel', endPtr);
     }
 
     function setCharacterPickerOpen(open) {
-        const panel = document.getElementById('characterOptionsPanel');
-        const btn = document.getElementById('characterPreviewToggle');
-        panel.classList.toggle('is-open', !!open);
-        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-        syncCharacterPreviewAndGrid();
+        el('characterOptionsPanel').classList.toggle('is-open', !!open);
+        el('characterPreviewToggle').setAttribute('aria-expanded', open ? 'true' : 'false');
+        syncPreview();
     }
 
     function toggleCharacterPicker() {
-        const panel = document.getElementById('characterOptionsPanel');
-        setCharacterPickerOpen(!panel.classList.contains('is-open'));
+        setCharacterPickerOpen(!el('characterOptionsPanel').classList.contains('is-open'));
     }
 
-    function applyStoredCharacterPreference(stored) {
-        document.getElementById('characterImageFilename').value = typeof stored === 'string' ? stored.trim() : '';
-        syncCharacterPreviewAndGrid();
-    }
-
-    function persistCharacterImageToProfileStatistics() {
-        const value = characterSaveValue();
-        if (!value) {
-            return;
-        }
-        const raw = localStorage.getItem('profileStatistics');
+    function persistCharacterImage() {
+        const file = currentChar();
+        if (!file) return;
         let prev = {};
-        if (raw) {
-            try {
-                prev = JSON.parse(raw);
-                if (!prev || typeof prev !== 'object') {
-                    return;
-                }
-            } catch (e) {
-                return;
-            }
-        }
-        prev.characterImage = value;
+        try { prev = JSON.parse(localStorage.getItem('profileStatistics')) || {}; } catch (_) {}
+        if (typeof prev !== 'object') prev = {};
+        prev.characterImage = file;
+        prev.characterImageViews = characterImageViews;
         localStorage.setItem('profileStatistics', JSON.stringify(prev));
     }
 
     function setCharacterSelection(filename) {
-        document.getElementById('characterImageFilename').value =
-            typeof filename === 'string' ? filename.trim() : '';
-        syncCharacterPreviewAndGrid();
+        el('characterImageFilename').value = String(filename || '').trim();
+        syncPreview();
         setCharacterPickerOpen(false);
-        persistCharacterImageToProfileStatistics();
+        persistCharacterImage();
     }
 
     async function loadCharacterImageGrid() {
-        const grid = document.getElementById('characterImageGrid');
+        const grid = el('characterImageGrid');
         grid.innerHTML = '';
-
         try {
-            const response = await fetch('assets/character-images-manifest.json');
-            if (!response.ok) {
-                throw new Error('manifest not found');
-            }
-            const manifest = await response.json();
+            const manifest = await fetch('assets/character-images-manifest.json').then(r => { if (!r.ok) throw new Error(); return r.json(); });
             characterManifestFiles = Array.isArray(manifest.files) ? manifest.files : [];
-
-            characterManifestFiles.forEach(function (filename) {
+            characterManifestFiles.forEach(filename => {
                 const li = document.createElement('li');
                 const btn = document.createElement('button');
                 btn.type = 'button';
@@ -456,21 +548,13 @@
                 btn.setAttribute('aria-label', filename);
                 btn.setAttribute('role', 'option');
                 const thumb = document.createElement('img');
-                thumb.alt = '';
-                thumb.src = characterImageUrl(filename);
-                thumb.loading = 'lazy';
-                thumb.decoding = 'async';
-                btn.appendChild(thumb);
-                li.appendChild(btn);
-                grid.appendChild(li);
+                thumb.alt = ''; thumb.src = charUrl(filename);
+                thumb.loading = 'lazy'; thumb.decoding = 'async';
+                btn.appendChild(thumb); li.appendChild(btn); grid.appendChild(li);
             });
-
-            grid.addEventListener('click', function (e) {
+            grid.addEventListener('click', e => {
                 const btn = e.target.closest('button[data-character-file]');
-                if (!btn || !grid.contains(btn)) {
-                    return;
-                }
-                setCharacterSelection(btn.dataset.characterFile);
+                if (btn && grid.contains(btn)) setCharacterSelection(btn.dataset.characterFile);
             });
         } catch (err) {
             characterManifestFiles = [];
@@ -479,230 +563,111 @@
     }
 
     function prepopulateForm() {
-        const profileData = localStorage.getItem('profileStatistics');
-        let characterImageStored = '';
-
-        if (profileData) {
-            const data = JSON.parse(profileData);
-            characterImageStored = data.characterImage || '';
-
-            document.getElementById('gender').value = data.gender;
-            document.getElementById('age').value = data.age;
-
-            let height = data.height;
+        let data = {};
+        try { data = JSON.parse(localStorage.getItem('profileStatistics')) || {}; } catch (_) {}
+        if (data.characterImageViews && typeof data.characterImageViews === 'object') {
+            characterImageViews = data.characterImageViews;
+        }
+        if (data.gender) {
+            el('gender').value = data.gender;
+            el('age').value = data.age;
             let heightUnit = data.heightUnit || 'cm';
-
             if (heightUnit === 'ft-in') {
                 const totalInches = data.height / 2.54;
-                const heightFeet = Math.floor(totalInches / 12);
-                const heightInches = Math.round(totalInches % 12);
-                document.getElementById('heightFeet').value = heightFeet;
-                document.getElementById('heightInches').value = heightInches;
-            } else if (heightUnit === 'in') {
-                height = (data.height / 2.54).toFixed(2);
-                heightUnit = 'cm';
-                document.getElementById('height').value = height;
+                el('heightFeet').value = Math.floor(totalInches / 12);
+                el('heightInches').value = Math.round(totalInches % 12);
             } else {
-                document.getElementById('height').value = height;
+                el('height').value = heightUnit === 'in' ? (data.height / 2.54).toFixed(2) : data.height;
+                if (heightUnit === 'in') heightUnit = 'cm';
             }
-
-            document.getElementById('heightUnit').value = heightUnit;
+            el('heightUnit').value = heightUnit;
             toggleHeightInput();
-
-            let weight = data.weight;
-            let weightUnit = 'kg';
-            if (data.weightUnit === 'lbs') {
-                weight = (data.weight / 0.453592).toFixed(2);
-                weightUnit = 'lbs';
-            }
-            document.getElementById('weight').value = weight;
-            document.getElementById('weightUnit').value = weightUnit;
-
-            document.getElementById('bodyFatPercent').value = data.bodyFatPercent;
+            const isLbs = data.weightUnit === 'lbs';
+            el('weight').value = isLbs ? (data.weight / 0.453592).toFixed(2) : data.weight;
+            el('weightUnit').value = isLbs ? 'lbs' : 'kg';
+            el('bodyFatPercent').value = data.bodyFatPercent;
         }
-
-        applyStoredCharacterPreference(characterImageStored);
+        el('characterImageFilename').value = (data.characterImage || '').trim();
+        syncPreview();
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    document.addEventListener('DOMContentLoaded', () => {
         setupHeader('Profile Statistics');
-        const form = document.getElementById('profileForm');
-        const previewToggle = document.getElementById('characterPreviewToggle');
-        previewToggle.addEventListener('click', toggleCharacterPicker);
-
-        document.addEventListener('click', function (event) {
-            const panel = document.getElementById('characterOptionsPanel');
-            const host = document.querySelector('.character-picker');
-            if (!panel.classList.contains('is-open') || !host) {
-                return;
-            }
-            if (!host.contains(event.target)) {
-                setCharacterPickerOpen(false);
-            }
+        initZoomPan();
+        el('characterChangeBtn')?.addEventListener('click', toggleCharacterPicker);
+        document.addEventListener('click', e => {
+            const panel = el('characterOptionsPanel'), host = document.querySelector('.character-picker');
+            if (panel.classList.contains('is-open') && host && !host.contains(e.target)) setCharacterPickerOpen(false);
         });
-
-        loadCharacterImageGrid().then(function () {
-            prepopulateForm();
-        });
-
-        form.addEventListener('submit', function (event) {
-            event.preventDefault();
-            saveProfileData();
-        });
+        loadCharacterImageGrid().then(prepopulateForm);
+        el('profileForm').addEventListener('submit', e => { e.preventDefault(); saveProfileData(); });
     });
 
-    // Function to save profile data
     function saveProfileData() {
-        // Convert height and weight if necessary
-        let height;
-        const heightUnit = document.getElementById('heightUnit').value;
-        
-        if (heightUnit === 'ft-in') {
-            const heightFeet = parseFloat(document.getElementById('heightFeet').value) || 0;
-            const heightInches = parseFloat(document.getElementById('heightInches').value) || 0;
-            const totalInches = (heightFeet * 12) + heightInches;
-            height = (totalInches * 2.54).toFixed(2); // Convert to centimeters
-        } else {
-            height = document.getElementById('height').value;
-            if (heightUnit === 'cm') {
-                height = parseFloat(height).toFixed(2);
-            }
-        }
-
-        let weight = document.getElementById('weight').value;
-        const weightUnit = document.getElementById('weightUnit').value;
-        if (weightUnit === 'lbs') {
-            weight = (weight * 0.453592).toFixed(2); // Convert pounds to kilograms
-        }
-
+        const heightUnit = el('heightUnit').value;
+        const height = heightUnit === 'ft-in'
+            ? (((parseFloat(el('heightFeet').value) || 0) * 12 + (parseFloat(el('heightInches').value) || 0)) * 2.54).toFixed(2)
+            : parseFloat(el('height').value).toFixed(2);
+        const weightUnit = el('weightUnit').value;
+        const weight = weightUnit === 'lbs' ? (el('weight').value * 0.453592).toFixed(2) : el('weight').value;
         const profileData = {
-            gender: document.getElementById('gender').value,
-            age: document.getElementById('age').value,
-            height: height,
-            weight: weight,
-            bodyFatPercent: document.getElementById('bodyFatPercent').value,
-            heightUnit: heightUnit,
-            weightUnit: weightUnit,
-            characterImage: characterSaveValue()
+            gender: el('gender').value, age: el('age').value,
+            height, weight, bodyFatPercent: el('bodyFatPercent').value,
+            heightUnit, weightUnit, characterImage: currentChar(), characterImageViews
         };
-
-        // Retrieve the existing profileStatistics from localStorage
-        let existingProfileData = localStorage.getItem('profileStatistics');
-        if (existingProfileData) {
-            existingProfileData = JSON.parse(existingProfileData);
-            Object.assign(existingProfileData, profileData);
-            localStorage.setItem('profileStatistics', JSON.stringify(existingProfileData));
-        } else {
-            localStorage.setItem('profileStatistics', JSON.stringify(profileData));
-        }
-
-        // Handle weight and body fat tracking
-        let weightAndBodyFatData = localStorage.getItem('weightAndBodyFatData');
-        if (!weightAndBodyFatData) {
-            weightAndBodyFatData = {};
-        } else {
-            weightAndBodyFatData = JSON.parse(weightAndBodyFatData);
-        }
-
-        const currentDate = new Date();
-        const formattedDate = currentDate.toISOString().split('T')[0];
-
-        weightAndBodyFatData[formattedDate] = {
-            weight: weight,
-            bodyFatPercent: document.getElementById('bodyFatPercent').value
-        };
-
-        localStorage.setItem('weightAndBodyFatData', JSON.stringify(weightAndBodyFatData));
+        let existing = {};
+        try { existing = JSON.parse(localStorage.getItem('profileStatistics')) || {}; } catch (_) {}
+        localStorage.setItem('profileStatistics', JSON.stringify(Object.assign(existing, profileData)));
+        let wbf = {};
+        try { wbf = JSON.parse(localStorage.getItem('weightAndBodyFatData')) || {}; } catch (_) {}
+        wbf[new Date().toISOString().split('T')[0]] = { weight, bodyFatPercent: el('bodyFatPercent').value };
+        localStorage.setItem('weightAndBodyFatData', JSON.stringify(wbf));
     }
 
-    // Function to toggle height input between feet/inches and centimeters
     function toggleHeightInput() {
-        const heightUnit = document.getElementById('heightUnit').value;
-        const feetInchesGroup = document.getElementById('feetInchesGroup');
-        const metricGroup = document.getElementById('metricGroup');
-        
-        if (heightUnit === 'ft-in') {
-            feetInchesGroup.style.display = 'flex';
-            metricGroup.style.display = 'none';
-        } else {
-            feetInchesGroup.style.display = 'none';
-            metricGroup.style.display = 'flex';
-        }
+        const isFt = el('heightUnit').value === 'ft-in';
+        el('feetInchesGroup').style.display = isFt ? 'flex' : 'none';
+        el('metricGroup').style.display = isFt ? 'none' : 'flex';
     }
 
-    // Function to validate form and navigate
     function validateAndNavigate() {
-        const gender = document.getElementById('gender').value;
-        const age = document.getElementById('age').value;
-        const heightUnit = document.getElementById('heightUnit').value;
-        const weight = document.getElementById('weight').value;
-        const bodyFatPercent = document.getElementById('bodyFatPercent').value;
-
-        // Check height based on unit
-        let heightValid = false;
-        if (heightUnit === 'ft-in') {
-            const heightFeet = document.getElementById('heightFeet').value;
-            const heightInches = document.getElementById('heightInches').value;
-            heightValid = heightFeet && heightInches;
-        } else {
-            const height = document.getElementById('height').value;
-            heightValid = height;
-        }
-
-        if (!gender || !age || !heightValid || !weight || !bodyFatPercent) {
+        const heightUnit = el('heightUnit').value;
+        const heightValid = heightUnit === 'ft-in' ? el('heightFeet').value && el('heightInches').value : el('height').value;
+        if (!el('gender').value || !el('age').value || !heightValid || !el('weight').value || !el('bodyFatPercent').value) {
             alert('Please fill in all required fields before proceeding.');
             return;
         }
-
-        // Save data before navigating
         saveProfileData();
         window.location.href = 'calculate_bmr.html';
     }
 
-    // Function to download profile
     function downloadProfile() {
-        const profileData = localStorage.getItem('profileStatistics');
-        if (profileData) {
-            const blob = new Blob([profileData], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'profile-data.json';
-            a.click();
-            URL.revokeObjectURL(url);
-        } else {
-            alert('No profile data to download.');
-        }
+        const data = localStorage.getItem('profileStatistics');
+        if (!data) { alert('No profile data to download.'); return; }
+        const a = Object.assign(document.createElement('a'), {
+            href: URL.createObjectURL(new Blob([data], { type: 'application/json' })),
+            download: 'profile-data.json'
+        });
+        a.click(); URL.revokeObjectURL(a.href);
     }
 
-    // Function to upload profile
     function uploadProfile() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        input.onchange = function(e) {
+        const input = Object.assign(document.createElement('input'), { type: 'file', accept: '.json' });
+        input.onchange = e => {
             const file = e.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        const data = JSON.parse(e.target.result);
-                        localStorage.setItem('profileStatistics', JSON.stringify(data));
-                        prepopulateForm();
-                        alert('Profile uploaded successfully!');
-                    } catch (error) {
-                        alert('Invalid file format.');
-                    }
-                };
-                reader.readAsText(file);
-            }
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    localStorage.setItem('profileStatistics', JSON.stringify(JSON.parse(ev.target.result)));
+                    prepopulateForm();
+                    alert('Profile uploaded successfully!');
+                } catch (_) { alert('Invalid file format.'); }
+            };
+            reader.readAsText(file);
         };
         input.click();
     }
-
-
-
-
     </script>
 
 </body>
