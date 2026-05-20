@@ -271,7 +271,22 @@ function getDB() {
   dbPromise = new Promise((resolve, reject) => {
     const req = openDatabaseRequest();
     req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // Close this connection cleanly if another tab/context opens a newer DB version,
+      // so it isn't blocked waiting for us.
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    req.onblocked = () => {
+      // Another tab has the DB open at an older version and hasn't closed yet.
+      // Reject immediately so callers get a fast, actionable error instead of hanging forever.
+      dbPromise = null;
+      reject(new Error('IndexedDB upgrade blocked by another open tab — close other tabs running this app and reload, or use Settings → Delete IndexedDB to recover'));
+    };
     req.onupgradeneeded = (ev) => {
       const db = ev.target.result;
       const { oldVersion } = ev;
@@ -290,8 +305,6 @@ function getDB() {
             if (cursor) {
               newStore.put(cursor.value);
               cursor.continue();
-            } else {
-              db.deleteObjectStore('csvStore');
             }
           };
         } else if (
@@ -881,9 +894,20 @@ async function searchFoodsByPrefix(userInput, limit = AUTOCOMPLETE_LIMIT) {
   });
 }
 
+function valueFromRecipeRow(recipeRow, headerKey) {
+  if (!recipeRow) return headerKey === 'servingDescription1' ? '' : 0;
+  if (headerKey === 'calories') return recipeRow.calories || 0;
+  if (headerKey === 'fat') return recipeRow.fat || 0;
+  if (headerKey === 'protein') return recipeRow.protein || 0;
+  if (headerKey === 'carbohydrate') return recipeRow.carbohydrate || 0;
+  if (headerKey === 'servingWeight1') return recipeRow.servingWeight1 || 0;
+  if (headerKey === 'servingDescription1') return recipeRow.servingDescription1 || '';
+  return 0;
+}
+
 /** @deprecated callback style; prefer async */
-function fetchValueForKey(foodName, headerKey, callback) {
-  fetchValueForKeyAsync(foodName, headerKey)
+function fetchValueForKey(foodName, headerKey, callback, foodSource) {
+  fetchValueForKeyAsync(foodName, headerKey, foodSource)
     .then((v) => callback(v))
     .catch(() => callback(0));
 }
@@ -891,14 +915,11 @@ function fetchValueForKey(foodName, headerKey, callback) {
 async function fetchValueForKeyAsync(foodName, headerKey, foodSource) {
   if (foodSource === 'recipe') {
     const csv = await getFoodFromRecipeStore(foodName);
-    if (!csv) return headerKey === 'servingDescription1' ? '' : 0;
-    if (headerKey === 'calories') return csv.calories || 0;
-    if (headerKey === 'fat') return csv.fat || 0;
-    if (headerKey === 'protein') return csv.protein || 0;
-    if (headerKey === 'carbohydrate') return csv.carbohydrate || 0;
-    if (headerKey === 'servingWeight1') return csv.servingWeight1 || 0;
-    if (headerKey === 'servingDescription1') return csv.servingDescription1 || '';
-    return 0;
+    return valueFromRecipeRow(csv, headerKey);
+  }
+  const recipeRow = await getFoodFromRecipeStore(foodName);
+  if (recipeRow) {
+    return valueFromRecipeRow(recipeRow, headerKey);
   }
   const fdc = await getFoodByName(foodName);
   if (fdc) {
@@ -922,15 +943,7 @@ async function fetchValueForKeyAsync(foodName, headerKey, foodSource) {
         0
       );
   }
-  const recipeRow = await getFoodFromRecipeStore(foodName);
-  if (!recipeRow) return headerKey === 'servingDescription1' ? '' : 0;
-  if (headerKey === 'calories') return recipeRow.calories || 0;
-  if (headerKey === 'fat') return recipeRow.fat || 0;
-  if (headerKey === 'protein') return recipeRow.protein || 0;
-  if (headerKey === 'carbohydrate') return recipeRow.carbohydrate || 0;
-  if (headerKey === 'servingWeight1') return recipeRow.servingWeight1 || 0;
-  if (headerKey === 'servingDescription1') return recipeRow.servingDescription1 || '';
-  return 0;
+  return headerKey === 'servingDescription1' ? '' : 0;
 }
 
 /**
@@ -1194,6 +1207,7 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
       getFoodFromRecipeStore(entry.name).then((recipeRow) => {
         if (!recipeRow || !gramsEl) return;
         if (recipeRow.servingWeight1 != null) {
+          window._radiantSkipGramsClear = true;
           gramsEl.value = recipeRow.servingWeight1;
           gramsEl.select();
         }
@@ -1204,6 +1218,7 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
     } else {
       fetchValueForKey(entry.name, 'servingWeight1', function (value) {
         if (value && gramsEl) {
+          window._radiantSkipGramsClear = true;
           gramsEl.value = value;
           gramsEl.select();
         }
@@ -1239,6 +1254,7 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
           delete inputEl.dataset.foodSource;
         }
         ac.innerHTML = '';
+        window._radiantSkipGramsClear = true;
         gramsEl.focus();
         gramsEl.select();
         fillServingHints(entry);

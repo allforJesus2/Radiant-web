@@ -854,6 +854,10 @@ document.querySelector('.food').addEventListener('focus', function() {
 });
 
 document.querySelector('.grams').addEventListener('focus', function() {
+    if (window._radiantSkipGramsClear) {
+        window._radiantSkipGramsClear = false;
+        return;
+    }
     this.value = ''; // Clear the input field
 });
 
@@ -2527,7 +2531,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
             delete foodInput.dataset.fdcId;
         }
         
-        // Focus and select grams input immediately
+        window._radiantSkipGramsClear = true;
         gramsInput.focus();
         gramsInput.select();
         
@@ -2536,6 +2540,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
             getFoodById(item.fdc_id).then(function(food) {
                 if (!food) return;
                 if (food.serving_weight != null) {
+                    window._radiantSkipGramsClear = true;
                     gramsInput.value = food.serving_weight;
                     gramsInput.select();
                 }
@@ -2544,14 +2549,28 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
                 }
             });
         } else {
-            fetchValueForKey(item.name, 'servingWeight1', function(value) {
-                gramsInput.value = value;
-                gramsInput.select();
-            });
-            fetchValueForKey(item.name, 'servingDescription1', function(description) {
-                if (typeof showServingBubble === 'function') {
-                    showServingBubble(description, gramsInput);
+            getFoodFromRecipeStore(item.name).then(function(recipeRow) {
+                if (recipeRow && recipeRow.servingWeight1 != null) {
+                    window._radiantSkipGramsClear = true;
+                    gramsInput.value = recipeRow.servingWeight1;
+                    gramsInput.select();
+                    if (typeof showServingBubble === 'function' && recipeRow.servingDescription1) {
+                        showServingBubble(recipeRow.servingDescription1, gramsInput);
+                    }
+                    return;
                 }
+                fetchValueForKey(item.name, 'servingWeight1', function(value) {
+                    if (value) {
+                        window._radiantSkipGramsClear = true;
+                        gramsInput.value = value;
+                        gramsInput.select();
+                    }
+                });
+                fetchValueForKey(item.name, 'servingDescription1', function(description) {
+                    if (typeof showServingBubble === 'function' && description) {
+                        showServingBubble(description, gramsInput);
+                    }
+                });
             });
         }
     });
@@ -2845,8 +2864,7 @@ document.getElementById('settingsToggle').addEventListener('click', function() {
 			.catch(function (err) {
 				clearTimeout(slowTimer);
 				console.warn('getFdcStatus', err);
-				el.textContent =
-					'Could not read DB (' + (err && err.message ? err.message : 'error') + ')';
+				el.textContent = 'Could not read DB (' + (err && err.message ? err.message : 'error') + ')';
 			});
 	}
 

@@ -1,4 +1,4 @@
-const CACHE_VERSION = 'v3.7';
+const CACHE_VERSION = 'v4.0';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
 
 // Paths relative to the service worker scope (no leading slash).
