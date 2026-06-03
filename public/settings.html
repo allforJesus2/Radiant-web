@@ -82,6 +82,28 @@
             </label>
             <p class="small-text">Restore your data from a backup file</p>
         </div>
+
+        <div style="margin: 20px 0;">
+            <button type="button" class="btn" id="reloadAutocomplete">Reload food autocomplete</button>
+            <p class="small-text">Refreshes the food name list used on the nutrition page. Does not re-import USDA data (use the buttons above for that).</p>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button type="button" class="btn" id="clearLocalStorageAll" style="background: #633;">Clear all localStorage</button>
+            <p class="small-text">Permanently removes profile, food log, macros, meal plans, and all other saved app data in this browser. Download a backup first.</p>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <button type="button" class="btn" id="clearCacheReload">Clear service worker caches and reload</button>
+            <p class="small-text">Clears cached static files and reloads the page. Does not delete IndexedDB or localStorage.</p>
+        </div>
+
+        <h2>Advanced / troubleshooting</h2>
+        <div style="margin: 20px 0;">
+            <button type="button" class="btn" id="deleteCsvDb" style="background: #633;">Delete entire IndexedDB (csvDB)</button>
+            <p class="small-text">Nuclear option: deletes the whole food database (USDA + legacy CSV). Prefer &quot;Clear USDA data&quot; and &quot;Clear legacy CSV data&quot; above for selective resets. Reload nutrition afterward to re-import SR Legacy.</p>
+            <a href="debug.html" class="btn" style="display: inline-block; margin-top: 10px; text-decoration: none;">Debug page</a>
+        </div>
     </div>
 
     <script src="menu.js"></script>
@@ -282,6 +304,93 @@
                     localStorage.setItem('barcodeLookupSource', sel.value);
                 });
             })();
+
+            var reloadAutocompleteBtn = document.getElementById('reloadAutocomplete');
+            if (reloadAutocompleteBtn) {
+                reloadAutocompleteBtn.addEventListener('click', async function () {
+                    if (typeof loadFoodNamesAndCache !== 'function') {
+                        alert('database-utils.js is not loaded.');
+                        return;
+                    }
+                    const busy = document.getElementById('fdcBusy');
+                    busy.style.display = 'block';
+                    busy.textContent = 'Reloading autocomplete…';
+                    try {
+                        await loadFoodNamesAndCache();
+                        alert('Food autocomplete list reloaded.');
+                    } catch (e) {
+                        alert('Reload failed: ' + (e && e.message ? e.message : 'error'));
+                    }
+                    busy.style.display = 'none';
+                    refreshFdcStatusUi();
+                });
+            }
+
+            var clearLsBtn = document.getElementById('clearLocalStorageAll');
+            if (clearLsBtn) {
+                clearLsBtn.addEventListener('click', function () {
+                    if (
+                        !confirm(
+                            'This will permanently delete ALL app data in this browser: profile, food log, macros, meal plans, settings keys, and more.\n\nDownload a backup first if you need one. Continue?'
+                        )
+                    ) {
+                        return;
+                    }
+                    localStorage.clear();
+                    alert('All localStorage data has been cleared.');
+                    updateStorageSize();
+                });
+            }
+
+            var clearCacheBtn = document.getElementById('clearCacheReload');
+            if (clearCacheBtn) {
+                clearCacheBtn.addEventListener('click', function () {
+                    if (
+                        !confirm(
+                            'Clear service worker caches and reload? Your food log and profile in localStorage will NOT be deleted.'
+                        )
+                    ) {
+                        return;
+                    }
+                    if ('caches' in window) {
+                        caches.keys().then(function (cacheNames) {
+                            return Promise.all(cacheNames.map(function (name) {
+                                return caches.delete(name);
+                            }));
+                        }).then(function () {
+                            location.reload();
+                        });
+                    } else {
+                        location.reload();
+                    }
+                });
+            }
+
+            var deleteCsvDbBtn = document.getElementById('deleteCsvDb');
+            if (deleteCsvDbBtn) {
+                deleteCsvDbBtn.addEventListener('click', function () {
+                    if (
+                        !confirm(
+                            'Delete the entire csvDB IndexedDB? This removes ALL USDA and legacy CSV food data. Use granular clear buttons above when possible. Continue?'
+                        )
+                    ) {
+                        return;
+                    }
+                    var request = indexedDB.deleteDatabase('csvDB');
+                    request.onsuccess = function () {
+                        if (typeof resetDBConnection === 'function') resetDBConnection();
+                        alert('IndexedDB deleted. Open the nutrition page to re-import SR Legacy.');
+                        refreshFdcStatusUi();
+                    };
+                    request.onerror = function (event) {
+                        console.error('Error deleting database:', event.target.error);
+                        alert('Could not delete database. See console.');
+                    };
+                    request.onblocked = function () {
+                        alert('Database is blocked. Close other tabs using this app and try again.');
+                    };
+                });
+            }
         });
 
         document.getElementById('downloadData').addEventListener('click', function() {

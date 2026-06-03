@@ -1,5 +1,19 @@
-const CACHE_VERSION = 'v4.0';
+// Bump this version before deploying whenever you've changed any cached file
+// (CSS, JS, HTML). This forces the deployed SW to reinstall and recache
+// everything fresh for users. After deploying, users get the new files on
+// their next page load.
+// Note: on localhost the SW is a no-op (IS_DEV below), so you never need to
+// bump this during local development. The default deployed strategy is
+// network-first; cache-first only kicks in when the user enables "offline
+// only" in settings.
+const CACHE_VERSION = 'v4.3';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
+
+// On localhost the SW acts as a transparent pass-through — no caching, no
+// interception — so every file change is visible instantly without bumping
+// CACHE_VERSION. On the deployed site (any other hostname) full caching and
+// offline support work as normal.
+const IS_DEV = self.location.hostname === 'localhost';
 
 // Paths relative to the service worker scope (no leading slash).
 // Using scope-relative paths ensures correctness whether the site is hosted
@@ -22,6 +36,8 @@ const FILES_TO_CACHE = [
   'set_meal_times.html',
   'debug.html',
   'dark-theme.css',
+  'nutrition.css',
+  'nutrition.js',
   'navigation.css',
   'navigation.js',
   'database-utils.js',
@@ -48,7 +64,13 @@ let preferOffline = false;
 
 // Install: cache all app-shell files using scope-relative URLs so the paths
 // work regardless of whether the app is hosted at / or a subdirectory.
+// On localhost (IS_DEV) skip pre-caching entirely — just activate immediately.
 self.addEventListener('install', (event) => {
+  if (IS_DEV) {
+    console.log('[SW] Dev mode — skipping cache install');
+    self.skipWaiting();
+    return;
+  }
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       const scope = self.registration.scope;
@@ -106,9 +128,13 @@ self.addEventListener('message', (event) => {
 //   preferOffline=true  → cache-first  (fast, works fully offline)
 //   preferOffline=false → network-first with cache fallback (default; always
 //                         serves fresh content when online, cached when not)
+// On localhost (IS_DEV) all requests pass straight through to the network.
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests.
   if (event.request.method !== 'GET') return;
+
+  // Dev mode: bypass the SW entirely so file changes are instant.
+  if (IS_DEV) return;
 
   const url = new URL(event.request.url);
 
