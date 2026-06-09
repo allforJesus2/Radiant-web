@@ -1196,7 +1196,9 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
       getFoodById(entry.fdc_id).then((food) => {
         if (!food || !gramsEl) return;
         if (food.serving_weight != null) {
-          gramsEl.value = food.serving_weight;
+          gramsEl.value = typeof gramsToInputValue === 'function'
+            ? gramsToInputValue(food.serving_weight)
+            : food.serving_weight;
           gramsEl.select();
         }
         if (typeof showServingBubble === 'function' && food.serving_description) {
@@ -1208,7 +1210,9 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
         if (!recipeRow || !gramsEl) return;
         if (recipeRow.servingWeight1 != null) {
           window._radiantSkipGramsClear = true;
-          gramsEl.value = recipeRow.servingWeight1;
+          gramsEl.value = typeof gramsToInputValue === 'function'
+            ? gramsToInputValue(recipeRow.servingWeight1)
+            : recipeRow.servingWeight1;
           gramsEl.select();
         }
         if (typeof showServingBubble === 'function' && recipeRow.servingDescription1) {
@@ -1219,7 +1223,9 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
       fetchValueForKey(entry.name, 'servingWeight1', function (value) {
         if (value && gramsEl) {
           window._radiantSkipGramsClear = true;
-          gramsEl.value = value;
+          gramsEl.value = typeof gramsToInputValue === 'function'
+            ? gramsToInputValue(value)
+            : value;
           gramsEl.select();
         }
       });

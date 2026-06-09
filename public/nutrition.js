@@ -58,8 +58,105 @@
 		document.getElementById('welcomeMessage').style.display = 'none';
 	}
 
-	var foodInput;
-	var autocompleteList;
+var foodInput;
+var autocompleteList;
+
+// ---- Unit toggle (grams / oz) ----
+var UNIT_GRAMS_PER_OZ = 28.35; // exact conversion
+var preferredUnit = 'grams';
+
+function initUnitSelector() {
+    preferredUnit = localStorage.getItem('preferredUnit') === 'oz' ? 'oz' : 'grams';
+    updateUnitToggleButton();
+    updateUnitInputPlaceholder();
+}
+
+function getPreferredUnit() {
+    return preferredUnit;
+}
+
+function updateUnitToggleButton() {
+    var btn = document.getElementById('unitToggleBtn');
+    if (!btn) return;
+    btn.textContent = preferredUnit === 'oz' ? 'oz' : 'g';
+    btn.title = preferredUnit === 'oz' ? 'Using ounces' : 'Using grams';
+    btn.setAttribute(
+        'aria-label',
+        preferredUnit === 'oz'
+            ? 'Unit: ounces. Tap to switch to grams.'
+            : 'Unit: grams. Tap to switch to ounces.'
+    );
+}
+
+/** Convert the current input value to the new unit and update the field. */
+function convertInputOnUnitChange(newUnit) {
+    var gramsInput = document.querySelector('.grams');
+    if (!gramsInput) return;
+    var val = parseFloat(gramsInput.value);
+    if (isNaN(val) || val <= 0) return; // nothing to convert
+    if (newUnit === 'oz') {
+        gramsInput.value = (val / UNIT_GRAMS_PER_OZ).toFixed(2);
+    } else {
+        gramsInput.value = Math.round(val * UNIT_GRAMS_PER_OZ);
+    }
+}
+
+function setupUnitSelector() {
+    var btn = document.getElementById('unitToggleBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        var newUnit = preferredUnit === 'oz' ? 'grams' : 'oz';
+        convertInputOnUnitChange(newUnit);
+        preferredUnit = newUnit;
+        localStorage.setItem('preferredUnit', preferredUnit);
+        updateUnitToggleButton();
+        updateUnitInputPlaceholder();
+    });
+}
+
+function updateUnitInputPlaceholder() {
+    var gramsInput = document.querySelector('.grams');
+    if (!gramsInput) return;
+    gramsInput.placeholder = preferredUnit === 'oz' ? 'ounces' : 'grams';
+    var label = document.querySelector('label[for="gramsInput"]');
+    if (label) {
+        label.textContent = preferredUnit === 'oz' ? 'Amount in ounces' : 'Amount in grams';
+    }
+}
+
+function roundGrams(grams) {
+    return Math.round(Number(grams) * 100) / 100;
+}
+
+function formatGramsDisplay(grams) {
+    var n = roundGrams(grams);
+    if (!isFinite(n)) return '0';
+    if (n % 1 === 0) return String(n);
+    return n.toFixed(2).replace(/0+$/, '').replace(/\.$/, '');
+}
+
+/** Convert the amount field value to grams for storage and nutrition lookup. */
+function inputValueToGrams(val) {
+    var n = parseFloat(val);
+    if (isNaN(n) || n <= 0) return NaN;
+    var grams = getPreferredUnit() === 'oz' ? n * UNIT_GRAMS_PER_OZ : n;
+    return roundGrams(grams);
+}
+
+/** Convert stored grams to the value shown in the amount input field. */
+function gramsToInputValue(grams) {
+    var n = roundGrams(grams);
+    if (!isFinite(n) || n <= 0) return '';
+    if (getPreferredUnit() === 'oz') {
+        return (n / UNIT_GRAMS_PER_OZ).toFixed(2);
+    }
+    return formatGramsDisplay(n);
+}
+
+/** Return the display label for the current unit ("g" or "oz"). */
+function unitLabel() {
+    return preferredUnit === 'oz' ? 'oz' : 'g';
+}
 
 
 
@@ -760,7 +857,7 @@ function mergeOrAppendFoodLogItem(p) {
 
     if (mostRecentIndex !== -1) {
         var updatedItem = existingData[mostRecentIndex];
-        updatedItem.grams += grams;
+        updatedItem.grams = roundGrams(updatedItem.grams + grams);
         if (p.nutrition_source) {
             updatedItem.nutrition_source = p.nutrition_source;
         }
@@ -794,7 +891,7 @@ function mergeOrAppendFoodLogItem(p) {
 document.getElementById('addBtn').addEventListener('click', function() {
     var foodInputEl = document.getElementById('foodInput') || document.querySelector('.food');
     var foodName = foodInputEl.value.trim();
-    var grams = parseFloat(document.querySelector('.grams').value);
+    var grams = inputValueToGrams(document.querySelector('.grams').value);
     var rawFdc = foodInputEl.dataset.fdcId;
     var fdcId =
         rawFdc !== undefined && rawFdc !== '' && !Number.isNaN(Number(rawFdc))
@@ -803,8 +900,8 @@ document.getElementById('addBtn').addEventListener('click', function() {
     var foodSource =
         foodInputEl.dataset.foodSource === 'recipe' ? 'recipe' : undefined;
 
-    if (!foodName || !grams) {
-        alert('Please enter both food name and grams.');
+    if (!foodName || isNaN(grams)) {
+        alert('Please enter both food name and amount.');
         return;
     }
 
@@ -919,7 +1016,7 @@ function patchFoodLogDomAfterEnrich(scrollableWindow, foodItems, enrichedList) {
         if (!v) return;
         var span = el.querySelector('.small-text');
         if (span) {
-            span.textContent = item.grams + 'g, Calories ' + v.calories +
+            span.textContent = formatGramsDisplay(item.grams) + 'g, Calories ' + v.calories +
                 ', Protein ' + v.protein + 'g, Carbs ' + v.carbs + 'g, Fat ' + v.fat + 'g';
         }
     });
@@ -1480,7 +1577,7 @@ function showEditDialog(item, allFoodItems) {
     listEl.textContent = '';
     syncItems.forEach(function(f) {
         var li = document.createElement('li');
-        li.textContent = f.name + ' — ' + f.grams + 'g';
+        li.textContent = f.name + ' — ' + formatGramsDisplay(f.grams) + 'g';
         listEl.appendChild(li);
     });
     if (syncChk) syncChk.checked = true;
@@ -1690,10 +1787,7 @@ function initEditItemDialog() {
 
 /** Grams shown after delete; `.grams` clears itself on focus, so assign value after focus(). */
 function deletedGramsForInputField(grams) {
-    if (grams == null || grams === '') return '';
-    var n = Number(grams);
-    if (!Number.isFinite(n) || n < 0) return '';
-    return String(n);
+    return gramsToInputValue(grams);
 }
 
 function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsInput, viewRow) {
@@ -1704,7 +1798,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
     var foodEmoji = getFoodEmoji(item.name);
     listItem.innerHTML =
         (foodEmoji ? escapeHtml(foodEmoji) + ' ' : '') + escapeHtml(item.name) +
-        '<br><span class="small-text">' + item.grams + 'g, Calories ' + v.calories +
+        '<br><span class="small-text">' + formatGramsDisplay(item.grams) + 'g, Calories ' + v.calories +
         ', Protein ' + v.protein + 'g, Carbs ' + v.carbs + 'g, Fat ' + v.fat + 'g</span>';
 
     var deleteButton = document.createElement('button');
@@ -1770,7 +1864,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
                 if (!food) return;
                 if (food.serving_weight != null) {
                     window._radiantSkipGramsClear = true;
-                    gramsInput.value = food.serving_weight;
+                    gramsInput.value = gramsToInputValue(food.serving_weight);
                     gramsInput.select();
                 }
                 if (food.serving_description && typeof showServingBubble === 'function') {
@@ -1781,7 +1875,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
             getFoodFromRecipeStore(item.name).then(function(recipeRow) {
                 if (recipeRow && recipeRow.servingWeight1 != null) {
                     window._radiantSkipGramsClear = true;
-                    gramsInput.value = recipeRow.servingWeight1;
+                    gramsInput.value = gramsToInputValue(recipeRow.servingWeight1);
                     gramsInput.select();
                     if (typeof showServingBubble === 'function' && recipeRow.servingDescription1) {
                         showServingBubble(recipeRow.servingDescription1, gramsInput);
@@ -1791,7 +1885,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
                 fetchValueForKey(item.name, 'servingWeight1', function(value) {
                     if (value) {
                         window._radiantSkipGramsClear = true;
-                        gramsInput.value = value;
+                        gramsInput.value = gramsToInputValue(value);
                         gramsInput.select();
                     }
                 });
@@ -1825,7 +1919,7 @@ function displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, c
     var plannedEmoji = getFoodEmoji(item.name);
     listItem.innerHTML =
         (plannedEmoji ? escapeHtml(plannedEmoji) + ' ' : '') + escapeHtml(item.name) +
-        '<br><span class="small-text">' + item.grams + 'g, Calories ' + item.calories +
+        '<br><span class="small-text">' + formatGramsDisplay(item.grams) + 'g, Calories ' + item.calories +
         ', Protein ' + item.protein + 'g, Carbs ' + item.carbs + 'g, Fat ' + item.fat + 'g</span>';
 
     // Add red X button for removal
@@ -1968,6 +2062,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 	initUndoButton();
 	initNutrientDetailModal();
 	initEditItemDialog();
+	initUnitSelector();
+	setupUnitSelector();
 
 	today = getTodayKey();
 	localStorage.setItem('today', today);

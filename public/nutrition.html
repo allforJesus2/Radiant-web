@@ -20,9 +20,7 @@
  <div class="blur-overlay" id="blurOverlay"></div>
  
 
- 
- 
- 
+
 	<div class="container">
         
         <div id="welcomeMessage" class="welcome-message" style="display: none;">
@@ -107,7 +105,8 @@
             <input id="foodInput" type="text" class="food" placeholder="Food name...">
             <button type="button" class="btn" id="scanBarcodeBtn" title="Scan barcode">📷</button>
             <label for="gramsInput" class="sr-only">Amount in grams</label>
-            <input id="gramsInput" class="grams" type="number" inputmode="numeric" placeholder="Grams">
+            <input id="gramsInput" class="grams" type="number" inputmode="numeric" placeholder="grams">
+            <button type="button" class="btn" id="unitToggleBtn" aria-label="Unit: grams. Tap to switch to ounces.">g</button>
             <button class="btn" id="addBtn">Add</button>
         </div>
 
@@ -120,7 +119,6 @@
 
             <!-- Content goes here -->
         </div>
-		
 
 
         <div class="food-log-toolbar">
