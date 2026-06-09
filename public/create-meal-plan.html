@@ -23,9 +23,10 @@
                     <option value="">Create new meal plan...</option>
                 </select>
                 <input type="text" id="newMealPlanName" placeholder="New meal plan name..." class="food" style="display: none;">
-                <button class="btn" id="deleteMealPlanBtn" onclick="deleteMealPlan()" style="display: block; background-color: #dc3545; color: white;">Delete</button>
+                <button class="btn" id="deleteMealPlanBtn" onclick="deleteMealPlan()" style="display: none; background-color: #dc3545; color: white;">Delete</button>
                 <div class="meal-plan-actions">
-                    <button class="btn" onclick="saveMealPlan()">Save</button>
+                    <button class="btn" id="saveMealPlanBtn" onclick="saveMealPlan()">Save</button>
+                    <button class="btn" id="saveAsMealPlanBtn" onclick="saveMealPlanAsCopy()" style="display: none;">Save as new plan</button>
                     <button class="btn" onclick="window.location.href='meal-plan.html'">Cancel</button>
                 </div>
             </div>
@@ -273,6 +274,46 @@
     <script src="database-utils.js"></script>
     <script src="menu.js"></script>
     <script>
+        const CUSTOM_PLAN_NAME = 'Custom';
+        let isCustomPlanReadOnly = false;
+
+        function isReservedPlanName(name) {
+            return String(name).trim().toLowerCase() === CUSTOM_PLAN_NAME.toLowerCase();
+        }
+
+        function ensureCustomPlanExists(mealPlanning) {
+            if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
+            if (!mealPlanning.mealPlans[CUSTOM_PLAN_NAME]) {
+                mealPlanning.mealPlans[CUSTOM_PLAN_NAME] = {
+                    breakfast: [], lunch: [], dinner: [], snack: []
+                };
+            }
+            return mealPlanning;
+        }
+
+        function customPlanHasItems(plan) {
+            if (!plan) return false;
+            return ['breakfast', 'lunch', 'dinner', 'snack']
+                .some(k => plan[k] && plan[k].length > 0);
+        }
+
+        function updateCustomPlanUi(selectedPlan) {
+            const isCustom = selectedPlan === CUSTOM_PLAN_NAME;
+            isCustomPlanReadOnly = isCustom;
+            document.getElementById('saveMealPlanBtn').style.display = isCustom ? 'none' : 'inline-block';
+            document.getElementById('saveAsMealPlanBtn').style.display = isCustom ? 'inline-block' : 'none';
+            document.getElementById('deleteMealPlanBtn').style.display = (selectedPlan && !isCustom) ? 'block' : 'none';
+            document.getElementById('newMealPlanName').style.display = (isCustom || !selectedPlan) ? 'block' : 'none';
+            document.getElementById('newMealPlanName').placeholder = isCustom
+                ? 'New plan name for Save as...'
+                : 'New meal plan name...';
+            const addSection = document.querySelector('.add-meal-item-section');
+            if (addSection) {
+                addSection.style.display = isCustom ? 'none' : 'block';
+            }
+            displayMealPlanItems();
+        }
+
         // Global variables
         let currentMealPlanItems = {
             breakfast: [],
@@ -289,6 +330,7 @@
             initializeFoodList();
             loadExistingMealPlans();
             setupEventListeners();
+            updateCustomPlanUi('');
         });
 
 
@@ -412,6 +454,8 @@
                 mealPlanDays: {},
                 lastReset: null
             };
+            ensureCustomPlanExists(mealPlanning);
+            localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
             const dropdown = document.getElementById('mealPlanName');
             
             // Clear existing options except the first one
@@ -451,25 +495,18 @@
             // Meal plan dropdown change
             document.getElementById('mealPlanName').addEventListener('change', function() {
                 const selectedPlan = this.value;
-                const newNameInput = document.getElementById('newMealPlanName');
-                const deleteBtn = document.getElementById('deleteMealPlanBtn');
-                
+
                 if (selectedPlan) {
                     loadMealPlanData(selectedPlan);
-                    newNameInput.style.display = 'none';
-                    deleteBtn.style.display = 'block';
                 } else {
-                    // Reset to empty meal plan
                     currentMealPlanItems = {
                         breakfast: [],
                         lunch: [],
                         dinner: [],
                         snack: []
                     };
-                    displayMealPlanItems();
-                    newNameInput.style.display = 'block';
-                    deleteBtn.style.display = 'none';
                 }
+                updateCustomPlanUi(selectedPlan);
             });
             
             // Show the new name input initially since dropdown starts with empty value
@@ -553,12 +590,15 @@
                 currentMealPlanItems[category].forEach((item, index) => {
                     const itemDiv = document.createElement('div');
                     itemDiv.className = 'meal-plan-item';
+                    const removeBtnHtml = isCustomPlanReadOnly
+                        ? ''
+                        : `<button class="remove-btn" onclick="removeMealPlanItem('${category}', ${index})">×</button>`;
                     itemDiv.innerHTML = `
                         <div>
                             <strong>${item.name}</strong> - ${item.grams}g<br>
                             <span class="small-text">${item.calories} cal, ${item.protein}g protein, ${item.carbs}g carbs, ${item.fat}g fat</span>
                         </div>
-                        <button class="remove-btn" onclick="removeMealPlanItem('${category}', ${index})">×</button>
+                        ${removeBtnHtml}
                     `;
                     container.appendChild(itemDiv);
                     
@@ -588,6 +628,7 @@
         }
 
         function removeMealPlanItem(category, index) {
+            if (isCustomPlanReadOnly) return;
             currentMealPlanItems[category].splice(index, 1);
             displayMealPlanItems();
         }
@@ -613,6 +654,11 @@
         function saveMealPlan() {
             const selectedPlan = document.getElementById('mealPlanName').value;
             const newPlanName = document.getElementById('newMealPlanName').value.trim();
+
+            if (selectedPlan === CUSTOM_PLAN_NAME) {
+                alert('Custom is updated from the nutrition page. Use Save as new plan to copy it.');
+                return;
+            }
             
             let planName;
             if (selectedPlan) {
@@ -621,6 +667,11 @@
                 planName = newPlanName;
             } else {
                 alert('Please select an existing meal plan or enter a new meal plan name.');
+                return;
+            }
+
+            if (isReservedPlanName(planName)) {
+                alert('Custom is a reserved name. Choose a different name or use Save as to copy the Custom plan.');
                 return;
             }
             
@@ -634,7 +685,6 @@
                 return;
             }
             
-            // Load existing meal planning data
             const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
                 mealPlans: {},
                 completedMeals: {},
@@ -642,12 +692,54 @@
                 mealPlanDays: {},
                 lastReset: null
             };
-            mealPlanning.mealPlans[planName] = currentMealPlanItems;
+            mealPlanning.mealPlans[planName] = JSON.parse(JSON.stringify(currentMealPlanItems));
             localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
             
             alert(`Meal plan "${planName}" saved successfully!`);
-            
-            // Redirect back to meal plan page
+            window.location.href = 'meal-plan.html';
+        }
+
+        function saveMealPlanAsCopy() {
+            const selectedPlan = document.getElementById('mealPlanName').value;
+            const newPlanName = document.getElementById('newMealPlanName').value.trim();
+
+            if (selectedPlan !== CUSTOM_PLAN_NAME) {
+                alert('Select the Custom plan to use Save as.');
+                return;
+            }
+            if (!newPlanName) {
+                alert('Enter a name for the new meal plan.');
+                return;
+            }
+            if (isReservedPlanName(newPlanName)) {
+                alert('Custom is a reserved name. Choose a different name.');
+                return;
+            }
+
+            const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
+                mealPlans: {},
+                completedMeals: {},
+                removedMeals: {},
+                mealPlanDays: {},
+                lastReset: null
+            };
+            ensureCustomPlanExists(mealPlanning);
+
+            if (mealPlanning.mealPlans[newPlanName]) {
+                alert(`A meal plan named "${newPlanName}" already exists. Choose a different name.`);
+                return;
+            }
+
+            const custom = mealPlanning.mealPlans[CUSTOM_PLAN_NAME];
+            if (!customPlanHasItems(custom)) {
+                alert('Custom plan is empty. Save meals on the nutrition page first.');
+                return;
+            }
+
+            mealPlanning.mealPlans[newPlanName] = JSON.parse(JSON.stringify(custom));
+            localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+
+            alert(`Meal plan "${newPlanName}" created from Custom.`);
             window.location.href = 'meal-plan.html';
         }
 
@@ -656,6 +748,11 @@
             
             if (!selectedPlan) {
                 alert('Please select a meal plan to delete.');
+                return;
+            }
+
+            if (selectedPlan === CUSTOM_PLAN_NAME) {
+                alert('The Custom meal plan cannot be deleted.');
                 return;
             }
             

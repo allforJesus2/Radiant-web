@@ -329,6 +329,8 @@
             </button>
             <p class="character-preview-hint is-hidden" id="characterPreviewHint">Drag to reposition · scroll or pinch to zoom · double-click to reset</p>
             <button type="button" class="character-change-btn is-hidden" id="characterChangeBtn">Change picture</button>
+            <input type="file" id="characterImageUpload" class="visually-hidden" accept="image/*">
+            <button type="button" class="character-change-btn" id="characterUploadBtn">Upload photo</button>
             <div id="characterOptionsPanel" class="character-options-panel">
                 <ul id="characterImageGrid" class="character-grid" role="listbox" aria-label="Profile pictures"></ul>
             </div>
@@ -398,14 +400,23 @@
 
     <script>
     const CHARACTER_FOLDER = 'assets/character images/';
+    const CUSTOM_CHARACTER_KEY = '__custom__';
     const MIN_SCALE = 1, MAX_SCALE = 4;
     let characterManifestFiles = [];
     let characterImageViews = {};
+    let customCharacterDataUrl = '';
     let didDrag = false;
 
     const el = id => document.getElementById(id);
-    function charUrl(f) { return CHARACTER_FOLDER + encodeURIComponent(f); }
-    function currentChar() { return el('characterImageFilename').value.trim() || characterManifestFiles[0] || ''; }
+    function charUrl(f) {
+        if (f === CUSTOM_CHARACTER_KEY) return customCharacterDataUrl || '';
+        return CHARACTER_FOLDER + encodeURIComponent(f);
+    }
+    function currentChar() {
+        const v = el('characterImageFilename').value.trim();
+        if (v === CUSTOM_CHARACTER_KEY && customCharacterDataUrl) return CUSTOM_CHARACTER_KEY;
+        return v || characterManifestFiles[0] || '';
+    }
     function clamp(s) { return Math.min(MAX_SCALE, Math.max(MIN_SCALE, s)); }
 
     function getView(file) {
@@ -524,14 +535,58 @@
         if (typeof prev !== 'object') prev = {};
         prev.characterImage = file;
         prev.characterImageViews = characterImageViews;
+        if (file === CUSTOM_CHARACTER_KEY) prev.characterImageCustom = customCharacterDataUrl;
+        else delete prev.characterImageCustom;
         localStorage.setItem('profileStatistics', JSON.stringify(prev));
     }
 
     function setCharacterSelection(filename) {
         el('characterImageFilename').value = String(filename || '').trim();
+        customCharacterDataUrl = '';
         syncPreview();
         setCharacterPickerOpen(false);
         persistCharacterImage();
+    }
+
+    function setCustomCharacterImage(dataUrl) {
+        el('characterImageFilename').value = CUSTOM_CHARACTER_KEY;
+        customCharacterDataUrl = dataUrl;
+        syncPreview();
+        setCharacterPickerOpen(false);
+        persistCharacterImage();
+    }
+
+    function processImageFile(file) {
+        if (!file || !file.type.startsWith('image/')) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const img = new Image();
+            img.onload = () => {
+                const max = 512;
+                let { width, height } = img;
+                if (width > max || height > max) {
+                    const ratio = Math.min(max / width, max / height);
+                    width = Math.round(width * ratio);
+                    height = Math.round(height * ratio);
+                }
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                canvas.getContext('2d').drawImage(img, 0, 0, width, height);
+                setCustomCharacterImage(canvas.toDataURL('image/jpeg', 0.85));
+            };
+            img.onerror = () => alert('Could not load that image.');
+            img.src = reader.result;
+        };
+        reader.onerror = () => alert('Could not read that file.');
+        reader.readAsDataURL(file);
+    }
+
+    function openCharacterImageUpload() {
+        const input = el('characterImageUpload');
+        if (!input) return;
+        input.value = '';
+        input.click();
     }
 
     async function loadCharacterImageGrid() {
@@ -568,6 +623,7 @@
         if (data.characterImageViews && typeof data.characterImageViews === 'object') {
             characterImageViews = data.characterImageViews;
         }
+        customCharacterDataUrl = typeof data.characterImageCustom === 'string' ? data.characterImageCustom : '';
         if (data.gender) {
             el('gender').value = data.gender;
             el('age').value = data.age;
@@ -595,6 +651,10 @@
         setupHeader('Profile Statistics');
         initZoomPan();
         el('characterChangeBtn')?.addEventListener('click', toggleCharacterPicker);
+        el('characterUploadBtn')?.addEventListener('click', openCharacterImageUpload);
+        el('characterImageUpload')?.addEventListener('change', e => {
+            processImageFile(e.target.files?.[0]);
+        });
         document.addEventListener('click', e => {
             const panel = el('characterOptionsPanel'), host = document.querySelector('.character-picker');
             if (panel.classList.contains('is-open') && host && !host.contains(e.target)) setCharacterPickerOpen(false);
@@ -613,11 +673,15 @@
         const profileData = {
             gender: el('gender').value, age: el('age').value,
             height, weight, bodyFatPercent: el('bodyFatPercent').value,
-            heightUnit, weightUnit, characterImage: currentChar(), characterImageViews
+            heightUnit, weightUnit, characterImage: currentChar(), characterImageViews,
+            ...(currentChar() === CUSTOM_CHARACTER_KEY ? { characterImageCustom: customCharacterDataUrl } : {})
         };
+        if (profileData.characterImage !== CUSTOM_CHARACTER_KEY) delete profileData.characterImageCustom;
         let existing = {};
         try { existing = JSON.parse(localStorage.getItem('profileStatistics')) || {}; } catch (_) {}
-        localStorage.setItem('profileStatistics', JSON.stringify(Object.assign(existing, profileData)));
+        const merged = Object.assign(existing, profileData);
+        if (merged.characterImage !== CUSTOM_CHARACTER_KEY) delete merged.characterImageCustom;
+        localStorage.setItem('profileStatistics', JSON.stringify(merged));
         let wbf = {};
         try { wbf = JSON.parse(localStorage.getItem('weightAndBodyFatData')) || {}; } catch (_) {}
         wbf[new Date().toISOString().split('T')[0]] = { weight, bodyFatPercent: el('bodyFatPercent').value };

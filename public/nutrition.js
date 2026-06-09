@@ -334,6 +334,179 @@ function calculateMealTotals(foodItems, mealType) {
     };
 }
 
+const CUSTOM_PLAN_NAME = 'Custom';
+
+function isReservedPlanName(name) {
+    return String(name).trim().toLowerCase() === CUSTOM_PLAN_NAME.toLowerCase();
+}
+
+function ensureCustomPlanExists(mealPlanning) {
+    if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
+    var created = false;
+    if (!mealPlanning.mealPlans[CUSTOM_PLAN_NAME]) {
+        mealPlanning.mealPlans[CUSTOM_PLAN_NAME] = {
+            breakfast: [], lunch: [], dinner: [], snack: []
+        };
+        created = true;
+    }
+    return created;
+}
+
+function customPlanHasItems(plan) {
+    if (!plan) return false;
+    return ['breakfast', 'lunch', 'dinner', 'snack']
+        .some(function(k) { return plan[k] && plan[k].length > 0; });
+}
+
+function resolveEffectiveMealPlan(mealPlanning) {
+    var todayDow = new Date().getDay();
+    var assigned = mealPlanning.mealPlanDays ? mealPlanning.mealPlanDays[todayDow] : undefined;
+    if (assigned && mealPlanning.mealPlans && mealPlanning.mealPlans[assigned]) {
+        return {
+            dayMealPlan: assigned,
+            mealPlans: mealPlanning.mealPlans,
+            isCustom: assigned === CUSTOM_PLAN_NAME
+        };
+    }
+    ensureCustomPlanExists(mealPlanning);
+    var custom = mealPlanning.mealPlans[CUSTOM_PLAN_NAME];
+    if (customPlanHasItems(custom)) {
+        return {
+            dayMealPlan: CUSTOM_PLAN_NAME,
+            mealPlans: mealPlanning.mealPlans,
+            isCustom: true
+        };
+    }
+    return {
+        dayMealPlan: null,
+        mealPlans: mealPlanning.mealPlans,
+        isCustom: false
+    };
+}
+
+function foodLogItemToPlanItem(item) {
+    var view = typeof quickDisplayMacrosForLogItem === 'function'
+        ? quickDisplayMacrosForLogItem(item)
+        : Object.assign({}, item);
+    var planItem = {
+        name: item.name,
+        grams: item.grams,
+        calories: view.calories || 0,
+        protein: view.protein || 0,
+        carbs: view.carbs || 0,
+        fat: view.fat || 0
+    };
+    if (item.fdc_id != null && item.fdc_id !== '') {
+        planItem.fdc_id = item.fdc_id;
+    }
+    if (item.nutrition_source) {
+        planItem.nutrition_source = item.nutrition_source;
+    }
+    return planItem;
+}
+
+function saveMealToCustomPlan(mealType, foodItems) {
+    var mealKey = mealType.toLowerCase();
+    var mealItems = foodItems.filter(function(item) {
+        return getMealType(item.timeAdded) === mealType;
+    });
+    if (mealItems.length === 0) return;
+
+    var mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
+        mealPlans: {},
+        completedMeals: {},
+        removedMeals: {},
+        mealPlanDays: {},
+        lastReset: null
+    };
+    if (!mealPlanning.completedMeals) mealPlanning.completedMeals = {};
+    if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
+    if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
+    ensureCustomPlanExists(mealPlanning);
+
+    var todayDayOfWeek = new Date().getDay();
+    var planItems = mealItems.map(foodLogItemToPlanItem);
+    mealPlanning.mealPlans[CUSTOM_PLAN_NAME][mealKey] = planItems;
+
+    if (!mealPlanning.completedMeals[todayDayOfWeek]) {
+        mealPlanning.completedMeals[todayDayOfWeek] = [];
+    }
+    planItems.forEach(function(pi) {
+        if (!mealPlanning.completedMeals[todayDayOfWeek].includes(pi.name)) {
+            mealPlanning.completedMeals[todayDayOfWeek].push(pi.name);
+        }
+    });
+
+    localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+    displayFoodItems(foodItems);
+    flashMealSaveSuccess(mealType);
+}
+
+var mealSaveFlashTimers = {};
+
+function flashMealSaveSuccess(mealType) {
+    if (mealSaveFlashTimers[mealType]) {
+        clearTimeout(mealSaveFlashTimers[mealType]);
+    }
+    var container = document.querySelector('.meal-header-container[data-meal="' + mealType + '"]');
+    if (!container) return;
+    var saveBtn = container.querySelector('.meal-save-btn');
+    if (!saveBtn) return;
+    saveBtn.textContent = '✅';
+    saveBtn.classList.add('meal-save-btn--success');
+    mealSaveFlashTimers[mealType] = setTimeout(function() {
+        delete mealSaveFlashTimers[mealType];
+        var c = document.querySelector('.meal-header-container[data-meal="' + mealType + '"]');
+        var btn = c && c.querySelector('.meal-save-btn');
+        if (!btn) return;
+        btn.textContent = 'Save';
+        btn.classList.remove('meal-save-btn--success');
+    }, 2000);
+}
+
+function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
+    var actions = mealHeaderContainer.querySelector('.meal-header-actions');
+    if (!actions) {
+        actions = document.createElement('div');
+        actions.className = 'meal-header-actions';
+        actions.style.cssText = 'display:flex;gap:4px;align-items:flex-start;flex-shrink:0;';
+
+        var saveBtn = document.createElement('button');
+        saveBtn.className = 'meal-save-btn';
+        saveBtn.textContent = 'Save';
+        saveBtn.title = 'Save to Custom plan';
+        saveBtn.addEventListener('click', function() {
+            var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+            var items = foodLog[today] || [];
+            saveMealToCustomPlan(mealType, items);
+        });
+        actions.appendChild(saveBtn);
+
+        var toggleButton = mealHeaderContainer.querySelector('.meal-toggle-btn');
+        if (toggleButton) {
+            if (toggleButton.parentNode === mealHeaderContainer) {
+                mealHeaderContainer.removeChild(toggleButton);
+            }
+            actions.appendChild(toggleButton);
+        }
+
+        mealHeaderContainer.appendChild(actions);
+    }
+
+    var saveButton = actions.querySelector('.meal-save-btn');
+    if (saveButton) {
+        if (mealSaveFlashTimers[mealType]) {
+            saveButton.textContent = '✅';
+            saveButton.classList.add('meal-save-btn--success');
+            saveButton.disabled = false;
+        } else {
+            saveButton.textContent = 'Save';
+            saveButton.classList.remove('meal-save-btn--success');
+            saveButton.disabled = !canSave;
+        }
+    }
+}
+
 function calculatePlannedMealTotals(mealType, mealPlans, dayMealPlan, completedMeals, removedMeals) {
     if (!dayMealPlan || !mealPlans || !mealPlans[dayMealPlan]) return null;
     const mealKey = mealType.toLowerCase();
@@ -460,7 +633,10 @@ fetch('assets/character-images-manifest.json')
         updateNutritionProfileCharacterPortrait();
     });
 
-function nutritionPortraitUrl(filename) {
+function nutritionPortraitUrl(filename, characterImageCustom) {
+    if (filename === '__custom__') {
+        return typeof characterImageCustom === 'string' ? characterImageCustom : '';
+    }
     return 'assets/character images/' + encodeURIComponent(filename);
 }
 
@@ -512,10 +688,12 @@ function updateNutritionProfileCharacterPortrait() {
         return;
     }
     var saved = '';
+    var characterImageCustom = '';
     var characterImageViews = {};
     try {
         var stats = JSON.parse(localStorage.getItem('profileStatistics') || '{}');
         saved = (stats.characterImage || '').trim();
+        characterImageCustom = typeof stats.characterImageCustom === 'string' ? stats.characterImageCustom : '';
         if (stats.characterImageViews && typeof stats.characterImageViews === 'object') {
             characterImageViews = stats.characterImageViews;
         }
@@ -523,13 +701,22 @@ function updateNutritionProfileCharacterPortrait() {
         saved = '';
     }
     var effective = saved || nutritionPortraitManifestFiles[0] || '';
+    if (effective === '__custom__' && !characterImageCustom) {
+        effective = nutritionPortraitManifestFiles[0] || '';
+    }
     if (!effective) {
         wrap.classList.add('nutrition-profile-character--hidden');
         imgEl.removeAttribute('src');
         delete imgEl.dataset.currentPortrait;
         return;
     }
-    var url = nutritionPortraitUrl(effective);
+    var url = nutritionPortraitUrl(effective, characterImageCustom);
+    if (!url) {
+        wrap.classList.add('nutrition-profile-character--hidden');
+        imgEl.removeAttribute('src');
+        delete imgEl.dataset.currentPortrait;
+        return;
+    }
     imgEl.alt = '';
     if (imgEl.dataset.currentPortrait !== url) {
         imgEl.dataset.currentPortrait = url;
@@ -1046,9 +1233,17 @@ function buildMealHeaderHtml(emoji, mealType, timeRange, loggedTotals, plannedTo
 function updateMealHeaderCaloriesFromEnriched(scrollableWindow, enrichedList) {
     var emojiMap = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snack: '🍎' };
     var todayDayOfWeek = new Date().getDay();
-    var mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {};
-    var dayMealPlan = (mealPlanning.mealPlanDays || {})[todayDayOfWeek];
-    var mealPlans = mealPlanning.mealPlans || {};
+    var mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
+        mealPlans: {},
+        completedMeals: {},
+        removedMeals: {},
+        mealPlanDays: {},
+        lastReset: null
+    };
+    if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
+    var effective = resolveEffectiveMealPlan(mealPlanning);
+    var dayMealPlan = effective.dayMealPlan;
+    var mealPlans = effective.mealPlans;
     var completedMeals = (mealPlanning.completedMeals || {})[todayDayOfWeek] || [];
     var removedMeals = (mealPlanning.removedMeals || {})[todayDayOfWeek] || [];
     scrollableWindow.querySelectorAll('.meal-header-container[data-meal]').forEach(function(container) {
@@ -1104,9 +1299,10 @@ async function displayFoodItems(foodItems) {
     if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
     if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
     if (!mealPlanning.lastReset) mealPlanning.lastReset = null;
-    
-    const dayMealPlan = mealPlanning.mealPlanDays[todayDayOfWeek];
-    const mealPlans = mealPlanning.mealPlans;
+
+    const effective = resolveEffectiveMealPlan(mealPlanning);
+    const dayMealPlan = effective.dayMealPlan;
+    const mealPlans = effective.mealPlans;
     const completedMeals = mealPlanning.completedMeals[todayDayOfWeek] || [];
     const removedMeals = mealPlanning.removedMeals[todayDayOfWeek] || [];
 
@@ -1162,10 +1358,13 @@ async function displayFoodItems(foodItems) {
             let mealHeaderContainer = scrollableWindow.querySelector(`.meal-header-container[data-meal="${mealType}"]`);
             let mealItemsContainer = scrollableWindow.querySelector(`.meal-items-${mealKey}`);
 
+            const canSave = meals[mealType].length > 0;
+
             if (mealHeaderContainer) {
                 // Update header text in-place (preserves toggle button and its listener)
                 const mealHeader = mealHeaderContainer.querySelector('.meal-header');
                 if (mealHeader) mealHeader.innerHTML = headerText;
+                ensureMealHeaderActions(mealHeaderContainer, mealType, canSave);
                 // Clear item children only — reuse the container element itself
                 mealItemsContainer.innerHTML = '';
             } else {
@@ -1197,6 +1396,7 @@ async function displayFoodItems(foodItems) {
 
                 mealHeaderContainer.appendChild(mealHeader);
                 mealHeaderContainer.appendChild(toggleButton);
+                ensureMealHeaderActions(mealHeaderContainer, mealType, canSave);
 
                 mealItemsContainer = document.createElement('div');
                 mealItemsContainer.className = `meal-items-container meal-items-${mealKey}`;
@@ -1989,13 +2189,21 @@ function applyPlannedMealItem(item) {
     const foodItem = {
         name: item.name,
         grams: item.grams,
-        calories: item.calories,
-        fat: item.fat,
-        protein: item.protein,
-        carbs: item.carbs,
         timeAdded: formatTime(new Date())
     };
-    
+    if (item.fdc_id != null && item.fdc_id !== '') {
+        foodItem.fdc_id = item.fdc_id;
+    } else {
+        foodItem.fdc_id = null;
+        foodItem.calories = item.calories;
+        foodItem.fat = item.fat;
+        foodItem.protein = item.protein;
+        foodItem.carbs = item.carbs;
+    }
+    if (item.nutrition_source) {
+        foodItem.nutrition_source = item.nutrition_source;
+    }
+
     foodLog[today].push(foodItem);
     localStorage.setItem('foodLog', JSON.stringify(foodLog));
     
@@ -2056,8 +2264,19 @@ document.addEventListener('DOMContentLoaded', async function() {
 	nutritionStartupPerfMark('domReady');
 
 	checkProfileCompletion();
-	checkAndResetDailyProgress();
 	migrateOldMealPlanData();
+	(function initCustomMealPlan() {
+		var mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
+			mealPlans: {},
+			completedMeals: {},
+			removedMeals: {},
+			mealPlanDays: {},
+			lastReset: null
+		};
+		if (ensureCustomPlanExists(mealPlanning)) {
+			localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+		}
+	})();
 	initOffsetDialog();
 	initUndoButton();
 	initNutrientDetailModal();
@@ -2106,6 +2325,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 	function setWarm(msg) {
 		if (warmEl) warmEl.textContent = msg || '';
 	}
+
+	checkAndResetDailyProgress();
 
 	var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
 	var foodItems = foodLog[today] || [];
@@ -2173,15 +2394,22 @@ document.addEventListener('DOMContentLoaded', async function() {
 			lastReset: null
 		};
 		const currentDate = new Date();
-		
-		// Check if we need to reset based on userTime (weekly reset)
-		if (shouldResetWeekly(userTime, mealPlanning.lastReset, currentDate)) {
-			resetAllCheckmarks();
-			// Store the start of the current week (Sunday) as the last reset date
+
+		if (!mealPlanning.lastReset) {
 			const weekStart = getWeekStart(currentDate);
 			mealPlanning.lastReset = weekStart.toISOString();
 			localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+			return false;
 		}
+
+		if (shouldResetWeekly(userTime, mealPlanning.lastReset, currentDate)) {
+			resetAllCheckmarks();
+			const updated = JSON.parse(localStorage.getItem('meal_planning')) || mealPlanning;
+			updated.lastReset = getWeekStart(currentDate).toISOString();
+			localStorage.setItem('meal_planning', JSON.stringify(updated));
+			return true;
+		}
+		return false;
 	}
 
 	function getWeekStart(date) {
@@ -2195,11 +2423,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 	}
 
 	function shouldResetWeekly(userTime, lastResetDateString, currentDate) {
-		// If no previous reset, reset now
 		if (!lastResetDateString) {
-			return true;
+			return false;
 		}
-		
+
 		// Parse userTime (format: "HH:MM")
 		const [userHour, userMinute] = userTime.split(':').map(Number);
 		const userTimeInMinutes = userHour * 60 + userMinute;

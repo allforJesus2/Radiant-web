@@ -287,14 +287,18 @@
         function checkAndResetDailyProgress() {
             const userTime = localStorage.getItem('userTime') || '01:00'; // Default to 1:00 AM
             const currentDate = new Date();
-            
-            // Check if we need to reset based on userTime (weekly reset)
+
+            if (!mealPlanning.lastReset) {
+                mealPlanning.lastReset = getWeekStart(currentDate).toISOString();
+                saveMealPlanningData();
+                return false;
+            }
+
             if (shouldResetWeekly(userTime, mealPlanning.lastReset, currentDate)) {
                 resetAllCheckmarks();
-                // Store the start of the current week (Sunday) as the last reset date
-                const weekStart = getWeekStart(currentDate);
-                mealPlanning.lastReset = weekStart.toISOString();
+                mealPlanning.lastReset = getWeekStart(currentDate).toISOString();
                 saveMealPlanningData();
+                loadWeekMealPlans();
             }
         }
 
@@ -309,11 +313,10 @@
         }
 
         function shouldResetWeekly(userTime, lastResetDateString, currentDate) {
-            // If no previous reset, reset now
             if (!lastResetDateString) {
-                return true;
+                return false;
             }
-            
+
             // Parse userTime (format: "HH:MM")
             const [userHour, userMinute] = userTime.split(':').map(Number);
             const userTimeInMinutes = userHour * 60 + userMinute;

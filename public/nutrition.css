@@ -254,12 +254,37 @@
             font-size: 0.8em;
         }
 
-        .meal-toggle-btn:hover {
+        .meal-toggle-btn:hover,
+        .meal-save-btn:hover:not(:disabled) {
             background: var(--button-hover, #555) !important;
         }
 
+        .meal-toggle-btn,
+        .meal-save-btn {
+            background: var(--button);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 3px;
+            padding: 4px 8px;
+            cursor: pointer;
+            font-size: 12px;
+            text-align: center;
+            transition: transform 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
+        }
+
+        .meal-save-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .meal-save-btn.meal-save-btn--success {
+            opacity: 1;
+            cursor: default;
+            pointer-events: none;
+        }
+
         .meal-toggle-btn {
-            transition: transform 0.2s ease, background-color 0.2s ease;
+            min-width: 30px;
         }
 
         /* Circular progress bar styles */
