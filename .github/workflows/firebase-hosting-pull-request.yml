@@ -12,6 +12,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
+      - run: npm run lint:storage
+      - run: npm run build:food-db
+      - run: npm test
       - run: node scripts/bump-sw-version.js
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:

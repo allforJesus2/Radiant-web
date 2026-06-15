@@ -4,7 +4,7 @@
   if (!('serviceWorker' in navigator)) return;
 
   function sendPreference(controller) {
-    const preferOffline = localStorage.getItem('preferOfflineData') === 'true';
+    const preferOffline = RadiantStorage.settings.getPreferOffline();
     controller.postMessage({
       type: 'SET_OFFLINE_PREFERENCE',
       preferOffline: preferOffline,

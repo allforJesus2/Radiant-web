@@ -6,7 +6,9 @@
     <title>Set Time for Food Log Reset</title>
     <link rel="stylesheet" href="dark-theme.css">
     <link rel="stylesheet" href="navigation.css">
+    <script src="storage.js"></script>
     <script src="navigation.js"></script>
+    <script src="onboarding.js"></script>
     <style>
         .time-container {
             max-width: 600px;
@@ -92,7 +94,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     // Check if there is a time stored in localStorage
-    var storedTime = localStorage.getItem('userTime');
+    var storedTime = RadiantStorage.profile.getUserTime();
     if (storedTime) {
         // If there is a stored time, set the value of the time input field to this time
         document.getElementById('timeInput').value = storedTime;
@@ -113,7 +115,7 @@ function saveTime() {
         alert('Please select a time.');
         return;
     }
-    localStorage.setItem('userTime', timeInput); // Store the user's time in localStorage
+    RadiantStorage.profile.saveUserTime(timeInput);
 }
 
 

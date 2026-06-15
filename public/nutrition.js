@@ -31,24 +31,18 @@
 		var key = getTodayKey();
 		if (key === today) return;
 		today = key;
-		localStorage.setItem('today', today);
-		var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+		RadiantStorage.nutrition.setToday(today);
+		var foodLog = RadiantStorage.nutrition.getFoodLog();
 		displayFoodItems(foodLog[today] || []);
 		if (typeof setupHeader === 'function') setupHeader();
 	}
 
 	// Function to check if user just completed profile creation flow
 	function checkProfileCompletion() {
-		const profileData = localStorage.getItem('profileStatistics');
-		const userTime = localStorage.getItem('userTime');
-		const macros = localStorage.getItem('macros');
-		
-		if (profileData && userTime && macros) {
-			// Check if this is the first time visiting nutrition page after completion
-			const hasSeenWelcome = localStorage.getItem('hasSeenWelcome');
-			if (!hasSeenWelcome) {
+		if (RadiantStorage.profile.isComplete()) {
+			if (!RadiantStorage.nutrition.hasSeenWelcome()) {
 				document.getElementById('welcomeMessage').style.display = 'block';
-				localStorage.setItem('hasSeenWelcome', 'true');
+				RadiantStorage.nutrition.markWelcomeSeen();
 			}
 		}
 	}
@@ -66,7 +60,7 @@ var UNIT_GRAMS_PER_OZ = 28.35; // exact conversion
 var preferredUnit = 'grams';
 
 function initUnitSelector() {
-    preferredUnit = localStorage.getItem('preferredUnit') === 'oz' ? 'oz' : 'grams';
+    preferredUnit = RadiantStorage.nutrition.getPreferredUnit();
     updateUnitToggleButton();
     updateUnitInputPlaceholder();
 }
@@ -108,7 +102,7 @@ function setupUnitSelector() {
         var newUnit = preferredUnit === 'oz' ? 'grams' : 'oz';
         convertInputOnUnitChange(newUnit);
         preferredUnit = newUnit;
-        localStorage.setItem('preferredUnit', preferredUnit);
+        RadiantStorage.nutrition.setPreferredUnit(preferredUnit);
         updateUnitToggleButton();
         updateUnitInputPlaceholder();
     });
@@ -222,18 +216,14 @@ function getMealType(timeStr) {
     const totalMinutes = hour * 60 + minute;
     
     // Load user-configured meal times or use defaults
-    const savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
-        breakfast: { start: '06:00', end: '10:00' },
-        lunch: { start: '11:00', end: '14:00' },
-        dinner: { start: '17:00', end: '21:00' }
-    };
+    const savedMealTimes = RadiantStorage.nutrition.getMealTimes();
 
-    const dynamicConfig = JSON.parse(localStorage.getItem('dynamicMealConfig')) || null;
+    const dynamicConfig = RadiantStorage.nutrition.getDynamicMealConfig();
 
     // If dynamic config enabled, compute meal times for the given date (use today by default)
     let mealTimes = savedMealTimes;
     if (dynamicConfig && dynamicConfig.enabled) {
-        const dateKey = localStorage.getItem('today') || new Date().toLocaleDateString('en-CA');
+        const dateKey = RadiantStorage.nutrition.getToday();
         const dyn = computeDynamicMealTimesForDate(dateKey, dynamicConfig);
         if (dyn) mealTimes = dyn;
     }
@@ -412,13 +402,7 @@ function saveMealToCustomPlan(mealType, foodItems) {
     });
     if (mealItems.length === 0) return;
 
-    var mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-        mealPlans: {},
-        completedMeals: {},
-        removedMeals: {},
-        mealPlanDays: {},
-        lastReset: null
-    };
+    var mealPlanning = RadiantStorage.nutrition.getMealPlanning();
     if (!mealPlanning.completedMeals) mealPlanning.completedMeals = {};
     if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
     if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
@@ -437,7 +421,7 @@ function saveMealToCustomPlan(mealType, foodItems) {
         }
     });
 
-    localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+    RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
     displayFoodItems(foodItems);
     flashMealSaveSuccess(mealType);
 }
@@ -476,7 +460,7 @@ function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
         saveBtn.textContent = 'Save';
         saveBtn.title = 'Save to Custom plan';
         saveBtn.addEventListener('click', function() {
-            var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+            var foodLog = RadiantStorage.nutrition.getFoodLog();
             var items = foodLog[today] || [];
             saveMealToCustomPlan(mealType, items);
         });
@@ -530,16 +514,12 @@ function calculatePlannedMealTotals(mealType, mealPlans, dayMealPlan, completedM
 
 // Function to get meal time range as a formatted string
 function getMealTimeRange(mealType) {
-    const savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
-        breakfast: { start: '06:00', end: '10:00' },
-        lunch: { start: '11:00', end: '14:00' },
-        dinner: { start: '17:00', end: '21:00' }
-    };
+    const savedMealTimes = RadiantStorage.nutrition.getMealTimes();
 
-    const dynamicConfig = JSON.parse(localStorage.getItem('dynamicMealConfig')) || null;
+    const dynamicConfig = RadiantStorage.nutrition.getDynamicMealConfig();
     let mealTimes = savedMealTimes;
     if (dynamicConfig && dynamicConfig.enabled) {
-        const dateKey = localStorage.getItem('today') || new Date().toLocaleDateString('en-CA');
+        const dateKey = RadiantStorage.nutrition.getToday();
         const dyn = computeDynamicMealTimesForDate(dateKey, dynamicConfig);
         if (dyn) mealTimes = dyn;
     }
@@ -573,7 +553,7 @@ function getMealTimeRange(mealType) {
 // Compute dynamic meal times for a given date using dynamic config
 function computeDynamicMealTimesForDate(dateKey, dynamicConfig) {
     try {
-        const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+        const foodLog = RadiantStorage.nutrition.getFoodLog();
         const dayFoods = foodLog[dateKey] || [];
 
         let firstTime = null;
@@ -691,7 +671,7 @@ function updateNutritionProfileCharacterPortrait() {
     var characterImageCustom = '';
     var characterImageViews = {};
     try {
-        var stats = JSON.parse(localStorage.getItem('profileStatistics') || '{}');
+        var stats = RadiantStorage.profile.get() || {};
         saved = (stats.characterImage || '').trim();
         characterImageCustom = typeof stats.characterImageCustom === 'string' ? stats.characterImageCustom : '';
         if (stats.characterImageViews && typeof stats.characterImageViews === 'object') {
@@ -738,8 +718,8 @@ document.addEventListener('visibilitychange', function () {
 });
 
 function updateProgressBars(totals) {
-    const macros = JSON.parse(localStorage.getItem('macros'));
-    const profileStatistics = JSON.parse(localStorage.getItem('profileStatistics'));
+    const macros = RadiantStorage.profile.getMacros();
+    const profileStatistics = RadiantStorage.profile.get();
 
     const proteinGoal = macros ? macros.protein : 150;
     const carbsGoal   = macros ? macros.carbs   : 200;
@@ -867,11 +847,7 @@ function minutesToTime(m) {
 
 // Shift all mealTimes by offsetMinutes (can be negative). Persists to localStorage.
 function shiftMealTimes(offsetMinutes) {
-    var savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
-        breakfast: { start: '06:00', end: '10:00' },
-        lunch: { start: '11:00', end: '14:00' },
-        dinner: { start: '17:00', end: '21:00' }
-    };
+    var savedMealTimes = RadiantStorage.nutrition.getMealTimes();
 
     function shiftRange(range) {
         var s = timeToMinutes(range.start);
@@ -887,17 +863,13 @@ function shiftMealTimes(offsetMinutes) {
         dinner: shiftRange(savedMealTimes.dinner)
     };
 
-    localStorage.setItem('mealTimes', JSON.stringify(newTimes));
+    RadiantStorage.nutrition.saveMealTimes(newTimes);
     return newTimes;
 }
 
 // Set breakfast start to newStart (HH:MM) preserving breakfast duration; other meals optionally shifted by same delta
 function setBreakfastStart(newStart, shiftLinked) {
-    var savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || {
-        breakfast: { start: '06:00', end: '10:00' },
-        lunch: { start: '11:00', end: '14:00' },
-        dinner: { start: '17:00', end: '21:00' }
-    };
+    var savedMealTimes = RadiantStorage.nutrition.getMealTimes();
     var oldStart = timeToMinutes(savedMealTimes.breakfast.start);
     var oldEnd = timeToMinutes(savedMealTimes.breakfast.end);
     var duration = oldEnd - oldStart;
@@ -914,7 +886,7 @@ function setBreakfastStart(newStart, shiftLinked) {
         newTimes.dinner = { start: minutesToTime(timeToMinutes(savedMealTimes.dinner.start) + delta), end: minutesToTime(timeToMinutes(savedMealTimes.dinner.end) + delta) };
     }
 
-    localStorage.setItem('mealTimes', JSON.stringify(newTimes));
+    RadiantStorage.nutrition.saveMealTimes(newTimes);
     return newTimes;
 }
 
@@ -925,7 +897,7 @@ function showOffsetDialog(foodItem) {
     pendingFoodItem = foodItem;
     var hh_mm = foodItem.timeAdded;
     document.getElementById('offsetTime').textContent = hh_mm;
-    var savedMealTimes = JSON.parse(localStorage.getItem('mealTimes')) || { breakfast: { start: '06:00', end: '10:00' } };
+    var savedMealTimes = RadiantStorage.nutrition.getMealTimes();
     document.getElementById('offsetBreakfastStart').textContent = savedMealTimes.breakfast.start;
     document.getElementById('offsetDialog').style.display = 'flex';
     document.getElementById('blurOverlay').classList.add('active');
@@ -941,12 +913,12 @@ function hideOffsetDialog() {
 function applyOffsetShiftAll() {
     if (!pendingFoodItem) return hideOffsetDialog();
     var hh = timeToMinutes(pendingFoodItem.timeAdded);
-    var saved = JSON.parse(localStorage.getItem('mealTimes')) || { breakfast: { start: '06:00', end: '10:00' } };
+    var saved = RadiantStorage.nutrition.getMealTimes();
     var breakfastStart = timeToMinutes(saved.breakfast.start);
     var offset = hh - breakfastStart;
     shiftMealTimes(offset);
     if (document.getElementById('offsetDisableDynamic').checked) {
-        localStorage.setItem('dynamicMealConfig', JSON.stringify({ enabled: true }));
+        RadiantStorage.nutrition.saveDynamicMealConfig({ enabled: true });
     }
     finalizePendingFood();
 }
@@ -957,7 +929,7 @@ function applyOffsetSetBreakfast() {
     // by default shift linked windows as well
     setBreakfastStart(newStart, true);
     if (document.getElementById('offsetDisableDynamic').checked) {
-        localStorage.setItem('dynamicMealConfig', JSON.stringify({ enabled: true }));
+        RadiantStorage.nutrition.saveDynamicMealConfig({ enabled: true });
     }
     finalizePendingFood();
 }
@@ -969,10 +941,10 @@ function applyOffsetKeep() {
 }
 
 function finalizePendingFood() {
-    var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    var foodLog = RadiantStorage.nutrition.getFoodLog();
     if (!foodLog[today]) foodLog[today] = [];
     foodLog[today].push(pendingFoodItem);
-    localStorage.setItem('foodLog', JSON.stringify(foodLog));
+    RadiantStorage.nutrition.saveFoodLog(foodLog);
     var existingData = foodLog[today];
     displayFoodItems(existingData);
     hideOffsetDialog();
@@ -1003,7 +975,7 @@ function mergeOrAppendFoodLogItem(p) {
     var fdcId = p.fdcId;
     var grams = p.grams;
     var foodItem = p.foodItem;
-    var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    var foodLog = RadiantStorage.nutrition.getFoodLog();
     if (!foodLog[today]) foodLog[today] = [];
     var existingData = foodLog[today];
 
@@ -1037,7 +1009,7 @@ function mergeOrAppendFoodLogItem(p) {
     }, -1);
 
     function finish() {
-        localStorage.setItem('foodLog', JSON.stringify(foodLog));
+        RadiantStorage.nutrition.saveFoodLog(foodLog);
         displayFoodItems(existingData);
         if (p.done) p.done();
     }
@@ -1233,13 +1205,7 @@ function buildMealHeaderHtml(emoji, mealType, timeRange, loggedTotals, plannedTo
 function updateMealHeaderCaloriesFromEnriched(scrollableWindow, enrichedList) {
     var emojiMap = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snack: '🍎' };
     var todayDayOfWeek = new Date().getDay();
-    var mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-        mealPlans: {},
-        completedMeals: {},
-        removedMeals: {},
-        mealPlanDays: {},
-        lastReset: null
-    };
+    var mealPlanning = RadiantStorage.nutrition.getMealPlanning();
     if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
     var effective = resolveEffectiveMealPlan(mealPlanning);
     var dayMealPlan = effective.dayMealPlan;
@@ -1286,13 +1252,7 @@ async function displayFoodItems(foodItems) {
 
     // Check for meal plan items for today
     const todayDayOfWeek = new Date().getDay();
-    const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-        mealPlans: {},
-        completedMeals: {},
-        removedMeals: {},
-        mealPlanDays: {},
-        lastReset: null
-    };
+    const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
     
     if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
     if (!mealPlanning.completedMeals) mealPlanning.completedMeals = {};
@@ -1524,12 +1484,12 @@ function initUndoButton() {
             const entry = deletionStack.pop();
             clearTimeout(undoTimer);
 
-            var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+            var foodLog = RadiantStorage.nutrition.getFoodLog();
             if (!foodLog[entry.date]) foodLog[entry.date] = [];
             // Re-insert at original index (clamped to current length)
             const insertAt = Math.min(entry.index, foodLog[entry.date].length);
             foodLog[entry.date].splice(insertAt, 0, entry.item);
-            localStorage.setItem('foodLog', JSON.stringify(foodLog));
+            RadiantStorage.nutrition.saveFoodLog(foodLog);
 
             displayFoodItems(foodLog[entry.date]);
             renderUndoButton();
@@ -1945,9 +1905,9 @@ function initEditItemDialog() {
                     }
                 }
 
-                var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+                var foodLog = RadiantStorage.nutrition.getFoodLog();
                 foodLog[today] = allFoodItems;
-                localStorage.setItem('foodLog', JSON.stringify(foodLog));
+                RadiantStorage.nutrition.saveFoodLog(foodLog);
                 displayFoodItems(allFoodItems);
                 hideEditDialog();
             })
@@ -1960,9 +1920,9 @@ function initEditItemDialog() {
                         timeSyncGroup.forEach(function(f) { f.timeAdded = newTime; });
                     }
                 }
-                var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+                var foodLog = RadiantStorage.nutrition.getFoodLog();
                 foodLog[today] = allFoodItems;
-                localStorage.setItem('foodLog', JSON.stringify(foodLog));
+                RadiantStorage.nutrition.saveFoodLog(foodLog);
                 displayFoodItems(allFoodItems);
                 hideEditDialog();
             });
@@ -1976,9 +1936,13 @@ function initEditItemDialog() {
         t.addEventListener('change', updateEditTimeSyncBlockVisibility);
     })();
 
+    // Allow saving by pressing Enter when focused on any editable field in the dialog — works for touch keyboards and physical keyboard
+    var editInputFields = ['editGrams', 'editTime'];
     document.getElementById('editItemDialog').addEventListener('keydown', function(e) {
-        if (e.key === 'Enter' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'TEXTAREA') {
+        if (e.key === 'Enter' && editInputFields.includes(e.target.id)) {
+            e.preventDefault();
             document.getElementById('editItemSave').click();
+            return;
         }
         if (e.key === 'Escape') hideEditDialog();
     });
@@ -2012,9 +1976,9 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
         if (itemIndex !== -1) {
             pushDeletion(item, itemIndex);
             allFoodItems.splice(itemIndex, 1);
-            var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+            var foodLog = RadiantStorage.nutrition.getFoodLog();
             foodLog[today] = allFoodItems;
-            localStorage.setItem('foodLog', JSON.stringify(foodLog));
+            RadiantStorage.nutrition.saveFoodLog(foodLog);
             displayFoodItems(allFoodItems);
         }
 
@@ -2147,13 +2111,7 @@ function removePlannedMealItem(item) {
     const todayDayOfWeek = new Date().getDay();
     
     // Add to removed meals for this day
-    const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-        mealPlans: {},
-        completedMeals: {},
-        removedMeals: {},
-        mealPlanDays: {},
-        lastReset: null
-    };
+    const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
     
     // Ensure all required properties exist
     if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
@@ -2168,11 +2126,11 @@ function removePlannedMealItem(item) {
     
     if (!mealPlanning.removedMeals[todayDayOfWeek].includes(item.name)) {
         mealPlanning.removedMeals[todayDayOfWeek].push(item.name);
-        localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+        RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
     }
     
     // Refresh the display
-    const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    const foodLog = RadiantStorage.nutrition.getFoodLog();
     const foodItems = foodLog[today] || [];
     displayFoodItems(foodItems);
 }
@@ -2181,7 +2139,7 @@ function applyPlannedMealItem(item) {
     const todayDayOfWeek = new Date().getDay();
     
     // Add the planned item to the food log
-    const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+    const foodLog = RadiantStorage.nutrition.getFoodLog();
     if (!foodLog[today]) {
         foodLog[today] = [];
     }
@@ -2205,16 +2163,10 @@ function applyPlannedMealItem(item) {
     }
 
     foodLog[today].push(foodItem);
-    localStorage.setItem('foodLog', JSON.stringify(foodLog));
+    RadiantStorage.nutrition.saveFoodLog(foodLog);
     
     // Add to completed meals for this day
-    const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-        mealPlans: {},
-        completedMeals: {},
-        removedMeals: {},
-        mealPlanDays: {},
-        lastReset: null
-    };
+    const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
     
     // Ensure all required properties exist
     if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
@@ -2229,7 +2181,7 @@ function applyPlannedMealItem(item) {
     
     if (!mealPlanning.completedMeals[todayDayOfWeek].includes(item.name)) {
         mealPlanning.completedMeals[todayDayOfWeek].push(item.name);
-        localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+        RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
     }
     
     // Refresh the display
@@ -2266,15 +2218,9 @@ document.addEventListener('DOMContentLoaded', async function() {
 	checkProfileCompletion();
 	migrateOldMealPlanData();
 	(function initCustomMealPlan() {
-		var mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-			mealPlans: {},
-			completedMeals: {},
-			removedMeals: {},
-			mealPlanDays: {},
-			lastReset: null
-		};
+		var mealPlanning = RadiantStorage.nutrition.getMealPlanning();
 		if (ensureCustomPlanExists(mealPlanning)) {
-			localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+			RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
 		}
 	})();
 	initOffsetDialog();
@@ -2285,7 +2231,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 	setupUnitSelector();
 
 	today = getTodayKey();
-	localStorage.setItem('today', today);
+	RadiantStorage.nutrition.setToday(today);
 
 	foodInput = document.querySelector('.food');
 	autocompleteList = document.getElementById('autocompleteList');
@@ -2316,7 +2262,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 	var mealFilterEl = document.getElementById('mealFilter');
 	if (mealFilterEl) {
 		mealFilterEl.addEventListener('change', function() {
-			var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+			var foodLog = RadiantStorage.nutrition.getFoodLog();
 			displayFoodItems(foodLog[today] || []);
 		});
 	}
@@ -2328,7 +2274,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 	checkAndResetDailyProgress();
 
-	var foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+	var foodLog = RadiantStorage.nutrition.getFoodLog();
 	var foodItems = foodLog[today] || [];
 
 	try {
@@ -2368,11 +2314,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 		}
 
 		try {
-			var foodLogRaw = JSON.parse(localStorage.getItem('foodLog')) || {};
+			var foodLogRaw = RadiantStorage.nutrition.getFoodLog();
 			var mig = await migrateFoodLogIfNeeded(foodLogRaw);
 			nutritionStartupPerfMark('migrationDone');
 			if (mig.changed) {
-				var fl = JSON.parse(localStorage.getItem('foodLog')) || {};
+				var fl = RadiantStorage.nutrition.getFoodLog();
 				displayFoodItems(fl[today] || []);
 			}
 		} catch (e) {
@@ -2385,28 +2331,22 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 	// Weekly meal plan progress reset functions
 	function checkAndResetDailyProgress() {
-		const userTime = localStorage.getItem('userTime') || '01:00'; // Default to 1:00 AM
-		const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-			mealPlans: {},
-			completedMeals: {},
-			removedMeals: {},
-			mealPlanDays: {},
-			lastReset: null
-		};
+		const userTime = RadiantStorage.profile.getUserTime() || '01:00'; // Default to 1:00 AM
+		const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
 		const currentDate = new Date();
 
 		if (!mealPlanning.lastReset) {
 			const weekStart = getWeekStart(currentDate);
 			mealPlanning.lastReset = weekStart.toISOString();
-			localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+			RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
 			return false;
 		}
 
 		if (shouldResetWeekly(userTime, mealPlanning.lastReset, currentDate)) {
 			resetAllCheckmarks();
-			const updated = JSON.parse(localStorage.getItem('meal_planning')) || mealPlanning;
+			const updated = RadiantStorage.nutrition.getMealPlanning();
 			updated.lastReset = getWeekStart(currentDate).toISOString();
-			localStorage.setItem('meal_planning', JSON.stringify(updated));
+			RadiantStorage.nutrition.saveMealPlanning(updated);
 			return true;
 		}
 		return false;
@@ -2469,87 +2409,66 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 	function resetAllCheckmarks() {
 		// Clear completed and removed meals for all days of the week
-		const mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-			mealPlans: {},
-			completedMeals: {},
-			removedMeals: {},
-			mealPlanDays: {},
-			lastReset: null
-		};
+		const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
 		mealPlanning.completedMeals = {};
 		mealPlanning.removedMeals = {};
-		localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
+		RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
 		console.log('Weekly meal plan progress has been reset for the new week.');
 	}
 
 	function migrateOldMealPlanData() {
-		// Check if we need to migrate old meal plan data
-		const hasOldData = localStorage.getItem('mealPlans') || 
-			localStorage.getItem('lastMealPlanReset') ||
-			localStorage.getItem('mealPlan_day_0') ||
-			localStorage.getItem('completedMeals_day_0') ||
-			localStorage.getItem('removedMeals_day_0');
-		
+		const hasOldData = RadiantStorage.nutrition.getLegacyKey('mealPlans') ||
+			RadiantStorage.nutrition.getLegacyKey('lastMealPlanReset') ||
+			RadiantStorage.nutrition.getLegacyKey('mealPlan_day_0') ||
+			RadiantStorage.nutrition.getLegacyKey('completedMeals_day_0') ||
+			RadiantStorage.nutrition.getLegacyKey('removedMeals_day_0');
+
 		if (hasOldData) {
 			console.log('Migrating old meal plan data to new consolidated structure...');
-			
-			// Get current meal planning data
-			let mealPlanning = JSON.parse(localStorage.getItem('meal_planning')) || {
-				mealPlans: {},
-				completedMeals: {},
-				removedMeals: {},
-				mealPlanDays: {},
-				lastReset: null
-			};
-			
-			// Migrate meal plans
-			const oldMealPlans = JSON.parse(localStorage.getItem('mealPlans')) || {};
+
+			let mealPlanning = RadiantStorage.nutrition.getMealPlanning();
+
+			const oldMealPlans = RadiantStorage.nutrition.getLegacyJSON('mealPlans', {});
 			if (Object.keys(oldMealPlans).length > 0) {
 				mealPlanning.mealPlans = { ...mealPlanning.mealPlans, ...oldMealPlans };
 			}
-			
-			// Migrate day assignments
+
 			for (let day = 0; day < 7; day++) {
-				const dayMealPlan = localStorage.getItem(`mealPlan_day_${day}`);
+				const dayMealPlan = RadiantStorage.nutrition.getLegacyKey(`mealPlan_day_${day}`);
 				if (dayMealPlan) {
 					mealPlanning.mealPlanDays[day] = dayMealPlan;
 				}
 			}
-			
-			// Migrate completed meals
+
 			for (let day = 0; day < 7; day++) {
-				const completedMeals = JSON.parse(localStorage.getItem(`completedMeals_day_${day}`)) || [];
+				const completedMeals = RadiantStorage.nutrition.getLegacyJSON(`completedMeals_day_${day}`, []);
 				if (completedMeals.length > 0) {
 					mealPlanning.completedMeals[day] = completedMeals;
 				}
 			}
-			
-			// Migrate removed meals
+
 			for (let day = 0; day < 7; day++) {
-				const removedMeals = JSON.parse(localStorage.getItem(`removedMeals_day_${day}`)) || [];
+				const removedMeals = RadiantStorage.nutrition.getLegacyJSON(`removedMeals_day_${day}`, []);
 				if (removedMeals.length > 0) {
 					mealPlanning.removedMeals[day] = removedMeals;
 				}
 			}
-			
-			// Migrate last reset
-			const lastReset = localStorage.getItem('lastMealPlanReset');
+
+			const lastReset = RadiantStorage.nutrition.getLegacyKey('lastMealPlanReset');
 			if (lastReset) {
 				mealPlanning.lastReset = lastReset;
 			}
-			
-			// Save the consolidated data
-			localStorage.setItem('meal_planning', JSON.stringify(mealPlanning));
-			
-			// Clean up old keys
-			localStorage.removeItem('mealPlans');
-			localStorage.removeItem('lastMealPlanReset');
+
+			RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
+
+			RadiantStorage.nutrition.removeLegacyKey('mealPlans');
+			RadiantStorage.nutrition.removeLegacyKey('lastMealPlanReset');
 			for (let day = 0; day < 7; day++) {
-				localStorage.removeItem(`mealPlan_day_${day}`);
-				localStorage.removeItem(`completedMeals_day_${day}`);
-				localStorage.removeItem(`removedMeals_day_${day}`);
+				RadiantStorage.nutrition.removeLegacyKey(`mealPlan_day_${day}`);
+				RadiantStorage.nutrition.removeLegacyKey(`completedMeals_day_${day}`);
+				RadiantStorage.nutrition.removeLegacyKey(`removedMeals_day_${day}`);
 			}
-			
+
 			console.log('Migration completed successfully!');
 		}
 	}

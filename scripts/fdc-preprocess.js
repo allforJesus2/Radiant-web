@@ -12,9 +12,10 @@ const readline = require('readline');
 
 const ROOT = path.resolve(__dirname, '..');
 const ASSETS = path.join(ROOT, 'public', 'assets');
+const FDC_SOURCE = path.join(ROOT, 'fdc-source');
 const OUT = path.join(ASSETS, 'processed');
-const SR_DIR = path.join(ASSETS, 'FoodData_Central_sr_legacy_food_csv_2018-04');
-const BR_DIR = path.join(ASSETS, 'FoodData_Central_branded_food_csv_2025-12-18');
+const SR_DIR = path.join(FDC_SOURCE, 'FoodData_Central_sr_legacy_food_csv_2018-04');
+const BR_DIR = path.join(FDC_SOURCE, 'FoodData_Central_branded_food_csv_2025-12-18');
 const USDA_ID_TO_KEY = require(path.join(ROOT, 'public', 'usda-id-to-key.js'));
 
 const WANT_IDS = new Set(Object.keys(USDA_ID_TO_KEY));

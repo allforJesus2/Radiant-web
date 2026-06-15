@@ -6,7 +6,9 @@
     <title>Set Macros</title>
     <link rel="stylesheet" href="dark-theme.css">
     <link rel="stylesheet" href="navigation.css">
+    <script src="storage.js"></script>
     <script src="navigation.js"></script>
+    <script src="onboarding.js"></script>
     <style>
         .macros-container {
             max-width: 600px;
@@ -136,12 +138,11 @@
 
     <script>
         // Retrieve profileStatistics from local storage
-        const profileStatistics = JSON.parse(localStorage.getItem('profileStatistics'));
+        const profileStatistics = RadiantStorage.profile.get();
         let dailyCalories = 2000; // Default value in case profileStatistics is not found
         let proteinMax, carbsMax, fatMax;
 
-        // Load saved macros from local storage
-        const savedMacros = JSON.parse(localStorage.getItem('macros'));
+        const savedMacros = RadiantStorage.profile.getMacros();
 
         if (profileStatistics) {
             // Extract daily caloric expenditure
@@ -305,7 +306,7 @@
 				fat: Math.round(fatSlider.value / 9)
 			};
 
-            localStorage.setItem('macros', JSON.stringify(macros));
+            RadiantStorage.profile.saveMacros(macros);
         }
 
         document.getElementById('saveMacrosBtn').addEventListener('click', saveMacros);

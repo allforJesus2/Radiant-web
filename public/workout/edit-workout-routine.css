@@ -1,0 +1,413 @@
+body {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center horizontally */
+    min-height: 100vh; /* Minimum viewport height */
+    margin: 0; /* Remove default margin */
+    padding: 20px 10px; /* Add padding for mobile */
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    margin: 20px 0;
+    justify-content: space-between;
+}
+
+.button-group .btn {
+    flex: 1;
+}
+
+.workout-option {
+    margin: 20px 0;
+    padding: 15px;
+    border: 1px solid var(--input, #555);
+    border-radius: 8px;
+    background-color: var(--background, #222);
+    transition: all 0.3s ease;
+}
+
+.workout-option:hover {
+    border-color: #007BFF;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+.workout-label {
+    display: flex;
+    align-items: flex-start;
+    cursor: pointer;
+    width: 100%;
+}
+
+.workout-label input[type="radio"] {
+    margin-right: 15px;
+    margin-top: 3px;
+}
+
+.workout-content {
+    flex: 1;
+}
+
+.workout-title {
+    font-weight: bold;
+    font-size: 1.1em;
+    margin-bottom: 8px;
+    color: var(--text, #fff);
+}
+
+.workout-description {
+    font-size: 0.9em;
+    line-height: 1.4;
+    color: var(--text, #fff);
+    opacity: 0.8;
+}
+
+.workout-option:has(input[type="radio"]:checked) {
+    border-color: #007BFF;
+    background-color: rgba(0, 123, 255, 0.15);
+}
+
+.workout-option:has(input[type="radio"]:checked) .workout-title {
+    color: #007BFF;
+}
+
+.workout-explanation {
+    max-width: 800px;
+    margin: 0 auto 30px auto;
+    background-color: rgba(0, 123, 255, 0.1);
+    border: 1px solid rgba(0, 123, 255, 0.3);
+    border-radius: 8px;
+    text-align: left;
+    overflow: hidden;
+}
+
+.explanation-header {
+    padding: 15px 20px;
+    cursor: pointer;
+    background-color: rgba(0, 123, 255, 0.15);
+    transition: background-color 0.3s ease;
+}
+
+.explanation-header:hover {
+    background-color: rgba(0, 123, 255, 0.25);
+}
+
+.explanation-header h3 {
+    margin: 0;
+    color: var(--text, #fff);
+    font-size: 1.1em;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#toggleIcon {
+    font-size: 0.8em;
+    transition: transform 0.3s ease;
+}
+
+.explanation-content {
+    padding: 0 20px;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.explanation-content.expanded {
+    padding: 20px;
+    max-height: 300px;
+}
+
+.explanation-content p {
+    margin: 0 0 15px 0;
+    line-height: 1.6;
+    color: var(--text, #fff);
+}
+
+.explanation-content p:last-child {
+    margin-bottom: 0;
+}
+
+.explanation-content strong {
+    color: #007BFF;
+}
+
+.selection-instruction {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.selection-instruction h3 {
+    color: var(--text, #fff);
+    font-size: 1.2em;
+    margin: 0;
+    font-weight: normal;
+}
+
+/* Form styling */
+#workout-input {
+    background-color: var(--background, #222);
+    border: 1px solid var(--input, #555);
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px 0;
+    max-width: 800px;
+    width: 100%;
+}
+
+#workout-input > div {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 10px 0;
+    flex-wrap: wrap;
+}
+
+#workout-input input, #workout-input select {
+    background-color: var(--input, #333);
+    border: 1px solid var(--input, #555);
+    color: var(--text, #fff);
+    padding: 8px 12px;
+    border-radius: 4px;
+    flex: 1;
+    min-width: 120px;
+}
+
+#workout-input input:focus, #workout-input select:focus {
+    outline: none;
+    border-color: #007BFF;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+}
+
+#workout-input span {
+    color: var(--text, #fff);
+    font-size: 1.2em;
+    min-width: 30px;
+}
+
+#workout-input label {
+    color: var(--text, #fff);
+    margin-right: 10px;
+    min-width: 80px;
+}
+
+#workout-input button {
+    background-color: #007BFF;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin: 5px;
+    transition: background-color 0.3s ease;
+}
+
+#workout-input button:hover {
+    background-color: #0056b3;
+}
+
+#workout-input button:disabled {
+    background-color: #666;
+    cursor: not-allowed;
+}
+
+/* Exercise list styling */
+#exercise-list {
+    list-style: none;
+    padding: 0;
+    margin: 20px 0;
+    max-width: 800px;
+    width: 100%;
+}
+
+#exercise-list li {
+    background-color: var(--background, #222);
+    border: 1px solid var(--input, #555);
+    border-radius: 8px;
+    margin: 10px 0;
+    padding: 15px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#exercise-list li:hover {
+    border-color: #007BFF;
+    background-color: rgba(0, 123, 255, 0.1);
+}
+
+#exercise-list li div:first-child {
+    flex: 1;
+}
+
+#exercise-list li div:first-child div:first-child {
+    font-weight: bold;
+    color: var(--text, #fff);
+    margin-bottom: 5px;
+}
+
+#exercise-list li div:first-child div:last-child {
+    color: var(--text, #fff);
+    opacity: 0.8;
+    font-size: 0.9em;
+}
+
+#exercise-list li button {
+    background-color: #dc3545;
+    color: #fff;
+    border: none;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 10px;
+}
+
+#exercise-list li button:hover {
+    background-color: #c82333;
+}
+
+/* Advanced section styling */
+#advanced-section {
+    margin: 20px auto 30px auto;
+    max-width: 800px;
+    width: 100%;
+    background-color: rgba(0, 123, 255, 0.1);
+    border: 1px solid rgba(0, 123, 255, 0.3);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+#advanced-section h4 {
+    color: var(--text, #fff);
+    cursor: pointer;
+    margin: 0;
+    padding: 15px 20px;
+    background-color: rgba(0, 123, 255, 0.15);
+    border-radius: 0;
+    transition: background-color 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1.1em;
+}
+
+#advanced-section h4:hover {
+    background-color: rgba(0, 123, 255, 0.25);
+}
+
+#advanced-toggle-icon {
+    font-size: 0.8em;
+    transition: transform 0.3s ease;
+}
+
+#advanced-section > div {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+    padding: 0 20px;
+}
+
+#advanced-section > div.expanded {
+    max-height: 500px;
+    padding: 20px;
+}
+
+#advanced-section > div > div {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+#advanced-section input, #advanced-section select {
+    background-color: var(--input, #333);
+    border: 1px solid var(--input, #555);
+    color: var(--text, #fff);
+    padding: 8px 12px;
+    border-radius: 4px;
+    flex: 1;
+    min-width: 120px;
+}
+
+#advanced-section input:focus, #advanced-section select:focus {
+    outline: none;
+    border-color: #007BFF;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.2);
+}
+
+#advanced-section label {
+    color: var(--text, #fff);
+    margin-bottom: 5px;
+    font-size: 0.9em;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    body {
+        padding: 10px 5px;
+    }
+    
+    h1 {
+        font-size: 1.5em;
+        margin: 10px 0;
+    }
+    
+    .workout-explanation {
+        margin: 0 auto 20px auto;
+    }
+    
+    .explanation-header {
+        padding: 12px 15px;
+    }
+    
+    .explanation-header h3 {
+        font-size: 1em;
+    }
+    
+    .explanation-content.expanded {
+        padding: 15px;
+    }
+    
+    .explanation-content p {
+        font-size: 0.9em;
+    }
+    
+    .workout-option {
+        margin: 15px 0;
+        padding: 12px;
+    }
+    
+    .workout-title {
+        font-size: 1em;
+    }
+    
+    .workout-description {
+        font-size: 0.85em;
+    }
+    
+    .button-group {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .button-group .btn {
+        width: 100%;
+    }
+
+    #workout-input > div {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    #workout-input input, #workout-input select {
+        min-width: auto;
+    }
+
+    #advanced-section > div {
+        grid-template-columns: 1fr;
+    }
+}

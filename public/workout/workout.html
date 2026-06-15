@@ -6,6 +6,7 @@
     <title>Today's Workout</title>
     <link rel="stylesheet" href="../dark-theme.css">
     <link rel="stylesheet" href="workout.css">
+    <script src="../storage.js"></script>
     <script src="workout-utils.js"></script>
 </head>
 <body>
@@ -111,11 +112,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         // Check for new day and clear checkboxes if necessary
-        const storedDay = localStorage.getItem('storedDay');
+        const storedDay = RadiantStorage.workout.getStoredDay();
         const todayKey = schedule.type === 'weekly' ? getToday() : WorkoutUtils.getCurrentCycleDay().toString();
         if (storedDay !== todayKey) {
-            localStorage.removeItem('checkboxStates');
-            localStorage.setItem('storedDay', todayKey);
+            RadiantStorage.remove(RadiantStorage.KEYS.CHECKBOX_STATES);
+            RadiantStorage.workout.setStoredDay(todayKey);
         }
 
         scrollableWindow.innerHTML = '';
@@ -128,7 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const exercises = routine.exercises || [];
 
             // Load checkbox states from local storage
-            const checkboxStates = JSON.parse(localStorage.getItem('checkboxStates')) || {};
+            const checkboxStates = RadiantStorage.workout.getCheckboxStates();
 
             if (exercises.length === 0) {
                 scrollableWindow.innerHTML = '<p>No exercises in this routine. <a href="edit_workout_routine.html?selectedRoutine=' + encodeURIComponent(routineName) + '">Add exercises</a></p>';
@@ -149,7 +150,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 checkbox.addEventListener('change', function() {
                     checkboxStates[`exercise-${index}`] = checkbox.checked;
-                    localStorage.setItem('checkboxStates', JSON.stringify(checkboxStates));
+                    RadiantStorage.workout.saveCheckboxStates(checkboxStates);
                 });
 
                 // Build display text
@@ -253,7 +254,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             alert('Workout completed! 💪');
             // Clear checkboxes for next time
-            localStorage.removeItem('checkboxStates');
+            RadiantStorage.remove(RadiantStorage.KEYS.CHECKBOX_STATES);
             location.reload();
         }
     });

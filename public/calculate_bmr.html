@@ -6,7 +6,9 @@
     <title>BMR Calculator</title>
     <link rel="stylesheet" href="dark-theme.css">
     <link rel="stylesheet" href="navigation.css">
+    <script src="storage.js"></script>
     <script src="navigation.js"></script>
+    <script src="onboarding.js"></script>
     <style>
         body {
             display: flex;
@@ -333,13 +335,13 @@
             profileStatistics.BMR = bmrResults.katchMcArdle;
         }
         profileStatistics.selectedBMR = selectedBMR;
-        localStorage.setItem('profileStatistics', JSON.stringify(profileStatistics));
+        RadiantStorage.profile.save(profileStatistics);
         //alert('Selected BMR saved as daily caloric expenditure successfully.');
     }
 
 
     // Retrieve profile statistics from local storage
-    const profileStatistics = JSON.parse(localStorage.getItem('profileStatistics')) || {};
+    const profileStatistics = RadiantStorage.profile.get() || {};
 
     // Check if profileStatistics is missing or incomplete
     if (!profileStatistics.gender || !profileStatistics.age || !profileStatistics.height || !profileStatistics.weight || !profileStatistics.bodyFatPercent) {

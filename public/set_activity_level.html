@@ -6,7 +6,9 @@
     <title>Set Activity Level</title>
     <link rel="stylesheet" href="dark-theme.css">
     <link rel="stylesheet" href="navigation.css">
+    <script src="storage.js"></script>
     <script src="navigation.js"></script>
+    <script src="onboarding.js"></script>
     <style>
         .activity-container {
             max-width: 800px;
@@ -319,9 +321,9 @@ function calculateActivityCalories(activity) {
 // Function to load profile data
 function loadProfileData() {
     // Simulate loading data from local storage
-    const savedData = localStorage.getItem('activityLevels');
+    const savedData = RadiantStorage.profile.getActivityLevels();
     if (savedData) {
-        activityLevels = JSON.parse(savedData);
+        activityLevels = savedData;
         renderActivityLevels();
     }
 }
@@ -458,9 +460,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const activityList = document.getElementById('activityList');
     const saveActivityLevelsButton = document.getElementById('saveActivityLevels');
 
-    const savedProfileStatistics = localStorage.getItem('profileStatistics');
+    const savedProfileStatistics = RadiantStorage.profile.get();
     if (savedProfileStatistics) {
-        profileStatistics = JSON.parse(savedProfileStatistics);
+        profileStatistics = savedProfileStatistics;
     }
 
 
@@ -516,10 +518,8 @@ function saveProfileData() {
     };
 
     // Save updated profileStatistics to local storage
-    localStorage.setItem('profileStatistics', JSON.stringify(profileStatistics));
-
-            // Save activityLevels to local storage
-        localStorage.setItem('activityLevels', JSON.stringify(activityLevels));
+    RadiantStorage.profile.save(profileStatistics);
+    RadiantStorage.profile.saveActivityLevels(activityLevels);
 }
 
 

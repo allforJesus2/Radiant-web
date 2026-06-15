@@ -1,4 +1,7 @@
 /**
+ * Food name → emoji heuristics.
+ */
+/**
  * IndexedDB layer: fdcStore, nutrientStore, fdcMeta, recipeStore, recipeIngredients.
  */
 
@@ -153,81 +156,9 @@ function getFoodEmoji(name) {
 
     return hits.slice(0, 2).join('');
 }
-
-const DB_NAME = 'csvDB';
-
-const DB_VERSION = 5;
-const META_KEY = 'status';
-const ARRAY_MODE_MAX_FOODS = 50000;
-const AUTOCOMPLETE_LIMIT = 30;
-
-const nutritionCache = new Map();
-let dbPromise = null;
-let autocompleteQueryId = 0;
-
-let _autocompleteEntries = [];
-let _fdcCount = 0;
-
-// ---- Recent food selection boost ----
-const RECENT_SELECTIONS_KEY = 'recentFoodSelections';
-const RECENT_SELECTIONS_MAX = 50;
-let _recentSelections = null; // lazy-loaded cache
-
-function _loadRecentSelections() {
-  if (_recentSelections) return _recentSelections;
-  try {
-    const raw = localStorage.getItem(RECENT_SELECTIONS_KEY);
-    _recentSelections = raw ? JSON.parse(raw) : [];
-  } catch {
-    _recentSelections = [];
-  }
-  return _recentSelections;
-}
-
-function _selectionKey(entry) {
-  return entry.fdc_id != null
-    ? `fdc:${entry.fdc_id}`
-    : `name:${String(entry.name).toLowerCase()}`;
-}
-
-function recordFoodSelection(entry) {
-  const key = _selectionKey(entry);
-  const list = _loadRecentSelections().filter((s) => s !== key);
-  list.unshift(key);
-  _recentSelections = list.slice(0, RECENT_SELECTIONS_MAX);
-  try {
-    localStorage.setItem(RECENT_SELECTIONS_KEY, JSON.stringify(_recentSelections));
-  } catch { /* storage full — ignore */ }
-}
-
-function _recentSelectionBoost(entry) {
-  const list = _loadRecentSelections();
-  const idx = list.indexOf(_selectionKey(entry));
-  if (idx === -1) return 0;
-  // Most recent (idx 0) → +300k, fades to 0 at RECENT_SELECTIONS_MAX
-  return Math.round(300_000 * (1 - idx / RECENT_SELECTIONS_MAX));
-}
-
-/** SR Legacy trailing note from USDA Food Distribution Program — strip for display/storage. */
-const USDA_FDP_NAME_SUFFIX =
-  /\s*\(includes foods for usda['\u2019]s food distribution program\)\s*$/i;
-
 /**
- * @param {string|null|undefined} name
- * @returns {string}
+ * Macro scaling and nutrient math (pure functions where possible).
  */
-function normalizeFdcFoodName(name) {
-  if (name == null || name === '') return '';
-  return String(name).replace(USDA_FDP_NAME_SUFFIX, '').trim();
-}
-
-function idbRequest(req) {
-  return new Promise((resolve, reject) => {
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-
 function extractMacrosPer100g(nutrients) {
   if (!nutrients) {
     return { calories: 0, protein: 0, fat: 0, carbs: 0 };
@@ -256,7 +187,70 @@ function scaleMacrosFrom100g(per100, grams) {
     carbs: Math.round(per100.carbs * f * 10) / 10,
   };
 }
+function nutritionFromFoodRecord(food, grams) {
+  const per100 = extractMacrosPer100g(food.nutrients);
+  return scaleMacrosFrom100g(per100, grams);
+}
+function quickDisplayMacrosForLogItem(item) {
+  const out = Object.assign({}, item);
+  const g = Number(item.grams);
+  const grams = Number.isFinite(g) && g > 0 ? g : 0;
+  if (item.calories != null) {
+    out.calories = item.calories;
+    out.protein = item.protein || 0;
+    out.carbs = item.carbs || 0;
+    out.fat = item.fat || 0;
+    return out;
+  }
+  if (item.fdc_id != null && item.fdc_id !== '') {
+    let per100 = nutritionCache.get(Number(item.fdc_id));
+    if (per100) {
+      const s = scaleMacrosFrom100g(per100, grams);
+      out.calories = s.calories;
+      out.protein = s.protein;
+      out.carbs = s.carbs;
+      out.fat = s.fat;
+      return out;
+    }
+  }
+  out.calories = 0;
+  out.protein = 0;
+  out.carbs = 0;
+  out.fat = 0;
+  return out;
+}
+/**
+ * IndexedDB: fdcStore, nutrientStore, fdcMeta, connection management.
+ */
+const DB_NAME = 'csvDB';
+const DB_VERSION = 5;
+const META_KEY = 'status';
+const ARRAY_MODE_MAX_FOODS = 50000;
 
+const nutritionCache = new Map();
+let dbPromise = null;
+let nutrientDefMemory = new Map();
+let _autocompleteEntries = [];
+let _fdcCount = 0;
+
+const USDA_FDP_NAME_SUFFIX =
+  /\s*\(includes foods for usda['\u2019]s food distribution program\)\s*$/i;
+
+/**
+ * @param {string|null|undefined} name
+ * @returns {string}
+ */
+function normalizeFdcFoodName(name) {
+  if (name == null || name === '') return '';
+  return String(name).replace(USDA_FDP_NAME_SUFFIX, '').trim();
+}
+
+function idbRequest(req) {
+  return new Promise((resolve, reject) => {
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
 function normalizeUpc(raw) {
   if (raw == null) return '';
   const d = String(raw).replace(/\D/g, '');
@@ -345,13 +339,9 @@ function getDB() {
   });
   return dbPromise;
 }
-
 function openDatabaseRequest() {
   return indexedDB.open(DB_NAME, DB_VERSION);
 }
-
-let nutrientDefMemory = new Map();
-
 async function countStore(storeName) {
   const db = await getDB();
   const tx = db.transaction([storeName], 'readonly');
@@ -459,7 +449,6 @@ async function lookupByBarcode(upc) {
   }
   return null;
 }
-
 async function getNutrientById(nutrient_id) {
   const id = String(nutrient_id);
   if (nutrientDefMemory.has(id)) return nutrientDefMemory.get(id);
@@ -613,10 +602,6 @@ async function clearFdcStores() {
   _autocompleteEntries = [];
   _fdcCount = 0;
 }
-
-/**
- * @returns {Promise<{ fdcCount: number, legacyCount: number } & object>}
- */
 async function getFdcStatus() {
   const db = await getDB();
   const meta = await getFdcMeta();
@@ -719,14 +704,227 @@ async function loadFoodNamesAndCache() {
     useCursorMode: false,
   };
 }
+async function getNutritionalInfo(nameOrId, grams, explicitFdcId, foodSource) {
+  const g = Number(grams);
+  let food = null;
+  if (
+    explicitFdcId != null &&
+    explicitFdcId !== '' &&
+    !Number.isNaN(Number(explicitFdcId))
+  ) {
+    food = await getFoodById(Number(explicitFdcId));
+  } else if (
+    typeof nameOrId === 'number' &&
+    Number.isFinite(nameOrId) &&
+    !explicitFdcId
+  ) {
+    food = await getFoodById(nameOrId);
+  }
+  if (!food && nameOrId != null && foodSource === 'recipe') {
+    food = await getFoodFromRecipeStore(String(nameOrId));
+  }
+  if (!food && nameOrId != null && foodSource !== 'recipe') {
+    food = await getFoodByName(String(nameOrId));
+  }
+  if (!food) {
+    food = await getFoodFromRecipeStore(String(nameOrId));
+    if (food) {
+      return {
+        calories: Math.round(((g / 100) * (food.calories || 0)) * 10) / 10,
+        protein: Math.round(((g / 100) * (food.protein || 0)) * 10) / 10,
+        fat: Math.round(((g / 100) * (food.fat || 0)) * 10) / 10,
+        carbs: Math.round(((g / 100) * (food.carbohydrate || 0)) * 10) / 10,
+      };
+    }
+    throw new Error('Food not found');
+  }
+  let per100 = nutritionCache.get(food.fdc_id);
+  if (!per100 && food.nutrients) {
+    per100 = extractMacrosPer100g(food.nutrients);
+    nutritionCache.set(food.fdc_id, per100);
+  }
+  if (!per100) per100 = extractMacrosPer100g(food.nutrients);
+  return scaleMacrosFrom100g(per100, g);
+}
+async function enrichFoodLogItemForDisplay(item) {
+  const out = Object.assign({}, item);
+  if (item.fdc_id != null && item.fdc_id !== '') {
+    let per100 = nutritionCache.get(Number(item.fdc_id));
+    if (!per100) {
+      const food = await getFoodById(item.fdc_id);
+      if (food) {
+        per100 = extractMacrosPer100g(food.nutrients);
+        nutritionCache.set(food.fdc_id, per100);
+      }
+    }
+    if (per100) {
+      const s = scaleMacrosFrom100g(per100, item.grams);
+      out.calories = s.calories;
+      out.protein = s.protein;
+      out.carbs = s.carbs;
+      out.fat = s.fat;
+      return out;
+    }
+  }
+  if (item.calories != null) {
+    out.calories = item.calories;
+    out.protein = item.protein || 0;
+    out.carbs = item.carbs || 0;
+    out.fat = item.fat || 0;
+    return out;
+  }
+  try {
+    const n = await getNutritionalInfo(
+      item.name,
+      item.grams,
+      item.fdc_id != null ? item.fdc_id : undefined,
+      item.fdc_id == null ? 'recipe' : undefined
+    );
+    out.calories = n.calories;
+    out.protein = n.protein;
+    out.carbs = n.carbs;
+    out.fat = n.fat;
+    return out;
+  } catch {
+    out.calories = 0;
+    out.protein = 0;
+    out.carbs = 0;
+    out.fat = 0;
+    return out;
+  }
+}
 
+async function enrichFoodLogDayItems(items) {
+  const arr = Array.isArray(items) ? items : [];
+  return Promise.all(arr.map((i) => enrichFoodLogItemForDisplay(i)));
+}
+function resetDBConnection() {
+  dbPromise = null;
+}
+
+function loadFoodNames() {
+  return loadFoodNamesAndCache().then((r) =>
+    r.entries.map((e) => e.name)
+  );
+}
 /**
- * Rank autocomplete rows so plain foods (e.g. "Apples, raw…") beat substring
- * matches ("…and apples…"), before slicing to limit.
- * @param {{name:string, fdc_id?:number|null, source?:string}} entry
- * @param {string} userInput
- * @returns {number}
+ * User recipe IndexedDB (recipeStore).
  */
+async function getFoodFromRecipeStore(name) {
+  if (!name) return null;
+  const db = await getDB();
+  if (!db.objectStoreNames.contains('recipeStore')) return null;
+  const tx = db.transaction(['recipeStore'], 'readonly');
+  const st = tx.objectStore('recipeStore');
+  if (!st.indexNames.contains('nameIndex')) return null;
+  const ix = st.index('nameIndex');
+  return idbRequest(ix.get(name));
+}
+async function clearRecipeStore() {
+  const db = await getDB();
+  if (!db.objectStoreNames.contains('recipeStore')) return;
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(['recipeStore'], 'readwrite');
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+    tx.objectStore('recipeStore').clear();
+  });
+  _autocompleteEntries = _autocompleteEntries.filter((e) => e.source !== 'recipe');
+}
+function valueFromRecipeRow(recipeRow, headerKey) {
+  if (!recipeRow) return headerKey === 'servingDescription1' ? '' : 0;
+  if (headerKey === 'calories') return recipeRow.calories || 0;
+  if (headerKey === 'fat') return recipeRow.fat || 0;
+  if (headerKey === 'protein') return recipeRow.protein || 0;
+  if (headerKey === 'carbohydrate') return recipeRow.carbohydrate || 0;
+  if (headerKey === 'servingWeight1') return recipeRow.servingWeight1 || 0;
+  if (headerKey === 'servingDescription1') return recipeRow.servingDescription1 || '';
+  return 0;
+}
+/** @deprecated callback style; prefer async */
+function fetchValueForKey(foodName, headerKey, callback, foodSource) {
+  fetchValueForKeyAsync(foodName, headerKey, foodSource)
+    .then((v) => callback(v))
+    .catch(() => callback(0));
+}
+
+async function fetchValueForKeyAsync(foodName, headerKey, foodSource) {
+  if (foodSource === 'recipe') {
+    const csv = await getFoodFromRecipeStore(foodName);
+    return valueFromRecipeRow(csv, headerKey);
+  }
+  const recipeRow = await getFoodFromRecipeStore(foodName);
+  if (recipeRow) {
+    return valueFromRecipeRow(recipeRow, headerKey);
+  }
+  const fdc = await getFoodByName(foodName);
+  if (fdc) {
+    if (headerKey === 'servingWeight1') {
+      return fdc.serving_weight != null ? fdc.serving_weight : 100;
+    }
+    if (headerKey === 'servingDescription1') {
+      return fdc.serving_description || '';
+    }
+    if (headerKey === 'calories')
+      return (fdc.nutrients && fdc.nutrients.calories) || 0;
+    if (headerKey === 'fat') return (fdc.nutrients && fdc.nutrients.fat) || 0;
+    if (headerKey === 'protein')
+      return (fdc.nutrients && fdc.nutrients.protein) || 0;
+    if (headerKey === 'carbohydrate')
+      return (
+        (fdc.nutrients &&
+          (fdc.nutrients.carbohydrate != null
+            ? fdc.nutrients.carbohydrate
+            : fdc.nutrients.carbs)) ||
+        0
+      );
+  }
+  return headerKey === 'servingDescription1' ? '' : 0;
+}
+/**
+ * FDC name search, ranking, recent selections, autocomplete, UPC normalize.
+ */
+const AUTOCOMPLETE_LIMIT = 30;
+let autocompleteQueryId = 0;
+
+// ---- Recent food selection boost ----
+const RECENT_SELECTIONS_MAX = 50;
+let _recentSelections = null; // lazy-loaded cache
+
+function _loadRecentSelections() {
+  if (_recentSelections) return _recentSelections;
+  _recentSelections = RadiantStorage.nutrition.getRecentFoodSelections();
+  return _recentSelections;
+}
+
+function _selectionKey(entry) {
+  return entry.fdc_id != null
+    ? `fdc:${entry.fdc_id}`
+    : `name:${String(entry.name).toLowerCase()}`;
+}
+
+function recordFoodSelection(entry) {
+  const key = _selectionKey(entry);
+  const list = _loadRecentSelections().filter((s) => s !== key);
+  list.unshift(key);
+  _recentSelections = list.slice(0, RECENT_SELECTIONS_MAX);
+  try {
+    RadiantStorage.nutrition.saveRecentFoodSelections(_recentSelections);
+  } catch { /* storage full — ignore */ }
+}
+
+function _recentSelectionBoost(entry) {
+  const list = _loadRecentSelections();
+  const idx = list.indexOf(_selectionKey(entry));
+  if (idx === -1) return 0;
+  // Most recent (idx 0) → +300k, fades to 0 at RECENT_SELECTIONS_MAX
+  return Math.round(300_000 * (1 - idx / RECENT_SELECTIONS_MAX));
+}
+function normalizeUpc(raw) {
+  if (raw == null) return '';
+  const d = String(raw).replace(/\D/g, '');
+  return d;
+}
 function foodAutocompleteRank(entry, userInput) {
   const q = String(userInput).toLowerCase().trim().replace(/\s+/g, ' ');
   const nm = String(entry.name).toLowerCase();
@@ -893,217 +1091,13 @@ async function searchFoodsByPrefix(userInput, limit = AUTOCOMPLETE_LIMIT) {
     };
   });
 }
-
-function valueFromRecipeRow(recipeRow, headerKey) {
-  if (!recipeRow) return headerKey === 'servingDescription1' ? '' : 0;
-  if (headerKey === 'calories') return recipeRow.calories || 0;
-  if (headerKey === 'fat') return recipeRow.fat || 0;
-  if (headerKey === 'protein') return recipeRow.protein || 0;
-  if (headerKey === 'carbohydrate') return recipeRow.carbohydrate || 0;
-  if (headerKey === 'servingWeight1') return recipeRow.servingWeight1 || 0;
-  if (headerKey === 'servingDescription1') return recipeRow.servingDescription1 || '';
-  return 0;
-}
-
-/** @deprecated callback style; prefer async */
-function fetchValueForKey(foodName, headerKey, callback, foodSource) {
-  fetchValueForKeyAsync(foodName, headerKey, foodSource)
-    .then((v) => callback(v))
-    .catch(() => callback(0));
-}
-
-async function fetchValueForKeyAsync(foodName, headerKey, foodSource) {
-  if (foodSource === 'recipe') {
-    const csv = await getFoodFromRecipeStore(foodName);
-    return valueFromRecipeRow(csv, headerKey);
-  }
-  const recipeRow = await getFoodFromRecipeStore(foodName);
-  if (recipeRow) {
-    return valueFromRecipeRow(recipeRow, headerKey);
-  }
-  const fdc = await getFoodByName(foodName);
-  if (fdc) {
-    if (headerKey === 'servingWeight1') {
-      return fdc.serving_weight != null ? fdc.serving_weight : 100;
-    }
-    if (headerKey === 'servingDescription1') {
-      return fdc.serving_description || '';
-    }
-    if (headerKey === 'calories')
-      return (fdc.nutrients && fdc.nutrients.calories) || 0;
-    if (headerKey === 'fat') return (fdc.nutrients && fdc.nutrients.fat) || 0;
-    if (headerKey === 'protein')
-      return (fdc.nutrients && fdc.nutrients.protein) || 0;
-    if (headerKey === 'carbohydrate')
-      return (
-        (fdc.nutrients &&
-          (fdc.nutrients.carbohydrate != null
-            ? fdc.nutrients.carbohydrate
-            : fdc.nutrients.carbs)) ||
-        0
-      );
-  }
-  return headerKey === 'servingDescription1' ? '' : 0;
-}
-
 /**
- * @param {string|number} nameOrId food name or fdc_id when second arg is grams only
- * @param {number} grams
- * @param {number|null|undefined} explicitFdcId optional fdc_id from autocomplete
- * @param {string|null|undefined} foodSource optional 'recipe' to skip fdcStore lookup
- * @returns {Promise<{calories:number, protein:number, fat:number, carbs:number}>}
+ * Food log schema migration.
  */
-async function getNutritionalInfo(nameOrId, grams, explicitFdcId, foodSource) {
-  const g = Number(grams);
-  let food = null;
-  if (
-    explicitFdcId != null &&
-    explicitFdcId !== '' &&
-    !Number.isNaN(Number(explicitFdcId))
-  ) {
-    food = await getFoodById(Number(explicitFdcId));
-  } else if (
-    typeof nameOrId === 'number' &&
-    Number.isFinite(nameOrId) &&
-    !explicitFdcId
-  ) {
-    food = await getFoodById(nameOrId);
-  }
-  if (!food && nameOrId != null && foodSource === 'recipe') {
-    food = await getFoodFromRecipeStore(String(nameOrId));
-  }
-  if (!food && nameOrId != null && foodSource !== 'recipe') {
-    food = await getFoodByName(String(nameOrId));
-  }
-  if (!food) {
-    food = await getFoodFromRecipeStore(String(nameOrId));
-    if (food) {
-      return {
-        calories: Math.round(((g / 100) * (food.calories || 0)) * 10) / 10,
-        protein: Math.round(((g / 100) * (food.protein || 0)) * 10) / 10,
-        fat: Math.round(((g / 100) * (food.fat || 0)) * 10) / 10,
-        carbs: Math.round(((g / 100) * (food.carbohydrate || 0)) * 10) / 10,
-      };
-    }
-    throw new Error('Food not found');
-  }
-  let per100 = nutritionCache.get(food.fdc_id);
-  if (!per100 && food.nutrients) {
-    per100 = extractMacrosPer100g(food.nutrients);
-    nutritionCache.set(food.fdc_id, per100);
-  }
-  if (!per100) per100 = extractMacrosPer100g(food.nutrients);
-  return scaleMacrosFrom100g(per100, g);
-}
-
-function nutritionFromFoodRecord(food, grams) {
-  const per100 = extractMacrosPer100g(food.nutrients);
-  return scaleMacrosFrom100g(per100, grams);
-}
-
-/**
- * Sync helpers for charts: attach macros onto item copies when possible.
- * @param {object} item food log row
- * @returns {Promise<object>}
- */
-async function enrichFoodLogItemForDisplay(item) {
-  const out = Object.assign({}, item);
-  if (item.fdc_id != null && item.fdc_id !== '') {
-    let per100 = nutritionCache.get(Number(item.fdc_id));
-    if (!per100) {
-      const food = await getFoodById(item.fdc_id);
-      if (food) {
-        per100 = extractMacrosPer100g(food.nutrients);
-        nutritionCache.set(food.fdc_id, per100);
-      }
-    }
-    if (per100) {
-      const s = scaleMacrosFrom100g(per100, item.grams);
-      out.calories = s.calories;
-      out.protein = s.protein;
-      out.carbs = s.carbs;
-      out.fat = s.fat;
-      return out;
-    }
-  }
-  if (item.calories != null) {
-    out.calories = item.calories;
-    out.protein = item.protein || 0;
-    out.carbs = item.carbs || 0;
-    out.fat = item.fat || 0;
-    return out;
-  }
-  try {
-    const n = await getNutritionalInfo(
-      item.name,
-      item.grams,
-      item.fdc_id != null ? item.fdc_id : undefined,
-      item.fdc_id == null ? 'recipe' : undefined
-    );
-    out.calories = n.calories;
-    out.protein = n.protein;
-    out.carbs = n.carbs;
-    out.fat = n.fat;
-    return out;
-  } catch {
-    out.calories = 0;
-    out.protein = 0;
-    out.carbs = 0;
-    out.fat = 0;
-    return out;
-  }
-}
-
-async function enrichFoodLogDayItems(items) {
-  const arr = Array.isArray(items) ? items : [];
-  return Promise.all(arr.map((i) => enrichFoodLogItemForDisplay(i)));
-}
-
-/** Bump when migrateFoodLogIfNeeded logic changes so users re-run migration once. */
 const FOOD_LOG_MIGRATION_VERSION = 1;
 
-/**
- * Synchronous best-effort macros for first paint (no IndexedDB).
- * Uses stored flat macros or nutritionCache hit for fdc_id rows; otherwise zeros.
- * @param {object} item food log row
- * @returns {object} shallow copy with calories, protein, carbs, fat
- */
-function quickDisplayMacrosForLogItem(item) {
-  const out = Object.assign({}, item);
-  const g = Number(item.grams);
-  const grams = Number.isFinite(g) && g > 0 ? g : 0;
-  if (item.calories != null) {
-    out.calories = item.calories;
-    out.protein = item.protein || 0;
-    out.carbs = item.carbs || 0;
-    out.fat = item.fat || 0;
-    return out;
-  }
-  if (item.fdc_id != null && item.fdc_id !== '') {
-    let per100 = nutritionCache.get(Number(item.fdc_id));
-    if (per100) {
-      const s = scaleMacrosFrom100g(per100, grams);
-      out.calories = s.calories;
-      out.protein = s.protein;
-      out.carbs = s.carbs;
-      out.fat = s.fat;
-      return out;
-    }
-  }
-  out.calories = 0;
-  out.protein = 0;
-  out.carbs = 0;
-  out.fat = 0;
-  return out;
-}
-
-/**
- * Migrate legacy flat nutrition fields to fdc_id + trim; returns new object.
- * @param {object} foodLog
- * @returns {Promise<object>}
- */
 async function migrateFoodLogIfNeeded(foodLog) {
-  const storedVer = localStorage.getItem('foodLogMigrationVersion');
+  const storedVer = RadiantStorage.nutrition.getFoodLogMigrationVersion();
   if (storedVer === String(FOOD_LOG_MIGRATION_VERSION)) {
     const log = foodLog && typeof foodLog === 'object' ? foodLog : {};
     return { log, changed: false };
@@ -1146,185 +1140,8 @@ async function migrateFoodLogIfNeeded(foodLog) {
     out[day] = nextList;
   }
   if (changed) {
-    localStorage.setItem('foodLog', JSON.stringify(out));
+    RadiantStorage.nutrition.saveFoodLog(out);
   }
-  localStorage.setItem('foodLogMigrationVersion', String(FOOD_LOG_MIGRATION_VERSION));
+  RadiantStorage.nutrition.setFoodLogMigrationVersion(FOOD_LOG_MIGRATION_VERSION);
   return { log: out, changed };
-}
-
-/**
- * @param {Array<string|{name:string,fdc_id?:number|null,source?:string}>} foodList
- * @param {HTMLInputElement} [foodInput]
- * @param {HTMLInputElement} [gramsInput]
- * @param {HTMLElement} [listEl]
- */
-function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
-  let entries = [];
-  if (
-    foodList &&
-    foodList.length &&
-    typeof foodList[0] === 'object' &&
-    foodList[0].name
-  ) {
-    entries = foodList;
-  } else if (Array.isArray(foodList)) {
-    entries = foodList.map((n) => ({
-      name: typeof n === 'string' ? n : n.name,
-      fdc_id:
-        typeof n === 'object' && n && 'fdc_id' in n ? n.fdc_id : null,
-      source:
-        typeof n === 'object' && n && n.source ? n.source : 'legacy',
-    }));
-  }
-
-  const inputEl =
-    foodInput && foodInput.nodeType === 1
-      ? foodInput
-      : document.querySelector('.food');
-  const gramsEl =
-    gramsInput && gramsInput.nodeType === 1
-      ? gramsInput
-      : document.querySelector('.grams');
-  const ac =
-    listEl && listEl.nodeType === 1
-      ? listEl
-      : document.getElementById('autocompleteList');
-  let debounceTimer = null;
-
-  function fillServingHints(entry) {
-    if (entry.fdc_id != null && entry.fdc_id !== '') {
-      getFoodById(entry.fdc_id).then((food) => {
-        if (!food || !gramsEl) return;
-        if (food.serving_weight != null) {
-          gramsEl.value = typeof gramsToInputValue === 'function'
-            ? gramsToInputValue(food.serving_weight)
-            : food.serving_weight;
-          gramsEl.select();
-        }
-        if (typeof showServingBubble === 'function' && food.serving_description) {
-          showServingBubble(food.serving_description, gramsEl);
-        }
-      });
-    } else if (entry.source === 'recipe') {
-      getFoodFromRecipeStore(entry.name).then((recipeRow) => {
-        if (!recipeRow || !gramsEl) return;
-        if (recipeRow.servingWeight1 != null) {
-          window._radiantSkipGramsClear = true;
-          gramsEl.value = typeof gramsToInputValue === 'function'
-            ? gramsToInputValue(recipeRow.servingWeight1)
-            : recipeRow.servingWeight1;
-          gramsEl.select();
-        }
-        if (typeof showServingBubble === 'function' && recipeRow.servingDescription1) {
-          showServingBubble(recipeRow.servingDescription1, gramsEl);
-        }
-      });
-    } else {
-      fetchValueForKey(entry.name, 'servingWeight1', function (value) {
-        if (value && gramsEl) {
-          window._radiantSkipGramsClear = true;
-          gramsEl.value = typeof gramsToInputValue === 'function'
-            ? gramsToInputValue(value)
-            : value;
-          gramsEl.select();
-        }
-      });
-      fetchValueForKey(entry.name, 'servingDescription1', function (description) {
-        if (typeof showServingBubble === 'function' && description) {
-          showServingBubble(description, gramsEl);
-        }
-      });
-    }
-  }
-
-  function renderList(matches) {
-    while (ac.firstChild) ac.removeChild(ac.firstChild);
-    matches.forEach((entry) => {
-      const div = document.createElement('div');
-      const emoji = typeof getFoodEmoji === 'function' ? getFoodEmoji(entry.name) : '';
-      div.textContent = emoji ? emoji + ' ' + entry.name : entry.name;
-      if (entry.fdc_id != null && entry.fdc_id !== '') {
-        div.dataset.fdcId = String(entry.fdc_id);
-      }
-      div.addEventListener('click', function () {
-        recordFoodSelection(entry);
-        inputEl.value = entry.name;
-        if (entry.fdc_id != null && entry.fdc_id !== '') {
-          inputEl.dataset.fdcId = String(entry.fdc_id);
-        } else {
-          delete inputEl.dataset.fdcId;
-        }
-        if (entry.source === 'recipe') {
-          inputEl.dataset.foodSource = 'recipe';
-        } else {
-          delete inputEl.dataset.foodSource;
-        }
-        ac.innerHTML = '';
-        window._radiantSkipGramsClear = true;
-        gramsEl.focus();
-        gramsEl.select();
-        fillServingHints(entry);
-      });
-      ac.appendChild(div);
-    });
-  }
-
-  inputEl.addEventListener('input', function () {
-    const userInput = this.value;
-    if (debounceTimer) clearTimeout(debounceTimer);
-
-    if (userInput.length <= 1) {
-      ac.innerHTML = '';
-      delete inputEl.dataset.fdcId;
-      delete inputEl.dataset.foodSource;
-      return;
-    }
-
-    debounceTimer = setTimeout(async function () {
-      const words = userInput.toLowerCase().split(/\s+/).filter(Boolean);
-
-      if (_fdcCount > ARRAY_MODE_MAX_FOODS && (await getFdcMeta()).brandedImportComplete) {
-        const [fdcFound, customFound] = await Promise.all([
-          searchFoodsByPrefix(userInput, AUTOCOMPLETE_LIMIT),
-          searchCustomRecipesByPrefix(userInput, AUTOCOMPLETE_LIMIT),
-        ]);
-        const seen = new Set();
-        const merged = [];
-        customFound.forEach((e) => {
-          const k = e.name.toLowerCase();
-          if (!seen.has(k)) {
-            seen.add(k);
-            merged.push(e);
-          }
-        });
-        fdcFound.forEach((e) => {
-          const k = e.name.toLowerCase();
-          if (!seen.has(k)) {
-            seen.add(k);
-            merged.push(e);
-          }
-        });
-        renderList(merged.slice(0, AUTOCOMPLETE_LIMIT));
-        return;
-      }
-
-      const filtered = entries.filter((e) => {
-        const lower = e.name.toLowerCase();
-        return words.every((w) => lower.includes(w));
-      });
-      renderList(
-        sortFoodAutocompleteMatches(filtered, userInput).slice(0, AUTOCOMPLETE_LIMIT)
-      );
-    }, 250);
-  });
-}
-
-function resetDBConnection() {
-  dbPromise = null;
-}
-
-function loadFoodNames() {
-  return loadFoodNamesAndCache().then((r) =>
-    r.entries.map((e) => e.name)
-  );
 }

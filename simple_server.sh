@@ -7,10 +7,8 @@
 # Requires Node/npx (npx live-server is downloaded automatically on first run).
 # To fall back to the plain Python server: python3 -m http.server 8000
 
-# Navigate to the public directory (where your website files are)
 cd ./public
 
-# Check if we're in the right directory
 if [ ! -f "index.html" ]; then
     echo "index.html not found in public directory"
     echo "Make sure you're running this from the Radiant-web directory"
@@ -21,6 +19,4 @@ echo "Starting live-reload dev server on http://localhost:8000"
 echo "Press Ctrl+C to stop"
 echo ""
 
-# --no-browser: don't auto-open a new tab on every restart
-# --port=8000:  keep the same port as before
-npx live-server --port=8000 --no-browser
+npx --yes live-server --port=8000 --no-browser

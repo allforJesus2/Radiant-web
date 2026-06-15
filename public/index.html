@@ -60,6 +60,7 @@
 		}
 
 	</style>
+	<script src="storage.js"></script>
 	<script src="offline-preference.js"></script>
 </head>
 <body>
@@ -129,11 +130,7 @@
 
 		// Function to check profile completion and navigate accordingly
 		function checkProfileAndNavigate() {
-			const profileData = localStorage.getItem('profileStatistics');
-			const userTime = localStorage.getItem('userTime');
-			const macros = localStorage.getItem('macros');
-			
-			if (profileData && userTime && macros) {
+			if (RadiantStorage.profile.isComplete()) {
 				// Profile is complete, go directly to nutrition
 				window.location.href = 'nutrition.html';
 			} else {

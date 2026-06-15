@@ -29,21 +29,64 @@ const WorkoutUtils = {
         if (!settings) {
             this.saveSettings(this.DEFAULT_SETTINGS);
         }
+
+        this.migrate531OneRepMaxes();
+    },
+
+    /**
+     * Sync 531 main-lift 1RM inputs into exerciseLibrary (one-time per install).
+     */
+    migrate531OneRepMaxes() {
+        const profile = RadiantStorage.workout.get531Profile();
+        if (!profile || !profile.inputs) return;
+
+        const map = {
+            squat: 'Squat',
+            bench: 'Bench Press',
+            deadlift: 'Deadlift',
+            ohp: 'Overhead Press',
+        };
+
+        const library = this.getExerciseLibrary();
+        let changed = false;
+
+        Object.keys(map).forEach(function (key) {
+            const raw = profile.inputs[key];
+            const oneRepMax = Number(raw);
+            if (!Number.isFinite(oneRepMax) || oneRepMax <= 0) return;
+
+            const exerciseName = map[key];
+            const exerciseKey = exerciseName.toLowerCase().replace(/\s+/g, '-');
+            const existing = library[exerciseKey];
+            if (existing && existing.oneRepMax === oneRepMax) return;
+
+            library[exerciseKey] = {
+                name: exerciseName,
+                oneRepMax: oneRepMax,
+                lastTested: new Date().toISOString().split('T')[0],
+                category: key === 'squat' || key === 'deadlift' ? 'lower' : 'upper',
+                source: '531',
+            };
+            changed = true;
+        });
+
+        if (changed) {
+            this.saveExerciseLibrary(library);
+        }
     },
 
     /**
      * Get workout settings
      */
     getSettings() {
-        const settings = localStorage.getItem('workoutSettings');
-        return settings ? JSON.parse(settings) : null;
+        return RadiantStorage.workout.getSettings();
     },
 
     /**
      * Save workout settings
      */
     saveSettings(settings) {
-        localStorage.setItem('workoutSettings', JSON.stringify(settings));
+        RadiantStorage.workout.saveSettings(settings);
     },
 
     /**
@@ -70,15 +113,14 @@ const WorkoutUtils = {
      * Get all routines
      */
     getRoutines() {
-        const routines = localStorage.getItem('workoutRoutines');
-        return routines ? JSON.parse(routines) : {};
+        return RadiantStorage.workout.getRoutines();
     },
 
     /**
      * Save routines
      */
     saveRoutines(routines) {
-        localStorage.setItem('workoutRoutines', JSON.stringify(routines));
+        RadiantStorage.workout.saveRoutines(routines);
     },
 
     /**
@@ -102,38 +144,28 @@ const WorkoutUtils = {
      * Get schedule (supports both cycle and weekly)
      */
     getSchedule() {
-        const schedule = localStorage.getItem('workoutSchedule');
-        if (schedule) {
-            return JSON.parse(schedule);
-        }
-        
-        return {
-            type: 'cycle',
-            cycleDays: {},
-            weekly: {}
-        };
+        return RadiantStorage.workout.getSchedule();
     },
 
     /**
      * Save schedule
      */
     saveSchedule(schedule) {
-        localStorage.setItem('workoutSchedule', JSON.stringify(schedule));
+        RadiantStorage.workout.saveSchedule(schedule);
     },
 
     /**
      * Get exercise library (1RM database)
      */
     getExerciseLibrary() {
-        const library = localStorage.getItem('exerciseLibrary');
-        return library ? JSON.parse(library) : {};
+        return RadiantStorage.workout.getExerciseLibrary();
     },
 
     /**
      * Save exercise library
      */
     saveExerciseLibrary(library) {
-        localStorage.setItem('exerciseLibrary', JSON.stringify(library));
+        RadiantStorage.workout.saveExerciseLibrary(library);
     },
 
     /**
@@ -215,8 +247,8 @@ const WorkoutUtils = {
             return days[new Date().getDay()];
         } else {
             // Cycle-based system
-            const lastCompletedDay = localStorage.getItem('lastCompletedCycleDay');
-            const lastCompletedDate = localStorage.getItem('lastCompletedDate');
+            const lastCompletedDay = RadiantStorage.workout.getLastCompletedCycleDay();
+            const lastCompletedDate = RadiantStorage.workout.getLastCompletedDate();
             const today = new Date().toISOString().split('T')[0];
             
             if (lastCompletedDate !== today && lastCompletedDay) {
@@ -234,8 +266,8 @@ const WorkoutUtils = {
      */
     completeWorkoutDay(cycleDay) {
         const today = new Date().toISOString().split('T')[0];
-        localStorage.setItem('lastCompletedCycleDay', cycleDay.toString());
-        localStorage.setItem('lastCompletedDate', today);
+        RadiantStorage.workout.setLastCompletedCycleDay(cycleDay);
+        RadiantStorage.workout.setLastCompletedDate(today);
     },
 
     /**
@@ -253,7 +285,7 @@ const WorkoutUtils = {
         this.saveCycleHistory();
         
         // Reset to Day 1
-        localStorage.setItem('lastCompletedCycleDay', '0');
+        RadiantStorage.workout.setLastCompletedCycleDay('0');
     },
 
     /**
@@ -301,15 +333,14 @@ const WorkoutUtils = {
             routines: JSON.parse(JSON.stringify(routines)) // Deep copy
         });
         
-        localStorage.setItem('cycleHistory', JSON.stringify(history));
+        RadiantStorage.workout.saveCycleHistory(history);
     },
 
     /**
      * Get cycle history
      */
     getCycleHistory() {
-        const history = localStorage.getItem('cycleHistory');
-        return history ? JSON.parse(history) : [];
+        return RadiantStorage.workout.getCycleHistory();
     },
 
     /**
@@ -368,7 +399,6 @@ if (typeof document !== 'undefined') {
         WorkoutUtils.initialize();
     });
 }
-
 
 
 

@@ -23,9 +23,12 @@
     return zxingReaderPromise;
   }
 
-  function normalizeUpc(raw) {
-    return String(raw || '').replace(/\D/g, '');
-  }
+  const normalizeUpc =
+    typeof window.normalizeUpc === 'function'
+      ? window.normalizeUpc
+      : function (raw) {
+          return String(raw || '').replace(/\D/g, '');
+        };
 
   /**
    * Appends brand to a food name only when the brand isn't already present in it.
@@ -45,7 +48,7 @@
       typeof window !== 'undefined' && typeof window.USDA_FDC_API_KEY === 'string'
         ? window.USDA_FDC_API_KEY
         : '';
-    const fromStorage = localStorage.getItem('usdaFdcApiKey') || '';
+    const fromStorage = RadiantStorage.settings.getUsdaApiKey();
     const key = String(fromWindow || fromStorage).trim();
     return key || 'DEMO_KEY';
   }
@@ -258,7 +261,7 @@
   }
 
   function getBarcodeSourceSetting() {
-    return localStorage.getItem('barcodeLookupSource') || 'off_then_usda';
+    return RadiantStorage.settings.getBarcodeSource();
   }
 
   function scalePer100(per100, grams) {

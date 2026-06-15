@@ -85,6 +85,7 @@ label {
             </label>
         </div>
     </form>
+    <script src="storage.js"></script>
     <script src="menu.js"></script>
     <script>
 	
@@ -97,7 +98,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const today = new Date().toISOString().split('T')[0]; // Get today's date in yyyy-mm-dd format
 
     // Load the last data for today if it exists
-    const sleepData = JSON.parse(localStorage.getItem('sleep')) || {};
+    const sleepData = RadiantStorage.notes.getSleep();
     const todayData = sleepData[today] || {};
     
     // Load existing values
@@ -125,7 +126,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         sleepData[today][fieldName] = fieldValue;
-        localStorage.setItem('sleep', JSON.stringify(sleepData));
+        RadiantStorage.notes.saveSleep(sleepData);
     });
 
     // Also handle input events for real-time updates
@@ -138,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         sleepData[today][fieldName] = fieldValue;
-        localStorage.setItem('sleep', JSON.stringify(sleepData));
+        RadiantStorage.notes.saveSleep(sleepData);
     });
 });
 

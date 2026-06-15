@@ -6,6 +6,7 @@
     <title>Workout Routines</title>
 	<link rel="stylesheet" href="../dark-theme.css">
     <link rel="stylesheet" href="workout.css">
+    <script src="../storage.js"></script>
     <script src="workout-utils.js"></script>
 </head>
 <body>
@@ -56,7 +57,7 @@
             if (!confirmAdd) return;
 
             // Get user profile data
-            const profileData = JSON.parse(localStorage.getItem('profileStatistics')) || null;
+            const profileData = RadiantStorage.profile.get();
             if (!profileData || !profileData.weight || !profileData.gender || !profileData.bodyFatPercent) {
                 alert('Please complete your profile with weight, gender, and body fat percentage before adding predefined routines.');
                 window.location.href = '../profile.html';
@@ -262,7 +263,7 @@
 
         // Function to check if user has a complete profile
         function checkUserProfile() {
-            const profileData = JSON.parse(localStorage.getItem('profileStatistics')) || null;
+            const profileData = RadiantStorage.profile.get();
             const addPredefinedBtn = document.getElementById('addPredefinedBtn');
             
             if (!profileData || !profileData.weight || !profileData.gender || !profileData.bodyFatPercent) {

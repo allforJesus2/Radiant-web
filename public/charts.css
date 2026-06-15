@@ -1,0 +1,105 @@
+.chart-container {
+    background-color: transparent;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    position: relative;
+    height: auto;
+    width: 100%;
+    max-width: 1200px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.chart-container h2 {
+    margin: 0 0 16px 0;
+}
+
+.date-selector {
+    display: flex;
+    gap: 8px;
+    margin: 16px 0;
+    align-items: center;
+    justify-content: space-between;
+}
+
+select {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--button);
+    color: var(--text);
+    cursor: pointer;
+}
+
+.food-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    background-color: var(--button);
+    border-radius: 8px;
+}
+
+.food-table th,
+.food-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--background);
+}
+
+.food-table th {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.food-table tbody tr:hover {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.summary-box {
+    background-color: var(--button);
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+}
+
+canvas {
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.data-actions {
+    display: flex;
+    gap: 8px;
+}
+
+button, .upload-btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 4px;
+    background-color: var(--button);
+    color: var(--text);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+button:hover, .upload-btn:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+@media (max-width: 768px) {
+    .chart-container {
+        padding: 8px;
+        margin: 16px 0;
+    }
+    
+    .chart-container h2 {
+        font-size: 1.2em;
+        margin: 0 0 12px 0;
+    }
+    
+    canvas {
+        margin-top: 8px;
+        width: 100% !important;
+        height: 100% !important;
+    }
+}

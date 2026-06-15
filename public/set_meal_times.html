@@ -235,6 +235,7 @@
         }
     </style>
 
+    <script src="storage.js"></script>
     <script>
         // Default meal times
         const defaultMealTimes = {
@@ -252,8 +253,8 @@
 
         // Load saved meal times or use defaults
         function loadMealTimes() {
-            const savedTimes = JSON.parse(localStorage.getItem('mealTimes')) || defaultMealTimes;
-            const dynamicConfig = JSON.parse(localStorage.getItem('dynamicMealConfig')) || defaultDynamicConfig;
+            const savedTimes = RadiantStorage.nutrition.getMealTimes();
+            const dynamicConfig = RadiantStorage.nutrition.getDynamicMealConfig() || defaultDynamicConfig;
 
             // Populate static time inputs
             document.getElementById('breakfastStart').value = savedTimes.breakfast.start;
@@ -314,8 +315,8 @@
                 return;
             }
 
-            localStorage.setItem('mealTimes', JSON.stringify(mealTimes));
-            localStorage.setItem('dynamicMealConfig', JSON.stringify(dynamicConfig));
+            RadiantStorage.nutrition.saveMealTimes(mealTimes);
+            RadiantStorage.nutrition.saveDynamicMealConfig(dynamicConfig);
             showMessage('Meal times saved successfully!', 'success');
             updatePreview();
         }
@@ -380,7 +381,7 @@
             };
 
             // If dynamic is enabled, compute example meal times using today's first logged food
-            const dynamicConfig = JSON.parse(localStorage.getItem('dynamicMealConfig')) || defaultDynamicConfig;
+            const dynamicConfig = RadiantStorage.nutrition.getDynamicMealConfig() || defaultDynamicConfig;
             if (dynamicConfig.enabled) {
                 const example = computeExampleDynamicMealTimes(dynamicConfig);
                 if (example) {
@@ -439,8 +440,8 @@
         // Compute example dynamic meal times (based on first logged food for today if available)
         function computeExampleDynamicMealTimes(dynamicConfig) {
             try {
-                const today = localStorage.getItem('today') || new Date().toLocaleDateString('en-CA');
-                const foodLog = JSON.parse(localStorage.getItem('foodLog')) || {};
+                const today = RadiantStorage.nutrition.getToday();
+                const foodLog = RadiantStorage.nutrition.getFoodLog();
                 const dayFoods = foodLog[today] || [];
 
                 let firstTime = null;
@@ -475,7 +476,7 @@
         // Reset to defaults
         function resetToDefaults() {
             if (confirm('Are you sure you want to reset to default meal times?')) {
-                localStorage.removeItem('mealTimes');
+                RadiantStorage.remove(RadiantStorage.KEYS.MEAL_TIMES);
                 loadMealTimes();
                 showMessage('Reset to default meal times.', 'success');
             }

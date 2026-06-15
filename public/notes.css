@@ -1,0 +1,449 @@
+:root {
+		--background: #111;
+		--text: #fff;
+		--button: #333;
+		--input: #555;
+	}
+	
+	body, button, input {
+		font-size: 24px;
+		margin: 3%;
+		padding: 3%;
+		color: var(--text);
+		background-color: var(--background);
+	}
+		
+	.container {
+		border: 1px solid #543;
+		text-align: center;
+		padding: 20px;
+	}
+	
+	.btn {
+		background-color: var(--button);
+		color: white;
+		margin: 10px;
+		min-width: 200px;
+	}
+
+	.center-text {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Daily Notes Styles */
+
+.notes-textarea {
+    width: 100%;
+    height: 300px;
+    background-color: var(--input);
+    color: var(--text);
+    border: 1px solid #543;
+    padding: 15px;
+    font-size: 16px;
+    font-family: inherit;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.notes-textarea.read-only {
+    background-color: #333;
+    color: #999;
+    cursor: not-allowed;
+}
+
+.notes-btn.disabled {
+    background-color: #666;
+    color: #999;
+    cursor: not-allowed;
+}
+
+
+.daily-summary {
+    background-color: transparent;
+    border: none;
+    padding: 12px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.summary-item {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    text-align: left;
+    min-width: 200px;
+    gap: 8px;
+}
+
+.summary-label {
+    font-weight: bold;
+    color: #ccc;
+    font-size: 12px;
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+
+.summary-item span:last-child {
+    color: var(--text);
+    font-size: 14px;
+}
+
+/* Tab Interface Styles */
+.tab-container {
+    margin-bottom: 20px;
+}
+
+.tab-buttons {
+    display: flex;
+    border-bottom: 2px solid #543;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    background-color: var(--button);
+    color: var(--text);
+    border: none;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 5px 5px 0 0;
+    margin-right: 5px;
+}
+
+.tab-btn.active {
+    background-color: #543;
+    color: white;
+}
+
+.tab-btn:hover {
+    background-color: #543;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.notes-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.notes-btn {
+    background-color: var(--button);
+    color: white;
+    border: none;
+    padding: 5px 5px;
+    cursor: pointer;
+    font-size: 16px;
+    width: 100px;
+    flex-shrink: 0;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+    body {
+        margin: 2%;
+        padding: 2%;
+    }
+    
+    .container {
+        padding: 15px;
+        margin: 0;
+    }
+    
+    
+    .notes-textarea {
+        height: 250px;
+        font-size: 14px;
+    }
+    
+    .calendar-day {
+        height: 40px;
+        font-size: 10px;
+        padding: 4px;
+        overflow: hidden;
+    }
+    
+    .day-number {
+        font-size: 12px;
+    }
+    
+    .day-preview {
+        font-size: 8px;
+    }
+    
+    .calendar-grid {
+        gap: 1px;
+    }
+    
+    .weekday {
+        font-size: 10px;
+        padding: 3px;
+    }
+}
+
+.notes-btn:hover {
+    background-color: #543;
+}
+
+/* Sleep form layout styles */
+.sleep-form-container {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.sleep-rating-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sleep-time-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sleep-rating-container label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 3px;
+    font-size: 20px;
+}
+
+.sleep-rating-container label:hover {
+    background-color: #333;
+}
+
+.sleep-rating-container input[type="radio"] {
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.sleep-time-container label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 0;
+}
+
+.sleep-time-container input {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.sleep-duration-slider {
+    margin-top: 8px;
+}
+
+.sleep-duration-slider input[type="range"] {
+    width: 100%;
+    margin: 5px 0;
+}
+
+.sleep-duration-slider .slider-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #ccc;
+    margin-top: 5px;
+}
+
+/* Mobile responsive for sleep form */
+@media (max-width: 768px) {
+    .sleep-form-container {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
+
+.calendar-container {
+    margin-top: 20px;
+}
+
+.calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.calendar-nav {
+    background-color: var(--button);
+    color: white;
+    border: none;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.calendar-nav:hover {
+    background-color: #543;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 15px;
+}
+
+.calendar-day {
+    background-color: var(--input);
+    border: 1px solid #543;
+    padding: 8px;
+    height: 60px;
+    font-size: 12px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+}
+
+.calendar-day:hover {
+    background-color: #543;
+}
+
+.calendar-day.today {
+    background-color: #543;
+    font-weight: bold;
+}
+
+.calendar-day.has-notes {
+    border-color: #fff;
+}
+
+.day-number {
+    font-weight: bold;
+    margin-bottom: 2px;
+}
+
+.day-preview {
+    font-size: 10px;
+    color: #ccc;
+    overflow: hidden;
+    white-space: normal;
+    word-wrap: break-word;
+    line-height: 1.2;
+    max-height: 100%;
+}
+
+.calendar-weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    margin-bottom: 5px;
+}
+
+.weekday {
+    text-align: center;
+    font-weight: bold;
+    padding: 5px;
+    background-color: var(--button);
+    color: white;
+}
+
+.back-btn {
+    background-color: var(--button);
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    font-size: 16px;
+}
+
+.back-btn:hover {
+    background-color: #543;
+}
+
+
+.calendar-month-year {
+    cursor: pointer;
+    user-select: none;
+}
+
+.calendar-month-year:hover {
+    color: #ccc;
+}
+
+.date-picker-dialog {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.date-picker-content {
+    background-color: var(--background);
+    border: 2px solid #543;
+    border-radius: 10px;
+    padding: 20px;
+    min-width: 300px;
+    text-align: center;
+}
+
+.date-picker-content h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: var(--text);
+}
+
+.date-picker-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.date-picker-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+}
+
+.date-picker-section label {
+    font-weight: bold;
+    color: var(--text);
+}
+
+.date-picker-section select,
+.date-picker-section input {
+    background-color: var(--input);
+    color: var(--text);
+    border: 1px solid #543;
+    border-radius: 5px;
+    padding: 8px;
+    font-size: 16px;
+    min-width: 150px;
+}
+
+.date-picker-buttons {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+}
