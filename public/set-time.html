@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Time for Food Log Reset</title>
-    <link rel="stylesheet" href="dark-theme.css">
-    <link rel="stylesheet" href="navigation.css">
-    <script src="storage.js"></script>
-    <script src="navigation.js"></script>
-    <script src="onboarding.js"></script>
+    <link rel="stylesheet" href="css/theme/dark-theme.css">
+    <link rel="stylesheet" href="css/shell/navigation.css">
+    <script src="js/core/storage.js"></script>
+    <script src="js/onboarding/navigation.js"></script>
+    <script src="js/core/onboarding.js"></script>
     <style>
         .time-container {
             max-width: 600px;
@@ -84,7 +84,7 @@
             </div>
             
             <div class="button-group">
-                <button type="button" class="btn" onclick="window.location.href='set_macros.html'">← Back</button>
+                <button type="button" class="btn" onclick="window.location.href='set-macros.html'">← Back</button>
                 <button type="button" class="btn btn-primary" id="nextButton" onclick="validateAndNavigate()" style="background-color: #007BFF;">DONE: Go to Daily Food Log</button>
             </div>
         </form>

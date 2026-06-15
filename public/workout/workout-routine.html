@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Workout Routines</title>
-	<link rel="stylesheet" href="../dark-theme.css">
-    <link rel="stylesheet" href="workout.css">
-    <script src="../storage.js"></script>
-    <script src="workout-utils.js"></script>
+	<link rel="stylesheet" href="../css/theme/dark-theme.css">
+    <link rel="stylesheet" href="../css/workout/workout.css">
+    <script src="../js/core/storage.js"></script>
+    <script src="../js/workout/workout-utils.js"></script>
 </head>
 <body>
     <header id="dateHeader" class="nav-bar">
         <a href="workout.html">Today's Workout</a>
-        <a href="workout_routine.html">Workout Routines</a>
-        <a href="set_workout_day.html">Schedule</a>
+        <a href="workout-routine.html">Workout Routines</a>
+        <a href="set-workout-day.html">Schedule</a>
     </header>
     <div class="blur-overlay" id="blurOverlay"></div>
     
@@ -229,7 +229,7 @@
                 
                 routineElement.textContent = displayText;
                 routineElement.onclick = function() {
-                    window.location.href = `edit_workout_routine.html?selectedRoutine=${encodeURIComponent(routineName)}`;
+                    window.location.href = `edit-workout-routine.html?selectedRoutine=${encodeURIComponent(routineName)}`;
                 };
                 
                 const deleteButton = document.createElement('button');

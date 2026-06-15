@@ -4,10 +4,10 @@
 const Onboarding = {
     steps: [
         { id: 'profile', href: 'profile.html', label: 'Profile' },
-        { id: 'bmr', href: 'calculate_bmr.html', label: 'BMR' },
-        { id: 'activity', href: 'set_activity_level.html', label: 'Activity' },
-        { id: 'macros', href: 'set_macros.html', label: 'Macros' },
-        { id: 'time', href: 'set_time.html', label: 'Day start' },
+        { id: 'bmr', href: 'calculate-bmr.html', label: 'BMR' },
+        { id: 'activity', href: 'set-activity-level.html', label: 'Activity' },
+        { id: 'macros', href: 'set-macros.html', label: 'Macros' },
+        { id: 'time', href: 'set-time.html', label: 'Day start' },
     ],
 
     getProfile() {

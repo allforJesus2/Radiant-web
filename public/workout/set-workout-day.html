@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Workout Schedule</title>
-    <link rel="stylesheet" href="../dark-theme.css">
-    <link rel="stylesheet" href="workout.css">
-    <script src="../storage.js"></script>
-    <script src="workout-utils.js"></script>
+    <link rel="stylesheet" href="../css/theme/dark-theme.css">
+    <link rel="stylesheet" href="../css/workout/workout.css">
+    <script src="../js/core/storage.js"></script>
+    <script src="../js/workout/workout-utils.js"></script>
 </head>
 <body>
     <header id="dateHeader" class="nav-bar">
         <a href="workout.html">Today's Workout</a>
-        <a href="workout_routine.html">Workout Routines</a>
-        <a href="set_workout_day.html">Schedule</a>
+        <a href="workout-routine.html">Workout Routines</a>
+        <a href="set-workout-day.html">Schedule</a>
     </header>
     <div class="blur-overlay" id="blurOverlay"></div>
     
@@ -101,7 +101,7 @@
         </div>
 
         <button class="btn" onclick="saveWorkoutSchedule()">Save Schedule</button>
-        <button class="btn" onclick="window.location.href='workout_routine.html'">Create/Edit Workout Routines</button>
+        <button class="btn" onclick="window.location.href='workout-routine.html'">Create/Edit Workout Routines</button>
     </div>
 
     <script>
@@ -300,7 +300,7 @@
             alert(`${currentScheduleType === 'cycle' ? 'Cycle' : 'Weekly'} schedule saved successfully!`);
         }
     </script>
-    <script src="../menu.js"></script>
+    <script src="../js/core/menu.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         setupHeader('Set Your Workout Schedule', { basePath: '../' });

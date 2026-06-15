@@ -1,10 +1,10 @@
 // Centralized navigation menu configuration
 const NAVIGATION_MENU = [
     { step: 1, title: 'Profile', url: 'profile.html' },
-    { step: 2, title: 'BMR', url: 'calculate_bmr.html' },
-    { step: 3, title: 'Activity', url: 'set_activity_level.html' },
-    { step: 4, title: 'Macros', url: 'set_macros.html' },
-    { step: 5, title: 'Time', url: 'set_time.html' },
+    { step: 2, title: 'BMR', url: 'calculate-bmr.html' },
+    { step: 3, title: 'Activity', url: 'set-activity-level.html' },
+    { step: 4, title: 'Macros', url: 'set-macros.html' },
+    { step: 5, title: 'Time', url: 'set-time.html' },
     { step: 6, title: 'Complete', url: 'nutrition.html' }
 ];
 

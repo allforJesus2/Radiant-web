@@ -6,7 +6,7 @@
     "preprocess:branded": "node scripts/fdc-preprocess.js --branded",
     "bump-sw-version": "node scripts/bump-sw-version.js",
     "deploy": "npm run preprocess && npm run bump-sw-version && firebase deploy",
-    "build:food-db": "cat public/food-emoji.js public/food-macros.js public/fdc-db.js public/recipe-store.js public/fdc-search.js public/food-log-migrate.js > public/database-utils.js",
+    "build:food-db": "cat public/js/food/food-emoji.js public/js/food/food-macros.js public/js/food/fdc-db.js public/js/food/recipe-store.js public/js/food/fdc-search.js public/js/food/food-log-migrate.js > public/js/food/database-utils.js",
     "lint:storage": "node scripts/check-localstorage.js",
     "test": "node scripts/run-tests.js"
   }

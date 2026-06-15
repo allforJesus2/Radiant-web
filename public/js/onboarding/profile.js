@@ -297,6 +297,6 @@
             return;
         }
         saveProfileData();
-        window.location.href = 'calculate_bmr.html';
+        window.location.href = 'calculate-bmr.html';
     }
 

@@ -4,16 +4,16 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Today's Workout</title>
-    <link rel="stylesheet" href="../dark-theme.css">
-    <link rel="stylesheet" href="workout.css">
-    <script src="../storage.js"></script>
-    <script src="workout-utils.js"></script>
+    <link rel="stylesheet" href="../css/theme/dark-theme.css">
+    <link rel="stylesheet" href="../css/workout/workout.css">
+    <script src="../js/core/storage.js"></script>
+    <script src="../js/workout/workout-utils.js"></script>
 </head>
 <body>
     <header id="dateHeader" class="nav-bar">
         <a href="workout.html">Today's Workout</a>
-        <a href="workout_routine.html">Workout Routines</a>
-        <a href="set_workout_day.html">Schedule</a>
+        <a href="workout-routine.html">Workout Routines</a>
+        <a href="set-workout-day.html">Schedule</a>
     </header>
     <div class="blur-overlay" id="blurOverlay"></div>
     
@@ -132,7 +132,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const checkboxStates = RadiantStorage.workout.getCheckboxStates();
 
             if (exercises.length === 0) {
-                scrollableWindow.innerHTML = '<p>No exercises in this routine. <a href="edit_workout_routine.html?selectedRoutine=' + encodeURIComponent(routineName) + '">Add exercises</a></p>';
+                scrollableWindow.innerHTML = '<p>No exercises in this routine. <a href="edit-workout-routine.html?selectedRoutine=' + encodeURIComponent(routineName) + '">Add exercises</a></p>';
                 return;
             }
 
@@ -191,13 +191,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 scrollableWindow.appendChild(listItem);
             });
         } else {
-            scrollableWindow.innerHTML = '<p>No workout scheduled for today. <a href="set_workout_day.html">Set up your schedule</a></p>';
+            scrollableWindow.innerHTML = '<p>No workout scheduled for today. <a href="set-workout-day.html">Set up your schedule</a></p>';
             routineNameElement.textContent = 'Rest Day';
         }
     }
 
     setScheduleBtn.addEventListener('click', function() {
-        window.location.href = 'set_workout_day.html';
+        window.location.href = 'set-workout-day.html';
     });
 
     editRoutineBtn.addEventListener('click', function() {
@@ -213,7 +213,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (routineName) {
-            window.location.href = `edit_workout_routine.html?selectedRoutine=${encodeURIComponent(routineName)}`;
+            window.location.href = `edit-workout-routine.html?selectedRoutine=${encodeURIComponent(routineName)}`;
         } else {
             alert('No workout routine scheduled for today.');
         }
@@ -274,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
     displayWorkoutSchedule();
 });
     </script>
-    <script src="../menu.js"></script>
+    <script src="../js/core/menu.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
         setupHeader("Today's Workout", { basePath: '../' });

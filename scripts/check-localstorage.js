@@ -8,7 +8,7 @@ const path = require('path');
 
 const ROOT = path.join(__dirname, '..', 'public');
 const ALLOWED = new Set([
-    path.join(ROOT, 'storage.js'),
+    path.join(ROOT, 'js', 'core', 'storage.js'),
     path.join(ROOT, 'debug.html'),
 ]);
 function walk(dir, out) {

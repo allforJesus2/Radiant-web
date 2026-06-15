@@ -5,13 +5,13 @@ import socketserver
 import os
 
 PORT = 8001
-DIRECTORY = '.'
+DIRECTORY = os.path.join(os.path.dirname(__file__), '..', 'public')
 
 class RequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
         
-    # Override to serve files from the current directory
+    # Override to serve files from the public directory
     def translate_path(self, path):
         return os.path.join(DIRECTORY, path)
 

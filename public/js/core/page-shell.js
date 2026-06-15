@@ -3,7 +3,7 @@
  * Call initPageShell() on DOMContentLoaded after #dateHeader and #blurOverlay exist.
  */
 (function () {
-    const THEME_HREF = 'dark-theme.css';
+    const THEME_HREF = 'css/theme/dark-theme.css';
 
     function ensureThemeLink(basePath) {
         const href = basePath + THEME_HREF;

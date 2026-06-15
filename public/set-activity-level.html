@@ -4,11 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Set Activity Level</title>
-    <link rel="stylesheet" href="dark-theme.css">
-    <link rel="stylesheet" href="navigation.css">
-    <script src="storage.js"></script>
-    <script src="navigation.js"></script>
-    <script src="onboarding.js"></script>
+    <link rel="stylesheet" href="css/theme/dark-theme.css">
+    <link rel="stylesheet" href="css/shell/navigation.css">
+    <script src="js/core/storage.js"></script>
+    <script src="js/onboarding/navigation.js"></script>
+    <script src="js/core/onboarding.js"></script>
     <style>
         .activity-container {
             max-width: 800px;
@@ -257,7 +257,7 @@
         <div id="activityList"></div>
         
         <div class="bottom-buttons">
-            <button class="btn" onclick="window.location.href='calculate_bmr.html'">← Back</button>
+            <button class="btn" onclick="window.location.href='calculate-bmr.html'">← Back</button>
             <button class="btn btn-primary" id="nextButton" onclick="validateAndNavigate()">NEXT: Set Macros</button>
         </div>
     </div>
@@ -533,7 +533,7 @@ function validateAndNavigate() {
     
     // Save data before navigating
     saveProfileData();
-    window.location.href = 'set_macros.html';
+    window.location.href = 'set-macros.html';
 }
 
 

@@ -15,7 +15,7 @@ function loadScript(relativePath, context) {
 // --- food-macros.js ---
 (function testFoodMacros() {
     const ctx = {};
-    loadScript('public/food-macros.js', ctx);
+    loadScript('public/js/food/food-macros.js', ctx);
 
     const per100 = ctx.extractMacrosPer100g({
         calories: 200,
@@ -44,7 +44,7 @@ function loadScript(relativePath, context) {
     };
 
     const ctx = { localStorage };
-    loadScript('public/storage.js', ctx);
+    loadScript('public/js/core/storage.js', ctx);
     const RS = ctx.RadiantStorage;
 
     assert.strictEqual(RS.nutrition.getPreferredUnit(), 'grams');
@@ -86,7 +86,7 @@ function loadScript(relativePath, context) {
         },
         indexedDB: {},
     };
-    loadScript('public/fdc-search.js', ctx);
+    loadScript('public/js/food/fdc-search.js', ctx);
     assert.strictEqual(ctx.normalizeUpc('0123-456-7890'), '01234567890');
     assert.strictEqual(ctx.normalizeUpc(null), '');
 })();
