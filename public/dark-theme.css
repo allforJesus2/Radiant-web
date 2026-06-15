@@ -96,6 +96,11 @@
 
     margin-bottom: 10px; /* Adjust the margin as needed */
 }
+
+#autocompleteList > div.autocomplete-highlighted {
+    outline: 1px solid #e6c200;
+    outline-offset: -1px;
+}
 .list-item {
     position: relative; /* This makes the list item a positioning context for absolutely positioned children */
 }

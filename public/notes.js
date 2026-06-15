@@ -50,8 +50,6 @@
             // Run migration first
             migrateDailyNotes();
             
-            // Set up header using centralized menu system
-            setupHeader('Daily Notes');
             loadNotesForDate(currentSelectedDate);
             updateDateDisplay();
             generateCalendar(); // Generate calendar on page load

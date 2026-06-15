@@ -1,3 +1,48 @@
+#dateHeader .header-date-center {
+    position: static !important;
+    left: auto !important;
+    transform: none !important;
+    text-align: left;
+}
+
+.tab-container {
+    margin-bottom: 20px;
+}
+
+.tab-buttons {
+    display: flex;
+    border-bottom: 2px solid #543;
+    margin-bottom: 20px;
+}
+
+.tab-btn {
+    background-color: var(--button);
+    color: var(--text);
+    border: none;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 5px 5px 0 0;
+    margin-right: 5px;
+}
+
+.tab-btn.active {
+    background-color: #543;
+    color: white;
+}
+
+.tab-btn:hover {
+    background-color: #543;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
 .scrollable-list {
     max-height: 40vh;
     overflow-y: auto;
@@ -73,23 +118,49 @@
 
 .input-group {
     display: flex;
-    gap: 10px;
+    flex-wrap: nowrap;
+    gap: 8px;
     margin-bottom: 15px;
+    width: 100%;
+    box-sizing: border-box;
+    align-items: center;
 }
 
 .input-group input {
-    flex: 1;
+    min-width: 0;
+    box-sizing: border-box;
+}
+
+.input-group input.food {
+    flex: 1 1 0;
+    width: auto;
+}
+
+.input-group input.grams {
+    flex: 0 0 5.5em;
+    width: auto;
+}
+
+.input-group .btn {
+    flex: 0 0 auto;
+    margin: 0;
+    white-space: nowrap;
 }
 
 .recipe-name-group {
     display: flex;
-    gap: 10px;
+    flex-wrap: wrap;
+    gap: 8px;
     margin-bottom: 15px;
     align-items: center;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .recipe-name-input {
-    flex: 1;
+    flex: 1 1 100%;
+    min-width: 0;
+    box-sizing: border-box;
     padding: 10px;
     border: 1px solid var(--border-color);
     border-radius: 5px;
@@ -98,13 +169,19 @@
     font-size: 1.1em;
 }
 
+.recipe-name-group .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    margin: 0;
+    white-space: normal;
+    text-align: center;
+}
+
 #saveRecipeBtn {
-    white-space: nowrap;
     padding: 7px 10px;
 }
 
 #saveNewRecipeBtn {
-    white-space: nowrap;
     padding: 7px 10px;
     background-color: #2d5a2d;
 }
@@ -114,7 +191,6 @@
 }
 
 #cancelEditBtn {
-    white-space: nowrap;
     padding: 7px 10px;
     background-color: #7a3a1e;
 }
@@ -133,13 +209,11 @@
     background-color: var(--hover-color, #333);
 }
 
-/* New styles for saved recipes */
-.saved-recipes-container {
-    margin-top: 30px;
-    border-top: 1px solid var(--border-color);
-    padding-top: 20px;
+.tab-content .scrollable-list {
+    max-height: 55vh;
 }
 
+/* Saved recipes list */
 .recipe-item {
     padding: 15px;
     border-bottom: 1px solid var(--border-color);

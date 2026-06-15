@@ -21,7 +21,6 @@
 
         // Load and handle offline preference setting
         document.addEventListener('DOMContentLoaded', function() {
-            setupHeader('Settings');
             const preferOfflineCheckbox = document.getElementById('preferOfflineData');
             
             // Load current setting from localStorage

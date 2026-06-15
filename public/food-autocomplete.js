@@ -55,6 +55,8 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
             ? listEl
             : document.getElementById('autocompleteList');
     let debounceTimer = null;
+    let currentMatches = [];
+    let highlightedIndex = 0;
 
     function setListVisible(visible) {
         if (!ac) return;
@@ -107,52 +109,88 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
         }
     }
 
+    function selectEntry(entry) {
+        recordFoodSelection(entry);
+        inputEl.value = entry.name;
+        if (entry.fdc_id != null && entry.fdc_id !== '') {
+            inputEl.dataset.fdcId = String(entry.fdc_id);
+        } else {
+            delete inputEl.dataset.fdcId;
+        }
+        if (entry.source === 'recipe') {
+            inputEl.dataset.foodSource = 'recipe';
+        } else {
+            delete inputEl.dataset.foodSource;
+        }
+        if (ac) {
+            ac.innerHTML = '';
+            setListVisible(false);
+        }
+        currentMatches = [];
+        highlightedIndex = 0;
+        window._radiantSkipGramsClear = true;
+        if (gramsEl) {
+            gramsEl.focus();
+            gramsEl.select();
+        }
+        fillServingHints(entry);
+    }
+
+    function setHighlightedIndex(index) {
+        if (!ac || index < 0 || index >= currentMatches.length) return;
+        highlightedIndex = index;
+        ac.querySelectorAll('div').forEach(function (item, i) {
+            item.classList.toggle('autocomplete-highlighted', i === index);
+        });
+    }
+
     function renderList(matches) {
         if (!ac) return;
+        currentMatches = matches;
+        highlightedIndex = 0;
         while (ac.firstChild) ac.removeChild(ac.firstChild);
         if (!matches.length) {
             setListVisible(false);
             return;
         }
         setListVisible(true);
-        matches.forEach(function (entry) {
+        matches.forEach(function (entry, index) {
             const div = document.createElement('div');
+            if (index === 0) {
+                div.classList.add('autocomplete-highlighted');
+            }
             const emoji = typeof getFoodEmoji === 'function' ? getFoodEmoji(entry.name) : '';
             div.textContent = emoji ? emoji + ' ' + entry.name : entry.name;
             if (entry.fdc_id != null && entry.fdc_id !== '') {
                 div.dataset.fdcId = String(entry.fdc_id);
             }
+            div.addEventListener('mouseenter', function () {
+                setHighlightedIndex(index);
+            });
             div.addEventListener('click', function () {
-                recordFoodSelection(entry);
-                inputEl.value = entry.name;
-                if (entry.fdc_id != null && entry.fdc_id !== '') {
-                    inputEl.dataset.fdcId = String(entry.fdc_id);
-                } else {
-                    delete inputEl.dataset.fdcId;
-                }
-                if (entry.source === 'recipe') {
-                    inputEl.dataset.foodSource = 'recipe';
-                } else {
-                    delete inputEl.dataset.foodSource;
-                }
-                ac.innerHTML = '';
-                setListVisible(false);
-                window._radiantSkipGramsClear = true;
-                gramsEl.focus();
-                gramsEl.select();
-                fillServingHints(entry);
+                selectEntry(entry);
             });
             ac.appendChild(div);
         });
     }
+
+    inputEl.addEventListener('keydown', function (event) {
+        if (event.key !== 'Enter' || !currentMatches.length) return;
+        event.preventDefault();
+        selectEntry(currentMatches[highlightedIndex]);
+    });
 
     inputEl.addEventListener('input', function () {
         const userInput = this.value;
         if (debounceTimer) clearTimeout(debounceTimer);
 
         if (userInput.length <= 1) {
-            ac.innerHTML = '';
-            setListVisible(false);
+            currentMatches = [];
+            highlightedIndex = 0;
+            if (ac) {
+                ac.innerHTML = '';
+                setListVisible(false);
+            }
             delete inputEl.dataset.fdcId;
             delete inputEl.dataset.foodSource;
             return;
