@@ -71,6 +71,15 @@ function setupHeader(headerText = null, options = {}) {
     popupMenu.style.boxShadow = '0 4px 15px rgba(0,0,0,0.3)';
     popupMenu.style.textAlign = 'left';
 
+    function setMenuOpen(isOpen) {
+        popupMenu.style.display = isOpen ? 'block' : 'none';
+        const blurOverlay = document.getElementById('blurOverlay');
+        if (blurOverlay) {
+            blurOverlay.classList.toggle('active', isOpen);
+        }
+        dateHeader.style.zIndex = isOpen ? '1001' : '';
+    }
+
     MENU_ITEMS.forEach(item => {
         const menuItem = document.createElement('div');
         menuItem.className = 'menu-item';
@@ -92,18 +101,10 @@ function setupHeader(headerText = null, options = {}) {
             if (item.href) {
                 window.location.href = resolveMenuHref(item.href, basePath);
             } else if (item.action === 'close') {
-                popupMenu.style.display = 'none';
-                const blurOverlay = document.getElementById('blurOverlay');
-                if (blurOverlay) {
-                    blurOverlay.classList.remove('active');
-                }
+                setMenuOpen(false);
                 return;
             }
-            popupMenu.style.display = 'none';
-            const blurOverlay = document.getElementById('blurOverlay');
-            if (blurOverlay) {
-                blurOverlay.classList.remove('active');
-            }
+            setMenuOpen(false);
         });
 
         popupMenu.appendChild(menuItem);
@@ -112,25 +113,12 @@ function setupHeader(headerText = null, options = {}) {
     menuButton.addEventListener('click', function (e) {
         e.stopPropagation();
         const isVisible = popupMenu.style.display === 'block';
-        popupMenu.style.display = isVisible ? 'none' : 'block';
-
-        const blurOverlay = document.getElementById('blurOverlay');
-        if (blurOverlay) {
-            if (isVisible) {
-                blurOverlay.classList.remove('active');
-            } else {
-                blurOverlay.classList.add('active');
-            }
-        }
+        setMenuOpen(!isVisible);
     });
 
     document.addEventListener('click', function (event) {
         if (!menuContainer.contains(event.target)) {
-            popupMenu.style.display = 'none';
-            const blurOverlay = document.getElementById('blurOverlay');
-            if (blurOverlay) {
-                blurOverlay.classList.remove('active');
-            }
+            setMenuOpen(false);
         }
     });
 

@@ -33,7 +33,13 @@ const RadiantStorage = {
         PROFILE_531: '531-workout-profile',
         RECENT_FOOD_SELECTIONS: 'recentFoodSelections',
         CUSTOM_RECIPES_BACKUP: 'customRecipesBackup',
+        SR_LEGACY_PORTION_VERSION: 'srLegacyPortionVersion',
+        SR_LEGACY_IMPORT_COMPLETE: 'srLegacyImportComplete',
+        ANNOUNCEMENTS_DISMISSED: 'announcementsDismissed',
     },
+
+    /** Bump when default SR Legacy portions change in a deploy. */
+    SR_LEGACY_PORTION_VERSION: 1,
 
     DEFAULT_MEAL_TIMES: {
         breakfast: { start: '06:00', end: '10:00' },
@@ -113,6 +119,35 @@ const RadiantStorage = {
             total += (key.length + (value ? value.length : 0)) * 2;
         }
         return total;
+    },
+
+    announcements: {
+        _migrateLegacyPortionHint() {
+            const legacy = RadiantStorage.getRaw('portionHintDismissedVersion');
+            if (legacy == null || legacy === '') return;
+            const list = RadiantStorage.getJSON(RadiantStorage.KEYS.ANNOUNCEMENTS_DISMISSED, []);
+            if (list.indexOf('sr-legacy-portions-v1') === -1) {
+                list.push('sr-legacy-portions-v1');
+                RadiantStorage.setJSON(RadiantStorage.KEYS.ANNOUNCEMENTS_DISMISSED, list);
+            }
+            RadiantStorage.remove('portionHintDismissedVersion');
+        },
+
+        getDismissed() {
+            RadiantStorage.announcements._migrateLegacyPortionHint();
+            return RadiantStorage.getJSON(RadiantStorage.KEYS.ANNOUNCEMENTS_DISMISSED, []);
+        },
+
+        isDismissed(id) {
+            return RadiantStorage.announcements.getDismissed().indexOf(id) >= 0;
+        },
+
+        dismiss(id) {
+            const list = RadiantStorage.announcements.getDismissed();
+            if (list.indexOf(id) >= 0) return;
+            list.push(id);
+            RadiantStorage.setJSON(RadiantStorage.KEYS.ANNOUNCEMENTS_DISMISSED, list);
+        },
     },
 
     profile: {
@@ -267,6 +302,16 @@ const RadiantStorage = {
 
         saveRecentFoodSelections(selections) {
             RadiantStorage.setJSON(RadiantStorage.KEYS.RECENT_FOOD_SELECTIONS, selections);
+        },
+
+        markSrLegacyImported(portionVersion) {
+            RadiantStorage.setRaw(RadiantStorage.KEYS.SR_LEGACY_IMPORT_COMPLETE, 'true');
+            if (portionVersion != null) {
+                RadiantStorage.setRaw(
+                    RadiantStorage.KEYS.SR_LEGACY_PORTION_VERSION,
+                    String(portionVersion)
+                );
+            }
         },
     },
 

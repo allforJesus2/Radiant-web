@@ -17,6 +17,7 @@ const OUT = path.join(ASSETS, 'processed');
 const SR_DIR = path.join(FDC_SOURCE, 'FoodData_Central_sr_legacy_food_csv_2018-04');
 const BR_DIR = path.join(FDC_SOURCE, 'FoodData_Central_branded_food_csv_2025-12-18');
 const USDA_ID_TO_KEY = require(path.join(ROOT, 'public', 'js', 'food', 'usda-id-to-key.js'));
+const { pickBestPortion } = require('./portion-select');
 
 const WANT_IDS = new Set(Object.keys(USDA_ID_TO_KEY));
 const ID_TO_KEY = USDA_ID_TO_KEY;
@@ -126,7 +127,7 @@ async function buildSrLegacy() {
     });
   }
 
-  const portions = new Map();
+  const portionCandidates = new Map();
   for await (const line of streamCsvLines(portionPath)) {
     const c = parseCsvLine(line);
     if (c.length < 9) continue;
@@ -136,8 +137,13 @@ async function buildSrLegacy() {
     const gw = parseFloat(c[7]);
     if (!gw || gw <= 0) continue;
     const desc = (c[5] || '').replace(/^"|"$/g, '') + ((c[6] && c[6] !== '""') ? ' ' + c[6].replace(/^"|"$/g, '') : '');
-    const prev = portions.get(fdcId);
-    if (!prev || seq < prev.seq) portions.set(fdcId, { seq, gram_weight: gw, portion_description: desc.trim() || 'serving' });
+    const row = {
+      seq,
+      gram_weight: gw,
+      portion_description: desc.trim() || 'serving',
+    };
+    if (!portionCandidates.has(fdcId)) portionCandidates.set(fdcId, []);
+    portionCandidates.get(fdcId).push(row);
   }
 
   const nutrientByFdc = new Map();
@@ -158,6 +164,12 @@ async function buildSrLegacy() {
     if (Number.isNaN(amt)) continue;
     const bag = nutrientByFdc.get(fdcId);
     bag[key] = amt;
+  }
+
+  const portions = new Map();
+  for (const [fdcId, candidates] of portionCandidates) {
+    const kcal = (nutrientByFdc.get(fdcId) || {}).calories || 0;
+    portions.set(fdcId, pickBestPortion(candidates, { kcalPer100g: kcal }));
   }
 
   ensureOutDir();

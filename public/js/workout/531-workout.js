@@ -22,6 +22,8 @@
             let userLevel = 1; // Initialize user level
             let amrapResults = {}; // Store AMRAP results for each exercise
             let checkedDays = {}; // Store checked days: {week: {day: true}}
+            let completedTimers = {}; // Store completed rest timers: {timerId: completionCount}
+            let workoutModeActive = false;
 
             
             // Rest timer state
@@ -67,6 +69,7 @@
                     
                     // Restore checked days
                     checkedDays = profile.checkedDays || {};
+                    completedTimers = profile.completedTimers || {};
                     
                     // Restore rest time settings
                     if (profile.restTimeSettings) {
@@ -122,7 +125,8 @@
                     userLevel, // Save user level
                     amrapResults, // Save AMRAP results
                     restTimeSettings, // Save rest time settings
-                    checkedDays // Save checked days
+                    checkedDays, // Save checked days
+                    completedTimers // Save completed rest timers
                 };
                 
                 RadiantStorage.workout.save531Profile(profile);
@@ -266,7 +270,112 @@
             const tmOptions = document.querySelectorAll('.toggle-option');
             const accessorySelect = document.getElementById('accessory-template');
             const levelDisplay = document.getElementById('level-display');
-            
+            const exitWorkoutModeButton = document.getElementById('exit-workout-mode');
+            const workoutModeBar = document.getElementById('workout-mode-bar');
+            const workoutModeTitle = document.getElementById('workout-mode-title');
+
+            function renderWorkoutItem(timerType, timerId, label, detail, options = {}) {
+                const classes = ['workout-item'];
+                if (options.amrap) classes.push('amrap');
+                if (options.extraClass) classes.push(options.extraClass);
+                return `
+                    <div class="${classes.join(' ')}">
+                        <div class="workout-item-body">
+                            <span class="workout-item-label">${label}</span>
+                            <span class="workout-item-detail">${detail}</span>
+                        </div>
+                        <button type="button" class="rest-timer-btn" data-timer-type="${timerType}" data-timer-id="${timerId}" title="Start rest timer">⏰</button>
+                    </div>`;
+            }
+
+            function getOrderedTimerButtonsForActiveDay() {
+                const activeDay = document.querySelector('.week-content.active .day-content.active');
+                if (!activeDay) return [];
+                return Array.from(activeDay.querySelectorAll('.rest-timer-btn'));
+            }
+
+            function scrollToWorkoutItem(element) {
+                if (!element) return;
+                element.classList.add('workout-item-focus');
+                element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                setTimeout(() => element.classList.remove('workout-item-focus'), 2500);
+            }
+
+            function scrollToFirstIncompleteItem() {
+                const buttons = getOrderedTimerButtonsForActiveDay();
+                const next = buttons.find(btn => !btn.classList.contains('complete'));
+                const target = next
+                    ? next.closest('.workout-item')
+                    : buttons[0]?.closest('.workout-item');
+                scrollToWorkoutItem(target);
+            }
+
+            function scrollToNextWorkoutItem(completedTimerId) {
+                if (!workoutModeActive) return;
+                const buttons = getOrderedTimerButtonsForActiveDay();
+                const currentIndex = buttons.findIndex(btn => btn.dataset.timerId === completedTimerId);
+                if (currentIndex === -1) return;
+                for (let i = currentIndex + 1; i < buttons.length; i++) {
+                    const item = buttons[i].closest('.workout-item');
+                    if (item) {
+                        scrollToWorkoutItem(item);
+                        return;
+                    }
+                }
+            }
+
+            function updateWorkoutModeTitle() {
+                if (!workoutModeTitle) return;
+                const day = workoutPlan.weeks?.[currentWeek]?.[currentDay];
+                workoutModeTitle.textContent = day
+                    ? `Week ${currentWeek} · ${day.name}`
+                    : 'Workout';
+            }
+
+            function enterWorkoutMode(week, dayIndex) {
+                if (!workoutPlan.weeks || Object.keys(workoutPlan.weeks).length === 0) return;
+                workoutModeActive = true;
+                document.body.classList.add('workout-mode');
+                if (workoutModeBar) workoutModeBar.style.display = 'flex';
+                mainTabs.forEach(t => {
+                    t.classList.toggle('active', t.dataset.tab === 'workout');
+                });
+                inputSection.classList.remove('active');
+                resultSection.classList.add('active');
+                updateWorkoutModeTitle();
+                requestAnimationFrame(() => scrollToFirstIncompleteItem());
+            }
+
+            function exitWorkoutMode() {
+                workoutModeActive = false;
+                document.body.classList.remove('workout-mode');
+                if (workoutModeBar) workoutModeBar.style.display = 'none';
+            }
+
+            if (exitWorkoutModeButton) {
+                exitWorkoutModeButton.addEventListener('click', exitWorkoutMode);
+            }
+
+            document.addEventListener('click', function(e) {
+                const beginBtn = e.target.closest('.begin-workout-btn');
+                if (beginBtn) {
+                    enterWorkoutMode(
+                        parseInt(beginBtn.dataset.week, 10),
+                        parseInt(beginBtn.dataset.day, 10)
+                    );
+                    return;
+                }
+
+                const resetBtn = e.target.closest('.reset-day-btn');
+                if (!resetBtn) return;
+                const week = parseInt(resetBtn.dataset.week, 10);
+                const dayIndex = parseInt(resetBtn.dataset.day, 10);
+                const day = workoutPlan.weeks?.[week]?.[dayIndex];
+                if (!day) return;
+                if (!confirm(`Reset all checkmarks for Week ${week}, ${day.name}?`)) return;
+                resetDayCheckmarks(week, dayIndex);
+            });
+
             // Main tab switching (for mobile)
             mainTabs.forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -369,9 +478,12 @@
                     updateLevelDisplay();
                     // Reset AMRAP results
                     amrapResults = {};
+                    completedTimers = {};
+                    checkedDays = {};
                     // Reset workout plan
                     workoutPlan = {};
                     // Reset UI
+                    exitWorkoutMode();
                     renderWorkoutPlan();
                     currentWeek = 1;
                     currentDay = 0;
@@ -391,7 +503,6 @@
                     tab.classList.add('active');
                     currentWeek = parseInt(tab.dataset.week);
                     showWeekContent(currentWeek, currentDay);
-                    resetAllCheckmarks();
                     saveProfile();
                 });
             });
@@ -531,6 +642,53 @@
                 // Save profile
                 saveProfile();
             }
+
+            function areAllMainLiftsComplete(week, day) {
+                const mainButtons = document.querySelectorAll(
+                    `.rest-timer-btn[data-timer-type="main"][data-timer-id^="main-${week}-${day}-"]`
+                );
+                if (mainButtons.length === 0) {
+                    return false;
+                }
+                return Array.from(mainButtons).every(btn => btn.classList.contains('complete'));
+            }
+
+            function checkDayIfAllMainLiftsComplete(week, day) {
+                if (!areAllMainLiftsComplete(week, day)) {
+                    return;
+                }
+
+                if (!checkedDays[week]) {
+                    checkedDays[week] = {};
+                }
+                if (checkedDays[week][day]) {
+                    return;
+                }
+
+                checkedDays[week][day] = true;
+                const dayTab = document.querySelector(`.day-tab[data-week="${week}"][data-day="${day}"]`);
+                if (dayTab) {
+                    dayTab.classList.add('checked');
+                }
+                updateWeekCheckmark(week);
+            }
+
+            function uncheckDayIfMainLiftsIncomplete(week, day) {
+                if (areAllMainLiftsComplete(week, day)) {
+                    return;
+                }
+
+                if (!checkedDays[week]?.[day]) {
+                    return;
+                }
+
+                delete checkedDays[week][day];
+                const dayTab = document.querySelector(`.day-tab[data-week="${week}"][data-day="${day}"]`);
+                if (dayTab) {
+                    dayTab.classList.remove('checked');
+                }
+                updateWeekCheckmark(week);
+            }
             
             // Function to update week checkmark based on all days being checked
             function updateWeekCheckmark(week) {
@@ -632,7 +790,7 @@
                     timerInterval = null;
                 }
                 if (currentTimer) {
-                    const btn = document.querySelector(`[data-timer-id="${currentTimer.id}"]`);
+                    const btn = getTimerButton(currentTimer.id);
                     if (btn) {
                         btn.classList.remove('active');
                     }
@@ -645,7 +803,7 @@
                 }
             }
             
-            function startTimer(timerId, timerType) {
+            function startTimer(timerId, timerType, options = {}) {
                 // Stop any existing timer
                 stopTimer();
                 
@@ -658,17 +816,24 @@
                 }
                 
                 // Find the button
-                const btn = document.querySelector(`[data-timer-id="${timerId}"]`);
+                const btn = getTimerButton(timerId);
                 if (!btn) return;
                 
-                // Store current completion count if button already has one
-                const existingCount = btn.dataset.completionCount || '0';
+                const existingCount = options.completionCount != null
+                    ? options.completionCount.toString()
+                    : (btn.dataset.completionCount || '0');
                 
                 // Show clock emoji while timer is active (will restore count when done)
                 btn.textContent = '⏰';
                 btn.classList.remove('complete');
                 btn.classList.add('active');
-                currentTimer = { id: timerId, timeLeft: restTime, type: timerType, existingCount: existingCount };
+                currentTimer = {
+                    id: timerId,
+                    timeLeft: restTime,
+                    type: timerType,
+                    existingCount,
+                    skipIncrementOnComplete: !!options.skipIncrementOnComplete
+                };
                 
                 // Show timer display
                 const display = document.getElementById('rest-timer-display');
@@ -688,43 +853,157 @@
                     
                     if (currentTimer.timeLeft <= 0) {
                         // Store values before stopTimer() sets currentTimer to null
+                        const completedTimerId = currentTimer.id;
+                        const completedTimerType = currentTimer.type;
                         const existingCount = currentTimer.existingCount || '0';
-                        const timerBtn = document.querySelector(`[data-timer-id="${currentTimer.id}"]`);
+                        const skipIncrementOnComplete = currentTimer.skipIncrementOnComplete;
+                        const timerBtn = getTimerButton(completedTimerId);
                         
                         stopTimer();
                         
                         if (timerBtn) {
-                            // Get completion count (use existing count from when timer started, or current count)
-                            let completionCount = parseInt(existingCount || timerBtn.dataset.completionCount || '0');
-                            completionCount++;
-                            timerBtn.dataset.completionCount = completionCount;
-                            
-                            // Update button text to show checkmark(s) with count
-                            if (completionCount === 1) {
-                                timerBtn.textContent = '✓';
+                            let completionCount;
+                            if (skipIncrementOnComplete) {
+                                completionCount = parseInt(existingCount, 10);
                             } else {
-                                timerBtn.textContent = `✓${completionCount}`;
+                                completionCount = parseInt(existingCount || timerBtn.dataset.completionCount || '0', 10) + 1;
                             }
-                            timerBtn.classList.remove('active');
-                            timerBtn.classList.add('complete');
+                            applyTimerButtonState(timerBtn, completionCount);
+                            completedTimers[completedTimerId] = completionCount;
+
+                            if (completedTimerType === 'main') {
+                                const match = completedTimerId.match(/^main-(\d+)-(\d+)-\d+$/);
+                                if (match) {
+                                    checkDayIfAllMainLiftsComplete(parseInt(match[1], 10), parseInt(match[2], 10));
+                                }
+                            }
+
+                            saveProfile();
                         }
                         
                         // Play beep
                         playBeep();
+                        scrollToNextWorkoutItem(completedTimerId);
                     }
                 }, 1000);
             }
             
-            function resetAllCheckmarks() {
-                const allButtons = document.querySelectorAll('.rest-timer-btn');
-                allButtons.forEach(btn => {
-                    // Check if button has checkmark (could be ✓ or ✓2, ✓3, etc.)
-                    if (btn.textContent.includes('✓')) {
-                        btn.textContent = '⏰';
-                        btn.classList.remove('complete');
-                        btn.dataset.completionCount = '0';
+            function getTimerButton(timerId) {
+                return document.querySelector(`.rest-timer-btn[data-timer-id="${timerId}"]`);
+            }
+
+            function applyTimerButtonState(btn, completionCount) {
+                const count = parseInt(completionCount, 10) || 0;
+                const item = btn.closest('.workout-item');
+
+                if (count <= 0) {
+                    btn.textContent = '⏰';
+                    btn.classList.remove('complete', 'active');
+                    btn.dataset.completionCount = '0';
+                    if (item) item.classList.remove('complete');
+                    return;
+                }
+
+                btn.dataset.completionCount = count.toString();
+                btn.textContent = count === 1 ? '✓' : `✓${count}`;
+                btn.classList.remove('active');
+                btn.classList.add('complete');
+                if (item) item.classList.add('complete');
+            }
+
+            function repeatCompletedTimer(btn) {
+                const timerId = btn.dataset.timerId;
+                const timerType = btn.dataset.timerType;
+                const count = parseInt(btn.dataset.completionCount || '1', 10);
+                const nextCount = count + 1;
+
+                completedTimers[timerId] = nextCount;
+                applyTimerButtonState(btn, nextCount);
+                saveProfile();
+                startTimer(timerId, timerType, {
+                    skipIncrementOnComplete: true,
+                    completionCount: nextCount
+                });
+            }
+
+            function revertTimerButton(btn) {
+                const timerId = btn.dataset.timerId;
+                const timerType = btn.dataset.timerType;
+
+                if (currentTimer && currentTimer.id === timerId) {
+                    stopTimer();
+                }
+
+                delete completedTimers[timerId];
+                applyTimerButtonState(btn, 0);
+
+                if (timerType === 'main') {
+                    const match = timerId.match(/^main-(\d+)-(\d+)-\d+$/);
+                    if (match) {
+                        uncheckDayIfMainLiftsIncomplete(parseInt(match[1], 10), parseInt(match[2], 10));
+                    }
+                }
+            }
+
+            function applyCompletedTimers() {
+                Object.entries(completedTimers).forEach(([timerId, count]) => {
+                    const btn = getTimerButton(timerId);
+                    if (btn) {
+                        applyTimerButtonState(btn, count);
                     }
                 });
+            }
+
+            function syncDayCheckmarksFromCompletedTimers() {
+                if (!workoutPlan.weeks) {
+                    return;
+                }
+
+                Object.keys(workoutPlan.weeks).forEach(weekKey => {
+                    const week = parseInt(weekKey, 10);
+                    workoutPlan.weeks[week].forEach((_, dayIndex) => {
+                        checkDayIfAllMainLiftsComplete(week, dayIndex);
+                    });
+                });
+            }
+
+            function resetAllCheckmarks() {
+                completedTimers = {};
+                const allButtons = document.querySelectorAll('.rest-timer-btn');
+                allButtons.forEach(btn => applyTimerButtonState(btn, 0));
+            }
+
+            function isTimerForDay(timerId, week, dayIndex) {
+                const prefix = `(?:warmup|main|accessory)-${week}-${dayIndex}-`;
+                return new RegExp(`^${prefix}\\d+$`).test(timerId);
+            }
+
+            function resetDayCheckmarks(week, dayIndex) {
+                if (currentTimer && isTimerForDay(currentTimer.id, week, dayIndex)) {
+                    stopTimer();
+                }
+
+                Object.keys(completedTimers).forEach(timerId => {
+                    if (isTimerForDay(timerId, week, dayIndex)) {
+                        delete completedTimers[timerId];
+                    }
+                });
+
+                if (checkedDays[week]?.[dayIndex]) {
+                    delete checkedDays[week][dayIndex];
+                    const dayTab = document.querySelector(`.day-tab[data-week="${week}"][data-day="${dayIndex}"]`);
+                    if (dayTab) dayTab.classList.remove('checked');
+                }
+                updateWeekCheckmark(week);
+
+                const dayContent = document.querySelector(
+                    `.week-content[data-week="${week}"] .day-content[data-day="${dayIndex}"]`
+                );
+                if (dayContent) {
+                    dayContent.querySelectorAll('.rest-timer-btn').forEach(btn => applyTimerButtonState(btn, 0));
+                }
+
+                saveProfile();
             }
             
             function updateTimeDisplays() {
@@ -748,17 +1027,9 @@
                 if (e.target.classList.contains('rest-timer-btn')) {
                     const timerId = e.target.dataset.timerId;
                     const timerType = e.target.dataset.timerType;
-                    
-                    // For accessory workouts, allow restarting even if complete
-                    if (timerType === 'accessory' && e.target.textContent.includes('✓')) {
-                        // Keep the completion count, just start a new timer
-                        // The count will be incremented when this timer completes
-                        startTimer(timerId, timerType);
-                        return;
-                    }
-                    
-                    // For warmup and main lifts, if button is already a checkmark, don't start timer
-                    if (e.target.textContent.includes('✓')) {
+
+                    if (e.target.classList.contains('complete') || e.target.textContent.includes('✓')) {
+                        repeatCompletedTimer(e.target);
                         return;
                     }
                     
@@ -1139,45 +1410,35 @@
                             <div class="day-content ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">
                                 <div class="day-card">
                                     <div class="day-header">Day ${day.day}: ${day.name}</div>
+                                    <button type="button" class="begin-workout-btn" data-week="${week}" data-day="${dayIndex}">Begin Workout</button>
                                     
-                                    <div class="warm-up-section">
+                                    <div class="warm-up-section workout-section">
                                         <h4>Warm-up Sets</h4>
-                                        <table class="warm-up-table">
-                                            <tr>
-                                                <td>5 reps × ${day.mainLift.warmup[0].weight} lbs (40%) <button class="rest-timer-btn" data-timer-type="warmup" data-timer-id="warmup-${week}-${dayIndex}-0" title="Start rest timer">⏰</button></td>
-                                                <td>5 reps × ${day.mainLift.warmup[1].weight} lbs (50%) <button class="rest-timer-btn" data-timer-type="warmup" data-timer-id="warmup-${week}-${dayIndex}-1" title="Start rest timer">⏰</button></td>
-                                                <td>3 reps × ${day.mainLift.warmup[2].weight} lbs (60%) <button class="rest-timer-btn" data-timer-type="warmup" data-timer-id="warmup-${week}-${dayIndex}-2" title="Start rest timer">⏰</button></td>
-                                            </tr>
-                                        </table>
+                                        <div class="workout-stack">
+                                            ${renderWorkoutItem('warmup', `warmup-${week}-${dayIndex}-0`, 'Warm-up 1', `5 reps × ${day.mainLift.warmup[0].weight} lbs (40%)`)}
+                                            ${renderWorkoutItem('warmup', `warmup-${week}-${dayIndex}-1`, 'Warm-up 2', `5 reps × ${day.mainLift.warmup[1].weight} lbs (50%)`)}
+                                            ${renderWorkoutItem('warmup', `warmup-${week}-${dayIndex}-2`, 'Warm-up 3', `3 reps × ${day.mainLift.warmup[2].weight} lbs (60%)`)}
+                                        </div>
                                     </div>
                                     
-                                    <h4>Main Lift: ${day.mainLift.name}</h4>
-                                    <table class="exercise-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Set</th>
-                                                <th>Weight (lbs)</th>
-                                                <th>Reps</th>
-                                                <th>% of TM</th>
-                                                <th>Rest</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>`;
+                                    <div class="workout-section">
+                                        <h4>Main Lift: ${day.mainLift.name}</h4>
+                                        <div class="workout-stack">`;
                             
                             day.mainLift.sets.forEach((set, index) => {
-                                html += `
-                                    <tr>
-                                        <td>Set ${index + 1}</td>
-                                        <td>${set.weight}</td>
-                                        <td class="${set.amrap ? 'amrap-set' : ''}">${set.reps}${set.amrap ? ' (AMRAP)' : ''}</td>
-                                        <td>${set.percentage}%</td>
-                                        <td><button class="rest-timer-btn" data-timer-type="main" data-timer-id="main-${week}-${dayIndex}-${index}" title="Start rest timer">⏰</button></td>
-                                    </tr>`;
+                                const amrapSuffix = set.amrap ? ' (AMRAP)' : '';
+                                html += renderWorkoutItem(
+                                    'main',
+                                    `main-${week}-${dayIndex}-${index}`,
+                                    `Set ${index + 1}`,
+                                    `${set.weight} lbs × ${set.reps}${amrapSuffix} · ${set.percentage}% TM`,
+                                    { amrap: set.amrap }
+                                );
                             });
                             
                             html += `
-                                        </tbody>
-                                    </table>`;
+                                        </div>
+                                    </div>`;
                             
                             // Add AMRAP logging section for Week 3 only
                             if (week === 3) {
@@ -1222,98 +1483,90 @@
                             }
                             
                             html += `
-                                    <div class="accessory-section">
-                                        <h4>Accessory Work</h4>`;
+                                    <div class="accessory-section workout-section">
+                                        <h4>Accessory Work</h4>
+                                        <div class="workout-stack">`;
                             
                             if (accessoryTemplate === 'standard') {
-                                html += `<ul class="accessory-list">`;
                                 day.accessories.forEach((accessory, accIndex) => {
-                                    html += `
-                                        <li>
-                                            <span><strong>${accessory.type}:</strong> ${accessory.exercise}</span>
-                                            <span>${accessory.reps} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
-                                        </li>`;
+                                    html += renderWorkoutItem(
+                                        'accessory',
+                                        `accessory-${week}-${dayIndex}-${accIndex}`,
+                                        `${accessory.type}: ${accessory.exercise}`,
+                                        accessory.reps
+                                    );
                                 });
-                                html += `</ul>`;
                             } else if (accessoryTemplate === 'bbb') {
-                                html += `<ul class="accessory-list">`;
                                 day.accessories.forEach((acc, accIndex) => {
                                     if (acc.type === 'Boring But Big') {
-                                        html += `
-                                    <li>
-                                        <span><strong>${acc.type}:</strong> ${acc.exercise}</span>
-                                        <span>${acc.sets} @ ${acc.weight} lbs <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
-                                    </li>`;
+                                        html += renderWorkoutItem(
+                                            'accessory',
+                                            `accessory-${week}-${dayIndex}-${accIndex}`,
+                                            `${acc.type}: ${acc.exercise}`,
+                                            `${acc.sets} @ ${acc.weight} lbs`
+                                        );
                                     } else if (acc.type === 'Chinups') {
-                                        html += `
-                                    <li>
-                                        <span><strong>${acc.exercise}:</strong> ${acc.sets} (bodyweight)</span>
-                                        <span><button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
-                                    </li>
-                                    <li style="list-style:none; padding-left:0; margin-top:0.25rem;">
-                                        <span style="font-size:0.9rem; color:#555;"><em>${acc.note}</em></span>
-                                    </li>`;
+                                        html += renderWorkoutItem(
+                                            'accessory',
+                                            `accessory-${week}-${dayIndex}-${accIndex}`,
+                                            acc.exercise,
+                                            `${acc.sets} (bodyweight)`
+                                        );
                                     } else if (acc.type === 'AbWork') {
-                                        html += `
-                                    <li>
-                                        <span><strong>Ab Work:</strong> ${acc.sets}</span>
-                                        <span><button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
-                                    </li>
-                                    <li style="list-style:none; padding-left:0; margin-top:0.25rem;">
-                                        <span style="font-size:0.9rem; color:#555;"><em>Suggestions:</em> ${acc.suggestions.join(', ')}</span>
-                                    </li>`;
+                                        html += renderWorkoutItem(
+                                            'accessory',
+                                            `accessory-${week}-${dayIndex}-${accIndex}`,
+                                            'Ab Work',
+                                            acc.sets
+                                        );
                                     }
                                 });
-                                html += `</ul>`;
                             } else if (accessoryTemplate === 'fsl') {
-                                html += `<ul class="accessory-list">
-                                    <li>
-                                        <span><strong>${day.accessories[0].type}:</strong> ${day.accessories[0].exercise}</span>
-                                        <span>${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-0" title="Start rest timer">⏰</button></span>
-                                    </li>
-                                    <li>
-                                        <span><strong>${day.accessories[1].type}:</strong> ${safeJoin(day.accessories[1].exercises, ', ')}</span>
-                                        <span>${day.accessories[1].reps} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-1" title="Start rest timer">⏰</button></span>
-                                    </li>
-                                </ul>`;
+                                html += renderWorkoutItem(
+                                    'accessory',
+                                    `accessory-${week}-${dayIndex}-0`,
+                                    `${day.accessories[0].type}: ${day.accessories[0].exercise}`,
+                                    `${day.accessories[0].sets} @ ${day.accessories[0].weight} lbs`
+                                );
+                                html += renderWorkoutItem(
+                                    'accessory',
+                                    `accessory-${week}-${dayIndex}-1`,
+                                    `${day.accessories[1].type}: ${safeJoin(day.accessories[1].exercises, ', ')}`,
+                                    day.accessories[1].reps
+                                );
                             } else if (accessoryTemplate === 'triumvirate') {
-                                html += `<ul class="accessory-list">`;
                                 day.accessories.forEach((accessory, accIndex) => {
-                                    html += `
-                                        <li>
-                                            <span><strong>${accessory.name}</strong></span>
-                                            <span>${accessory.sets} sets of ${accessory.reps} reps <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex}" title="Start rest timer">⏰</button></span>
-                                        </li>`;
+                                    html += renderWorkoutItem(
+                                        'accessory',
+                                        `accessory-${week}-${dayIndex}-${accIndex}`,
+                                        accessory.name,
+                                        `${accessory.sets} sets of ${accessory.reps} reps`
+                                    );
                                 });
-                                html += `</ul>`;
                             } else if (accessoryTemplate === 'beginners') {
-                                html += `<ul class="accessory-list">`;
-                                
-                                // Handle FSL work
                                 const fslAccessory = day.accessories.find(acc => acc.type === 'First Set Last');
                                 let accIndex = 0;
                                 if (fslAccessory) {
-                                    html += `
-                                        <li>
-                                            <span><strong>First Set Last:</strong> ${fslAccessory.exercise}</span>
-                                            <span>${fslAccessory.sets}${fslAccessory.weight ? ' @ ' + fslAccessory.weight + ' lbs' : ''} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex++}" title="Start rest timer">⏰</button></span>
-                                        </li>`;
+                                    html += renderWorkoutItem(
+                                        'accessory',
+                                        `accessory-${week}-${dayIndex}-${accIndex++}`,
+                                        `First Set Last: ${fslAccessory.exercise}`,
+                                        `${fslAccessory.sets}${fslAccessory.weight ? ' @ ' + fslAccessory.weight + ' lbs' : ''}`
+                                    );
                                 }
-                                
-                                // Handle other accessories
                                 const otherAccessories = day.accessories.filter(acc => acc.type !== 'First Set Last');
                                 otherAccessories.forEach(accessory => {
-                                    html += `
-                                        <li>
-                                            <span><strong>${accessory.type}:</strong> ${accessory.exercise}</span>
-                                            <span>${accessory.reps} <button class="rest-timer-btn" data-timer-type="accessory" data-timer-id="accessory-${week}-${dayIndex}-${accIndex++}" title="Start rest timer">⏰</button></span>
-                                        </li>`;
+                                    html += renderWorkoutItem(
+                                        'accessory',
+                                        `accessory-${week}-${dayIndex}-${accIndex++}`,
+                                        `${accessory.type}: ${accessory.exercise}`,
+                                        accessory.reps
+                                    );
                                 });
-                                
-                                html += `</ul>`;
                             }
                             
                             html += `
+                                        </div>
                                     </div>
                                     
                                     <div class="collapsible-wrapper">
@@ -1333,6 +1586,8 @@
                                         </div>
                                     </div>
                                     
+                                    <button type="button" class="reset-day-btn" data-week="${week}" data-day="${dayIndex}">Reset Day</button>
+                                    
                                     ${isLastDayOfCycle ? generateLevelUpButtons() : ''}
                                 </div>
                             </div>`;
@@ -1345,6 +1600,9 @@
                 
                 resultsContainer.innerHTML = html;
                 
+                applyCompletedTimers();
+                syncDayCheckmarksFromCompletedTimers();
+
                 // Update week checkmarks after rendering
                 updateAllWeekCheckmarks();
                 
@@ -1356,6 +1614,12 @@
                 
                 // Add event listeners for AMRAP logging
                 setupAmrapListeners();
+
+                if (workoutModeActive) {
+                    document.body.classList.add('workout-mode');
+                    if (workoutModeBar) workoutModeBar.style.display = 'flex';
+                    updateWorkoutModeTitle();
+                }
             }
             
             // Function to show specific week content
@@ -1389,6 +1653,11 @@
                 dayContents.forEach(content => {
                     content.classList.toggle('active', content.dataset.day === dayIndex.toString());
                 });
+
+                if (workoutModeActive) {
+                    updateWorkoutModeTitle();
+                    requestAnimationFrame(() => scrollToFirstIncompleteItem());
+                }
             }
 
             // Add explanation functionality for accessory templates
@@ -1973,6 +2242,7 @@
                 
                 // Clear all checkmarks
                 checkedDays = {};
+                completedTimers = {};
 
                 // Reset to week 1 before generating new plan
                 currentWeek = 1;

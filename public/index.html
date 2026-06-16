@@ -59,15 +59,50 @@
 			color: #aaa;
 		}
 
+		.app-announcement {
+			font-size: 14px;
+			line-height: 1.45;
+			color: #888;
+			margin: 0 0 16px;
+			padding: 10px 12px;
+			border: 1px solid #543;
+			border-radius: 4px;
+			position: relative;
+		}
+
+		.app-announcement a {
+			color: #aaa;
+		}
+
+		.app-announcement-dismiss {
+			position: absolute;
+			top: 6px;
+			right: 8px;
+			background: none;
+			border: none;
+			color: #888;
+			font-size: 18px;
+			cursor: pointer;
+			padding: 0 4px;
+			line-height: 1;
+		}
+
+		.app-announcement-dismiss:hover {
+			color: #ccc;
+		}
+
 	</style>
 	<script src="js/core/storage.js"></script>
+	<script src="js/core/announcements.js"></script>
 	<script src="js/core/offline-preference.js"></script>
 </head>
 <body>
     <div class="container">
         <p class="center-text" id="date"></p>
 		
-		<p class="center-text" id="verse"></p>
+        <p class="center-text" id="verse"></p>
+
+		<div id="announcements"></div>
 		
         <button class="btn" onclick="checkProfileAndNavigate()">Nutrition 🍎</button>
         <button class="btn"  onclick="window.location.href='workout/531.html'">Exercise 🏋️‍♀️</button>
@@ -127,6 +162,8 @@
 
 		var verseElement = document.getElementById('verse');
 		verseElement.textContent = bibleVerses[currentIndex];
+
+		RadiantAnnouncements.mount('announcements', 'index');
 
 		// Function to check profile completion and navigate accordingly
 		function checkProfileAndNavigate() {

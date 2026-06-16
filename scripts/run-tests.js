@@ -91,4 +91,80 @@ function loadScript(relativePath, context) {
     assert.strictEqual(ctx.normalizeUpc(null), '');
 })();
 
+// --- portion-select.js ---
+(function testPortionSelect() {
+    const { pickBestPortion } = require('./portion-select');
+
+    function row(seq, gw, desc) {
+        return { seq, gram_weight: gw, portion_description: desc };
+    }
+
+    const cases = [
+        {
+            name: 'Pie 167522',
+            kcal: 290,
+            candidates: [
+                row(1, 131, 'pie 1 pie (1/8 of 9" pie)'),
+                row(2, 137, 'slice'),
+                row(3, 1137, 'pie'),
+                row(4, 28.35, 'oz'),
+            ],
+            wantGw: 131,
+        },
+        {
+            name: 'Almonds 170567',
+            kcal: 579,
+            candidates: [
+                row(1, 143, 'cup, whole'),
+                row(5, 28.35, 'oz (23 whole kernels)'),
+                row(6, 1.2, 'almond'),
+            ],
+            wantGw: 28.35,
+        },
+        {
+            name: 'Banana 173944',
+            kcal: 89,
+            candidates: [
+                row(1, 225, 'cup, mashed'),
+                row(5, 118, 'medium (7" to 7-7/8" long)'),
+                row(8, 126, 'NLEA serving'),
+            ],
+            wantGw: 126,
+        },
+        {
+            name: 'Cucumber 168409',
+            kcal: 15,
+            candidates: [
+                row(1, 52, 'cup slices'),
+                row(2, 301, 'cucumber (8-1/4")'),
+            ],
+            wantGw: 301,
+        },
+        {
+            name: 'Tostada 167525',
+            kcal: 474,
+            candidates: [
+                row(1, 12.3, 'piece'),
+                row(2, 37, 'pieces (mean serving weight, aggregated over brands)'),
+            ],
+            wantGw: 37,
+        },
+        {
+            name: 'Single candidate',
+            kcal: 100,
+            candidates: [row(1, 34, 'serving')],
+            wantGw: 34,
+        },
+    ];
+
+    for (const c of cases) {
+        const w = pickBestPortion(c.candidates, { kcalPer100g: c.kcal });
+        assert.strictEqual(
+            w.gram_weight,
+            c.wantGw,
+            c.name + ' expected ' + c.wantGw + 'g got ' + w.gram_weight
+        );
+    }
+})();
+
 console.log('All tests passed.');

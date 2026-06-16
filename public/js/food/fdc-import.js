@@ -1,6 +1,12 @@
 /**
  * SR Legacy auto-import + optional branded chunk import (Settings only).
  */
+function syncSrLegacyImportFlag() {
+  if (typeof RadiantStorage !== 'undefined') {
+    RadiantStorage.nutrition.markSrLegacyImported(null);
+  }
+}
+
 async function importSrLegacy(onProgress, opts) {
   const force = opts && opts.force;
   await getDB();
@@ -10,7 +16,7 @@ async function importSrLegacy(onProgress, opts) {
     const meta = await getFdcMeta();
     const n = await countStore('fdcStore');
     if (meta.importComplete && n > 500) {
-      // Cache warmup is owned by each page (e.g. nutrition initializeFoodList).
+      syncSrLegacyImportFlag();
       return;
     }
   } else {
@@ -65,6 +71,9 @@ async function importSrLegacy(onProgress, opts) {
     srLegacyCount: total,
     timestamp: new Date().toISOString(),
   });
+  if (typeof RadiantStorage !== 'undefined') {
+    RadiantStorage.nutrition.markSrLegacyImported(RadiantStorage.SR_LEGACY_PORTION_VERSION);
+  }
   // Autocomplete cache: nutrition/create-recipe call initializeFoodList;
   // settings SR re-import calls loadFoodNamesAndCache explicitly after import.
 }
@@ -166,6 +175,7 @@ async function runFdcBootstrap(opts) {
     // Fast path for normal page loads: if SR legacy is already imported,
     // skip the expensive import checks/cache warmup and return immediately.
     if (meta.importComplete && !force) {
+      syncSrLegacyImportFlag();
       return;
     }
 

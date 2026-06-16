@@ -70,7 +70,7 @@ function getFoodEmoji(name) {
     if (foodEmojiToken(s, 'tuna'))                                    hits.push('🐟');
     if (foodEmojiToken(s, 'fish'))         hits.push('🐟');
     if (foodEmojiToken(s, 'egg'))                                     hits.push('🥚');
-
+    if (foodEmojiToken(s, 'meat'))                                  hits.push('🍖');
     // Dairy
     if (foodEmojiToken(s, 'cheese'))                                  hits.push('🧀');
     if (foodEmojiToken(s, 'butter'))                                  hits.push('🧈');

@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>5/3/1 Workout Generator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="../css/workout/531-workout.css">
 </head>
 <body>
@@ -146,6 +148,11 @@
             </div>
             
             <div class="result-section active">
+                <div id="workout-mode-bar" class="workout-mode-bar" style="display: none;">
+                    <button type="button" id="exit-workout-mode">✕ Exit</button>
+                    <span id="workout-mode-title" class="workout-mode-title">Workout</span>
+                    <span style="width: 72px; flex-shrink: 0;"></span>
+                </div>
                 <div class="week-tabs">
                     <div class="week-tab active" data-week="1">Week 1<br>(5/5/5+)</div>
                     <div class="week-tab" data-week="2">Week 2<br>(3/3/3+)</div>
