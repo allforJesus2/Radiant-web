@@ -261,8 +261,7 @@
             };
 
             // DOM elements
-            const generateButton = document.getElementById('generate-button');
-            const printButton = document.getElementById('print-button');
+            const saveButton = document.getElementById('save-button');
             const weekTabs = document.querySelectorAll('.week-tab');
             const mainTabs = document.querySelectorAll('.main-tab');
             const inputSection = document.querySelector('.input-section');
@@ -278,11 +277,39 @@
                 const classes = ['workout-item'];
                 if (options.amrap) classes.push('amrap');
                 if (options.extraClass) classes.push(options.extraClass);
+                const suggestionsHtml = options.suggestions?.length
+                    ? `<span class="workout-item-suggestions"><em>Suggestions:</em> ${options.suggestions.join(', ')}</span>`
+                    : '';
+                const noteHtml = options.note
+                    ? `<span class="workout-item-suggestions"><em>${options.note}</em></span>`
+                    : '';
+                const notesBlock = suggestionsHtml || noteHtml
+                    ? `<div class="set-detail-notes">${suggestionsHtml}${noteHtml}</div>`
+                    : '';
+
+                if (options.setDetail) {
+                    const { reps, weight, percentage, amrap } = options.setDetail;
+                    const repText = amrap
+                        ? `${reps} AMRAP`
+                        : `${reps} reps`;
+                    classes.push('workout-item-set-row');
+                    return `
+                    <div class="${classes.join(' ')}">
+                        <span class="set-detail-set workout-item-label">${label}</span>
+                        <span class="set-detail-cell set-detail-reps">${repText}</span>
+                        <span class="set-detail-cell set-detail-weight">${weight} Lbs</span>
+                        <span class="set-detail-cell set-detail-tm">${percentage}% TM</span>
+                        <button type="button" class="rest-timer-btn set-detail-timer" data-timer-type="${timerType}" data-timer-id="${timerId}" title="Start rest timer">⏰</button>
+                        ${notesBlock}
+                    </div>`;
+                }
+
                 return `
                     <div class="${classes.join(' ')}">
                         <div class="workout-item-body">
                             <span class="workout-item-label">${label}</span>
                             <span class="workout-item-detail">${detail}</span>
+                            ${suggestionsHtml}${noteHtml}
                         </div>
                         <button type="button" class="rest-timer-btn" data-timer-type="${timerType}" data-timer-id="${timerId}" title="Start rest timer">⏰</button>
                     </div>`;
@@ -334,6 +361,9 @@
 
             function enterWorkoutMode(week, dayIndex) {
                 if (!workoutPlan.weeks || Object.keys(workoutPlan.weeks).length === 0) return;
+                currentWeek = week;
+                currentDay = dayIndex;
+                showWeekContent(week, dayIndex);
                 workoutModeActive = true;
                 document.body.classList.add('workout-mode');
                 if (workoutModeBar) workoutModeBar.style.display = 'flex';
@@ -363,6 +393,12 @@
                         parseInt(beginBtn.dataset.week, 10),
                         parseInt(beginBtn.dataset.day, 10)
                     );
+                    return;
+                }
+
+                const completeExitBtn = e.target.closest('.complete-exit-workout-btn');
+                if (completeExitBtn) {
+                    exitWorkoutMode();
                     return;
                 }
 
@@ -458,44 +494,25 @@
             ];
             
             // Event listeners
-            generateButton.addEventListener('click', () => {
+            saveButton.addEventListener('click', () => {
+                const squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
+                const bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
+                const deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
+                const ohp1RM = parseFloat(document.getElementById('ohp-1rm').value) || 0;
+
+                if (squat1RM === 0 && bench1RM === 0 && deadlift1RM === 0 && ohp1RM === 0) {
+                    alert('Please enter at least one 1RM value.');
+                    return;
+                }
+
+                if (!confirm('Save your 1RM values and update your workout plan?')) {
+                    return;
+                }
+
                 generateWorkoutPlan();
                 saveProfile();
+                alert('Workout plan saved.');
             });
-            
-            // Add delete profile functionality
-            const deleteProfileButton = document.getElementById('delete-profile-button');
-            deleteProfileButton.addEventListener('click', () => {
-                if (confirm('Are you sure you want to delete your saved workout profile? This cannot be undone.')) {
-                    RadiantStorage.remove(RadiantStorage.KEYS.PROFILE_531);
-                    // Reset form values
-                    document.getElementById('squat-1rm').value = '';
-                    document.getElementById('bench-1rm').value = '';
-                    document.getElementById('deadlift-1rm').value = '';
-                    document.getElementById('ohp-1rm').value = '';
-                    // Reset user level
-                    userLevel = 1;
-                    updateLevelDisplay();
-                    // Reset AMRAP results
-                    amrapResults = {};
-                    completedTimers = {};
-                    checkedDays = {};
-                    // Reset workout plan
-                    workoutPlan = {};
-                    // Reset UI
-                    exitWorkoutMode();
-                    renderWorkoutPlan();
-                    currentWeek = 1;
-                    currentDay = 0;
-                    weekTabs.forEach(tab => {
-                        tab.classList.toggle('active', tab.dataset.week === '1');
-                    });
-                    showWeekContent(1, 0);
-                    alert('Workout profile has been deleted.');
-                }
-            });
-            
-            printButton.addEventListener('click', () => { window.print(); });
             
             weekTabs.forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -1076,9 +1093,9 @@
             
             function generateWarmupSets(exerciseTM) {
                 return [
-                    { reps: 5, weight: round5(exerciseTM * 0.4) },
-                    { reps: 5, weight: round5(exerciseTM * 0.5) },
-                    { reps: 3, weight: round5(exerciseTM * 0.6) }
+                    { reps: 5, weight: round5(exerciseTM * 0.4), percentage: 40 },
+                    { reps: 5, weight: round5(exerciseTM * 0.5), percentage: 50 },
+                    { reps: 3, weight: round5(exerciseTM * 0.6), percentage: 60 }
                 ];
             }
             
@@ -1187,13 +1204,11 @@
                                 dayPlan.accessories = [
                                     bbbBase,
                                     { type: 'Chinups', exercise: 'Chin-ups', sets: chinSets,
-                                      note: 'You can substitute Barbell Curl or Shrugs for the lat work' }
+                                      note: 'You can substitute Barbell Curls or Shrugs for the lat work. Additional suggestions: Reverse Curls, Wrist Roller' }
                                 ];
                             } else {
                                 const abSuggestions = [
-                                    'Ab Wheel Rollouts', 'Hanging Leg Raises', 'Flutter Kicks', 'Scissor Kicks',
-                                    'Standing Bag Kicks', 'Planks', 'Weighted Sit-ups', 'Lying Leg Raises',
-                                    'Dragon Flags', 'Russian Twists'
+                                    'Ab Wheel Rollouts', 'Standing Bag Kicks', 'Planks', 'Dragon Flags', 'Russian Twists'
                                 ];
                                 const abSets = deload ? '10–25 total reps (deload)' : '25–50 total reps';
                                 dayPlan.accessories = [
@@ -1370,7 +1385,7 @@
                 const resultsContainer = document.getElementById('workout-results');
                 
                 if (!workoutPlan.weeks || Object.keys(workoutPlan.weeks).length === 0) {
-                    resultsContainer.innerHTML = '<p>Enter your 1-rep max values and click "Generate Workout Plan" to create your personalized 5/3/1 program.</p>';
+                    resultsContainer.innerHTML = '<p>Enter your 1-rep max values in Program Setup and click Save to create your personalized 5/3/1 program.</p>';
                     return;
                 }
                 
@@ -1411,28 +1426,63 @@
                                 <div class="day-card">
                                     <div class="day-header">Day ${day.day}: ${day.name}</div>
                                     <button type="button" class="begin-workout-btn" data-week="${week}" data-day="${dayIndex}">Begin Workout</button>
+
+                                    <div class="collapsible-wrapper">
+                                        <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
+                                            <strong>Notes</strong>
+                                            <span class="collapsible-toggle">▼</span>
+                                        </div>
+                                        <div class="collapsible-content collapsed">
+                                            <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
+                                                <li>TM = Training Max</li>
+                                                <li>AMRAP = As Many Reps As Possible (with good form)</li>
+                                                <li>Rest 2-3 minutes between main lift sets</li>
+                                                <li>Rest 60-90 seconds between accessory sets</li>
+                                                <li>Accessory work should be done at 70-80% RPE (Rate of Perceived Exertion)</li>
+                                                <li>Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight</li>
+                                                <li>Increase weight only when you can complete all reps with good form</li>
+                                            </ul>
+                                        </div>
+                                    </div>
                                     
                                     <div class="warm-up-section workout-section">
                                         <h4>Warm-up Sets</h4>
-                                        <div class="workout-stack">
-                                            ${renderWorkoutItem('warmup', `warmup-${week}-${dayIndex}-0`, 'Warm-up 1', `5 reps × ${day.mainLift.warmup[0].weight} lbs (40%)`)}
-                                            ${renderWorkoutItem('warmup', `warmup-${week}-${dayIndex}-1`, 'Warm-up 2', `5 reps × ${day.mainLift.warmup[1].weight} lbs (50%)`)}
-                                            ${renderWorkoutItem('warmup', `warmup-${week}-${dayIndex}-2`, 'Warm-up 3', `3 reps × ${day.mainLift.warmup[2].weight} lbs (60%)`)}
+                                        <div class="workout-stack set-stack">
+                                            ${day.mainLift.warmup.map((set, warmupIndex) => renderWorkoutItem(
+                                                'warmup',
+                                                `warmup-${week}-${dayIndex}-${warmupIndex}`,
+                                                `Set ${warmupIndex + 1}`,
+                                                '',
+                                                {
+                                                    setDetail: {
+                                                        reps: set.reps,
+                                                        weight: set.weight,
+                                                        percentage: set.percentage ?? [40, 50, 60][warmupIndex]
+                                                    }
+                                                }
+                                            )).join('')}
                                         </div>
                                     </div>
                                     
                                     <div class="workout-section">
                                         <h4>Main Lift: ${day.mainLift.name}</h4>
-                                        <div class="workout-stack">`;
+                                        <div class="workout-stack set-stack">`;
                             
                             day.mainLift.sets.forEach((set, index) => {
-                                const amrapSuffix = set.amrap ? ' (AMRAP)' : '';
                                 html += renderWorkoutItem(
                                     'main',
                                     `main-${week}-${dayIndex}-${index}`,
                                     `Set ${index + 1}`,
-                                    `${set.weight} lbs × ${set.reps}${amrapSuffix} · ${set.percentage}% TM`,
-                                    { amrap: set.amrap }
+                                    '',
+                                    {
+                                        amrap: set.amrap,
+                                        setDetail: {
+                                            reps: set.reps,
+                                            weight: set.weight,
+                                            percentage: set.percentage,
+                                            amrap: set.amrap
+                                        }
+                                    }
                                 );
                             });
                             
@@ -1510,14 +1560,16 @@
                                             'accessory',
                                             `accessory-${week}-${dayIndex}-${accIndex}`,
                                             acc.exercise,
-                                            `${acc.sets} (bodyweight)`
+                                            `${acc.sets} (bodyweight)`,
+                                            { note: acc.note }
                                         );
                                     } else if (acc.type === 'AbWork') {
                                         html += renderWorkoutItem(
                                             'accessory',
                                             `accessory-${week}-${dayIndex}-${accIndex}`,
                                             'Ab Work',
-                                            acc.sets
+                                            acc.sets,
+                                            { suggestions: acc.suggestions }
                                         );
                                     }
                                 });
@@ -1569,23 +1621,7 @@
                                         </div>
                                     </div>
                                     
-                                    <div class="collapsible-wrapper">
-                                        <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
-                                            <strong>Notes</strong>
-                                            <span class="collapsible-toggle">▼</span>
-                                        </div>
-                                        <div class="collapsible-content collapsed">
-                                            <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
-                                                <li>AMRAP = As Many Reps As Possible (with good form)</li>
-                                                <li>Rest 2-3 minutes between main lift sets</li>
-                                                <li>Rest 60-90 seconds between accessory sets</li>
-                                                <li>Accessory work should be done at 70-80% RPE (Rate of Perceived Exertion)</li>
-                                                <li>Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight</li>
-                                                <li>Increase weight only when you can complete all reps with good form</li>
-                                            </ul>
-                                        </div>
-                                    </div>
-                                    
+                                    <button type="button" class="complete-exit-workout-btn" data-week="${week}" data-day="${dayIndex}">Complete / Exit</button>
                                     <button type="button" class="reset-day-btn" data-week="${week}" data-day="${dayIndex}">Reset Day</button>
                                     
                                     ${isLastDayOfCycle ? generateLevelUpButtons() : ''}

@@ -40,7 +40,7 @@
                     <label for="ohp-1rm">Overhead Press 1 Rep Max (lbs)</label>
                     <input type="number" id="ohp-1rm" min="0" step="5" placeholder="e.g. 135">
                 </div>
-                
+
                 <div class="input-group">
                     <div class="collapsible-wrapper">
                         <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
@@ -58,6 +58,8 @@
                         </div>
                     </div>
                 </div>
+
+                <button id="save-button">Save 1 Rep Maxes</button>
                 
                 <div class="input-group">
                     <label>Training Max Percentage</label>
@@ -115,8 +117,6 @@
                     </div>
                 </div>
                 
-                <button id="generate-button">Generate Workout Plan</button>
-                
                 <div class="input-group">
                     <div class="rest-timer-settings">
                         <h3>Rest Timer Settings</h3>
@@ -137,14 +137,6 @@
                         </div>
                     </div>
                 </div>
-                
-                <div class="input-group">
-                    <button id="delete-profile-button" style="background-color: var(--accent); margin-top: 1rem;">Delete Saved Profile</button>
-                </div>
-
-                <div class="input-group">
-                    <button id="print-button" class="print-button">Print Workout Plan</button>
-                </div>
             </div>
             
             <div class="result-section active">
@@ -161,7 +153,7 @@
                 </div>
                 
                 <div id="workout-results">
-                    <p>Enter your 1-rep max values and click "Generate Workout Plan" to create your personalized 5/3/1 program.</p>
+                    <p>Enter your 1-rep max values in Program Setup and click Save to create your personalized 5/3/1 program.</p>
                 </div>
             </div>
         </div>
