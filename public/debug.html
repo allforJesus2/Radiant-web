@@ -2,48 +2,138 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Debug Page</title>
     <link rel="stylesheet" href="css/theme/dark-theme.css">
+    <style>
+        body { padding: 1rem; max-width: 900px; margin: 0 auto; }
+        pre {
+            background: var(--card-bg, #1e1e1e);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 6px;
+            padding: 1rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-break: break-word;
+            font-size: 0.85rem;
+        }
+        .debug-actions { margin: 0.75rem 0 1.25rem; }
+        .debug-actions button {
+            margin-right: 0.5rem;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+        }
+        .log-entry { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color, #444); }
+        .log-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+        .log-meta { color: var(--text-muted, #aaa); font-size: 0.8rem; }
+        .log-message { margin: 0.35rem 0; font-weight: 600; }
+        .log-data { margin: 0; font-size: 0.8rem; opacity: 0.9; }
+        .empty-log { color: var(--text-muted, #aaa); font-style: italic; }
+    </style>
 </head>
 <body>
-    <h1>Local Storage Contents:</h1>
+    <h1>App Debug Log</h1>
+    <p>Errors and diagnostics from app pages (e.g. 5/3/1 workout). Newest first. Open this page on your phone after reproducing an issue.</p>
+    <div class="debug-actions">
+        <button type="button" id="refresh-debug-log">Refresh</button>
+        <button type="button" id="clear-debug-log">Clear log</button>
+    </div>
+    <div id="debug-log"></div>
+
+    <h1>Local Storage Contents</h1>
     <pre id="local-storage"></pre>
 
-    <h1>IndexedDB Stores:</h1>
+    <h1>IndexedDB Stores</h1>
     <pre id="indexeddb-stores"></pre>
 
+    <script src="js/core/storage.js"></script>
     <script>
-	
-        // Display local storage contents
-        const localStorageContents = JSON.stringify(localStorage, null, 2);
-        document.getElementById('local-storage').textContent = localStorageContents;
+        function formatTimestamp(ts) {
+            if (!ts) return 'unknown time';
+            try {
+                return new Date(ts).toLocaleString();
+            } catch (_) {
+                return String(ts);
+            }
+        }
 
-        // Check for IndexedDB
+        function renderDebugLog() {
+            const container = document.getElementById('debug-log');
+            if (!window.RadiantStorage || !RadiantStorage.debug) {
+                container.innerHTML = '<p class="empty-log">RadiantStorage.debug not available.</p>';
+                return;
+            }
+
+            const entries = RadiantStorage.debug.getLog();
+            if (!entries.length) {
+                container.innerHTML = '<p class="empty-log">No debug entries yet.</p>';
+                return;
+            }
+
+            container.innerHTML = entries.map(function (entry) {
+                const dataBlock = entry.data && Object.keys(entry.data).length
+                    ? '<pre class="log-data">' + JSON.stringify(entry.data, null, 2) + '</pre>'
+                    : '';
+                return (
+                    '<div class="log-entry">' +
+                        '<div class="log-meta">' + formatTimestamp(entry.ts) +
+                        ' · <strong>' + (entry.source || 'app') + '</strong>' +
+                        (entry.location ? ' · ' + entry.location : '') +
+                        '</div>' +
+                        '<div class="log-message">' + (entry.message || '(no message)') + '</div>' +
+                        dataBlock +
+                    '</div>'
+                );
+            }).join('');
+        }
+
+        function renderLocalStorage() {
+            const filtered = {};
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key === RadiantStorage.KEYS.DEBUG_LOG) continue;
+                filtered[key] = localStorage.getItem(key);
+            }
+            document.getElementById('local-storage').textContent = JSON.stringify(filtered, null, 2);
+        }
+
+        document.getElementById('refresh-debug-log').addEventListener('click', function () {
+            renderDebugLog();
+            renderLocalStorage();
+        });
+
+        document.getElementById('clear-debug-log').addEventListener('click', function () {
+            if (!confirm('Clear the app debug log?')) return;
+            RadiantStorage.debug.clearLog();
+            renderDebugLog();
+        });
+
+        renderDebugLog();
+        renderLocalStorage();
+
         if ('indexedDB' in window) {
             const request = indexedDB.open('myDatabase');
 
-            request.onsuccess = (event) => {
+            request.onsuccess = function (event) {
                 const db = event.target.result;
                 const storeNames = db.objectStoreNames;
                 const storeInfo = [];
 
                 for (let i = 0; i < storeNames.length; i++) {
                     const storeName = storeNames[i];
-                    const store = db.transaction(storeName).objectStore(storeName);
-                    storeInfo.push({ name: storeName, length: store.count() });
+                    storeInfo.push({ name: storeName });
                 }
 
-                const indexedDBInfo = JSON.stringify(storeInfo, null, 2);
-                document.getElementById('indexeddb-stores').textContent = indexedDBInfo;
+                document.getElementById('indexeddb-stores').textContent = JSON.stringify(storeInfo, null, 2);
             };
 
-            request.onerror = (event) => {
-                console.error('Error opening IndexedDB:', event.target.error);
+            request.onerror = function (event) {
+                document.getElementById('indexeddb-stores').textContent =
+                    'Error opening IndexedDB: ' + event.target.error;
             };
         } else {
             document.getElementById('indexeddb-stores').textContent = 'IndexedDB is not supported in this browser.';
         }
-
     </script>
 </body>
 </html>

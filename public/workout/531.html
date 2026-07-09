@@ -16,11 +16,11 @@
         </header>
         <div class="blur-overlay" id="blurOverlay"></div>
         <div class="main-tabs">
-            <div class="main-tab" data-tab="setup">Program Setup</div>
-            <div class="main-tab active" data-tab="workout">Workout Plan</div>
+            <div class="main-tab active" data-tab="setup">Program Setup</div>
+            <div class="main-tab" data-tab="workout">Workout Plan</div>
         </div>
         <div class="main-content">
-            <div class="input-section">
+            <div class="input-section active">
                 <div class="input-group">
                     <label for="squat-1rm">Squat 1 Rep Max (lbs)</label>
                     <input type="number" id="squat-1rm" min="0" step="5" placeholder="e.g. 315">
@@ -48,11 +48,11 @@
                             <span class="collapsible-toggle">▼</span>
                         </div>
                         <div class="collapsible-content collapsed">
-                            <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
+                            <ul id="progression-guide-list" style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
                                 <li>After each 4-week cycle:</li>
                                 <li>> Increase upper body lifts (Bench, OHP) by 5 lbs</li>
                                 <li>> Increase lower body lifts (Squat, Deadlift) by 10 lbs</li>
-                                <li>Use AMRAP sets to gauge progress</li>
+                                <li id="progression-amrap-tip">Use AMRAP sets to gauge progress</li>
                                 <li>Adjust slower if AMRAP sets are challenging</li>
                             </ul>
                         </div>
@@ -75,16 +75,30 @@
                     <button id="quiz-button" style="background-color: var(--accent); padding: 10px 15px; width: 100%; margin-bottom: 10px;">Help Me Choose</button>
                     <select id="accessory-template">
                         <option value="standard">Standard (25-50 reps Push/Pull/Core)</option>
-                        <option value="bbb">Boring But Big (5x10 @ 50-60%)</option>
+                        <option value="bbb-forever">Forever BBB (Leader/Anchor cycles)</option>
                         <option value="fsl">First Set Last (5x5 @ First Set Weight)</option>
                         <option value="triumvirate">Triumvirate (2 accessories, 5x10-15)</option>
                         <option value="beginners">5/3/1 for Beginners (FSL + specific accessories)</option>
                     </select>
                 </div>
                 <div id="bbb-accessory-inputs" style="display:none">
-                    <p style="font-size:0.85rem; color:#666; margin-bottom:0;">
-                        BBB pressing days include Chin-ups 5×10 (bodyweight). You can substitute Barbell Curl or Shrugs for the Chin-ups.
+                    <p style="font-size:0.85rem; color:#666; margin: 0.5rem 0 0.25rem;">
+                        <strong>5×10 supplemental:</strong> 50% or 60% TM — start at 50%, move to 60% when 5×10 feels manageable.
                     </p>
+                    <div id="bbb-weight-preview" style="font-size:0.85rem; color:#666; margin-bottom:0.5rem;"></div>
+                    <p id="bbb-template-helper" style="font-size:0.85rem; color:#666; margin-bottom:0.5rem;"></p>
+                    <div class="collapsible-wrapper">
+                        <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
+                            <strong>AMRAP vs 5s Pro?</strong>
+                            <span class="collapsible-toggle">▼</span>
+                        </div>
+                        <div class="collapsible-content collapsed">
+                            <p style="font-size:0.85rem; color:#666; margin:0.5rem 0;">
+                                AMRAP is not required for muscle growth on BBB — the 5×10 block (~50 reps at 50–60% TM) is the size stimulus.
+                                Forever BBB uses 5s Pro (no AMRAP) so you finish those sets with quality. Save AMRAP for a later Anchor cycle (e.g. FSL).
+                            </p>
+                        </div>
+                    </div>
                 </div>
                 <div id="accessory-explanation" class="explanation-box"></div>
                 
@@ -139,7 +153,7 @@
                 </div>
             </div>
             
-            <div class="result-section active">
+            <div class="result-section">
                 <div id="workout-mode-bar" class="workout-mode-bar" style="display: none;">
                     <button type="button" id="exit-workout-mode">✕ Exit</button>
                     <span id="workout-mode-title" class="workout-mode-title">Workout</span>

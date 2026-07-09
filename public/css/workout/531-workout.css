@@ -134,8 +134,9 @@ body {
 
 .input-section,
 .result-section {
+    --pad-x: 24px;
     background: var(--paper);
-    padding: 20px 24px 28px;
+    padding: 20px var(--pad-x) 28px;
 }
 
 @media (min-width: 769px) {
@@ -245,9 +246,10 @@ button:hover {
     margin-bottom: 0;
     padding: 8px 8px 0;
     background: transparent;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
+    /* Line runs the full width so it connects with the container's side
+       borders; the active tab overlaps it (negative margin) to "open" */
+    border-bottom: 2px solid var(--ink);
+    overflow: visible;
 }
 
 .main-tab,
@@ -291,6 +293,7 @@ button:hover {
     border-width: 2px;
     border-bottom: none;
     padding: 9px 16px 7px;
+    margin-bottom: -2px;
     z-index: 2;
     box-shadow: none;
 }
@@ -303,6 +306,7 @@ button:hover {
         border-width: 2px;
         border-bottom: none;
         padding: 9px 16px 7px;
+        margin-bottom: -2px;
         z-index: 2;
         box-shadow: none;
     }
@@ -312,18 +316,23 @@ button:hover {
     display: none;
 }
 
+/* Week and day levels bleed to the section edges so every tab row is the
+   same width and only the outer .main-content border draws a boundary line */
+.result-section .week-tabs {
+    margin-left: calc(-1 * var(--pad-x));
+    margin-right: calc(-1 * var(--pad-x));
+}
+
 .week-content.active {
     display: block;
-    border: 2px solid var(--ink);
-    border-top: none;
-    padding: 0.75rem 0.75rem 0.25rem;
+    margin: 0 calc(-1 * var(--pad-x)) 1rem;
+    padding: 0.75rem 0 0.25rem;
     background: var(--paper);
-    margin-bottom: 1rem;
 }
 
 .week-content.active > h3 {
     margin-top: 0;
-    padding: 0 0.25rem 0.5rem;
+    padding: 0 var(--pad-x) 0.5rem;
     border-bottom: 1px solid var(--notebook-line);
 }
 
@@ -352,14 +361,10 @@ button:hover {
     font-style: italic;
     text-align: center;
     background: var(--paper);
-    border-left: 2px solid var(--ink);
-    border-right: 2px solid var(--ink);
 }
 
 .day-contents {
-    border: 2px solid var(--ink);
-    border-top: none;
-    padding: 0.75rem 1rem 1rem;
+    padding: 0.75rem var(--pad-x) 1rem;
     background: var(--paper);
     margin-bottom: 1rem;
 }
@@ -762,8 +767,9 @@ body.workout-mode .main-content {
 }
 
 body.workout-mode .result-section {
+    --pad-x: 16px;
     width: 100%;
-    padding: 0 16px 32px;
+    padding: 0 var(--pad-x) 32px;
     border: none;
 }
 
@@ -852,6 +858,7 @@ body.workout-mode .workout-item-set-row .rest-timer-btn.set-detail-timer {
     }
 
     .result-section {
+        --pad-x: 0px;
         box-shadow: none;
         padding: 0;
     }
@@ -872,8 +879,9 @@ body.workout-mode .workout-item-set-row .rest-timer-btn.set-detail-timer {
 
     .input-section,
     .result-section {
+        --pad-x: 14px;
         width: 100%;
-        padding: 16px 14px 24px;
+        padding: 16px var(--pad-x) 24px;
     }
 
     .input-section,
@@ -983,6 +991,32 @@ body.workout-mode .workout-item-set-row .rest-timer-btn.set-detail-timer {
     border-radius: 12px;
     font-family: 'Patrick Hand', cursive;
     font-size: 0.95rem;
+}
+
+.phase-hint-link {
+    color: #2196f3;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.phase-hint-link:hover,
+.phase-hint-link:focus-visible {
+    color: #1565c0;
+}
+
+.phase-hint-popover {
+    position: absolute;
+    z-index: 1000;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 10px 12px;
+    background: #fff;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    font-family: 'Patrick Hand', cursive;
+    font-size: 0.9rem;
+    line-height: 1.45;
+    color: var(--ink);
 }
 
 .level-up-button {

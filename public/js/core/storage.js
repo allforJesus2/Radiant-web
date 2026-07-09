@@ -36,6 +36,7 @@ const RadiantStorage = {
         SR_LEGACY_PORTION_VERSION: 'srLegacyPortionVersion',
         SR_LEGACY_IMPORT_COMPLETE: 'srLegacyImportComplete',
         ANNOUNCEMENTS_DISMISSED: 'announcementsDismissed',
+        DEBUG_LOG: 'radiant-debug-log',
     },
 
     /** Bump when default SR Legacy portions change in a deploy. */
@@ -455,6 +456,55 @@ const RadiantStorage = {
 
         save531Profile(profile) {
             RadiantStorage.setJSON(RadiantStorage.KEYS.PROFILE_531, profile);
+        },
+    },
+
+    debug: {
+        MAX_ENTRIES: 100,
+
+        log(source, location, message, data) {
+            const entry = {
+                ts: Date.now(),
+                source: source || 'app',
+                location: location || '',
+                message: message || '',
+                data: data && typeof data === 'object' ? data : {},
+            };
+            const log = RadiantStorage.getJSON(RadiantStorage.KEYS.DEBUG_LOG, []);
+            log.unshift(entry);
+            if (log.length > RadiantStorage.debug.MAX_ENTRIES) {
+                log.length = RadiantStorage.debug.MAX_ENTRIES;
+            }
+            try {
+                RadiantStorage.setJSON(RadiantStorage.KEYS.DEBUG_LOG, log);
+            } catch (_) { /* ignore quota errors */ }
+        },
+
+        getLog() {
+            const log = RadiantStorage.getJSON(RadiantStorage.KEYS.DEBUG_LOG, []);
+            const legacy = RadiantStorage.getJSON('531-last-error', null);
+            if (legacy && typeof legacy === 'object') {
+                const legacyEntry = {
+                    ts: legacy.ts || 0,
+                    source: '531',
+                    location: legacy.location || 'legacy',
+                    message: legacy.message || '',
+                    data: legacy.data || {},
+                };
+                const duplicate = log.some(
+                    e => e.ts === legacyEntry.ts && e.message === legacyEntry.message
+                );
+                if (!duplicate) {
+                    log.push(legacyEntry);
+                    log.sort((a, b) => b.ts - a.ts);
+                }
+            }
+            return log;
+        },
+
+        clearLog() {
+            RadiantStorage.remove(RadiantStorage.KEYS.DEBUG_LOG);
+            RadiantStorage.remove('531-last-error');
         },
     },
 };

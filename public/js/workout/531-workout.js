@@ -20,6 +20,9 @@
             let currentWeek = 1;
             let currentDay = 0;
             let userLevel = 1; // Initialize user level
+            let bbbForeverPhase = 'leader'; // 'leader' | 'anchor' — only used when accessoryTemplate is bbb-forever
+            let bbbLeaderCyclesCompleted = 0;
+            const BBB_FOREVER_LEADER_CYCLES = 2;
             let amrapResults = {}; // Store AMRAP results for each exercise
             let checkedDays = {}; // Store checked days: {week: {day: true}}
             let completedTimers = {}; // Store completed rest timers: {timerId: completionCount}
@@ -35,9 +38,83 @@
                 accessory: 90
             };
 
+            function log531Error(location, message, data) {
+                if (typeof RadiantStorage !== 'undefined' && RadiantStorage.debug) {
+                    RadiantStorage.debug.log('531', location, message, data);
+                }
+            }
+
+            const VALID_ACCESSORY_TEMPLATES = ['standard', 'bbb', 'bbb-forever', 'fsl', 'triumvirate', 'beginners'];
+
+            function normalize531WorkoutPlanInPlace(plan) {
+                if (!plan || typeof plan !== 'object') return;
+                if (!plan.weeks || typeof plan.weeks !== 'object') {
+                    plan.weeks = {};
+                }
+                for (let week = 1; week <= 4; week++) {
+                    if (!Array.isArray(plan.weeks[week])) {
+                        plan.weeks[week] = [];
+                    }
+                    plan.weeks[week].forEach(day => {
+                        if (!day.mainLift) {
+                            day.mainLift = { name: '', warmup: [], sets: [] };
+                        }
+                        if (!Array.isArray(day.mainLift.warmup)) {
+                            day.mainLift.warmup = [];
+                        }
+                        if (!Array.isArray(day.mainLift.sets)) {
+                            day.mainLift.sets = [];
+                        }
+                        if (!Array.isArray(day.accessories)) {
+                            day.accessories = [];
+                        }
+                    });
+                }
+            }
+
+            function normalize531Profile(raw) {
+                if (!raw || typeof raw !== 'object') return null;
+                const profile = { ...raw };
+                profile.inputs = profile.inputs && typeof profile.inputs === 'object' ? { ...profile.inputs } : {};
+                ['squat', 'bench', 'deadlift', 'ohp'].forEach(key => {
+                    if (profile.inputs[key] == null && raw[key] != null) {
+                        profile.inputs[key] = raw[key];
+                    }
+                    if (profile.inputs[key] != null) {
+                        profile.inputs[key] = String(profile.inputs[key]);
+                    }
+                });
+                if (profile.accessoryTemplate === 'bbb') {
+                    profile.accessoryTemplate = 'bbb-forever';
+                }
+                if (!VALID_ACCESSORY_TEMPLATES.includes(profile.accessoryTemplate)) {
+                    profile.accessoryTemplate = 'standard';
+                }
+                if (profile.accessoryTemplate !== 'bbb-forever') {
+                    profile.bbbForeverPhase = 'leader';
+                    profile.bbbLeaderCyclesCompleted = 0;
+                }
+                if (profile.workoutPlan) {
+                    normalize531WorkoutPlanInPlace(profile.workoutPlan);
+                }
+                return profile;
+            }
+
+            function hasAny1RMInput() {
+                return ['squat', 'bench', 'deadlift', 'ohp'].some(key => {
+                    const value = parseFloat(document.getElementById(`${key}-1rm`).value) || 0;
+                    return value > 0;
+                });
+            }
+
+            function hasWorkoutPlan() {
+                return workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0;
+            }
+
             // Load saved profile from localStorage
             function loadProfile() {
-                const profile = RadiantStorage.workout.get531Profile();
+                try {
+                const profile = normalize531Profile(RadiantStorage.workout.get531Profile());
                 if (profile) {
                     
                     // Restore input values
@@ -62,6 +139,8 @@
                     
                     // Restore user level
                     userLevel = profile.userLevel || 1;
+                    bbbForeverPhase = profile.bbbForeverPhase || 'leader';
+                    bbbLeaderCyclesCompleted = profile.bbbLeaderCyclesCompleted || 0;
                     updateLevelDisplay();
                     
                     // Restore AMRAP results BEFORE rendering workout plan
@@ -74,16 +153,28 @@
                     // Restore rest time settings
                     if (profile.restTimeSettings) {
                         restTimeSettings = profile.restTimeSettings;
-                        document.getElementById('warmup-rest-time').value = restTimeSettings.warmup;
-                        document.getElementById('main-rest-time').value = restTimeSettings.main;
-                        document.getElementById('accessory-rest-time').value = restTimeSettings.accessory;
+                        const warmupRestEl = document.getElementById('warmup-rest-time');
+                        const mainRestEl = document.getElementById('main-rest-time');
+                        const accessoryRestEl = document.getElementById('accessory-rest-time');
+                        if (warmupRestEl) warmupRestEl.value = restTimeSettings.warmup;
+                        if (mainRestEl) mainRestEl.value = restTimeSettings.main;
+                        if (accessoryRestEl) accessoryRestEl.value = restTimeSettings.accessory;
                         updateTimeDisplays();
                     }
                     
                     // Restore workout plan
-                    if (profile.workoutPlan) {
+                    if (profile.workoutPlan && Object.keys(profile.workoutPlan.weeks || {}).length > 0) {
                         workoutPlan = profile.workoutPlan;
-                        renderWorkoutPlan();
+                        try {
+                            renderWorkoutPlan();
+                        } catch (renderErr) {
+                            log531Error('renderWorkoutPlan', renderErr.message, { phase: 'load' });
+                            if (hasAny1RMInput()) {
+                                generateWorkoutPlan();
+                            }
+                        }
+                    } else if (hasAny1RMInput()) {
+                        generateWorkoutPlan();
                     }
                     
                     // Update UI to show saved week/day
@@ -94,17 +185,147 @@
                         showWeekContent(currentWeek, currentDay);
                     }, 0);
                 }
+                } catch (err) {
+                    log531Error('loadProfile', err.message, {});
+                    console.error('loadProfile failed:', err);
+                }
+            }
+
+            function getLeaderPhaseHintText() {
+                return `Leader cycle — 5s Pro main work + BBB 5×10. After ${BBB_FOREVER_LEADER_CYCLES} completed cycles you'll be prompted to run an Anchor cycle.`;
+            }
+
+            function getAnchorPhaseHintText() {
+                return `Anchor cycle — AMRAP main lifts + FSL 5×5 supplemental. Push PRs on Week 3, then you'll be prompted to return to leader phase.`;
+            }
+
+            function getPhaseHintText(phase) {
+                return phase === 'anchor' ? getAnchorPhaseHintText() : getLeaderPhaseHintText();
+            }
+
+            let phaseHintPopover = null;
+            let activePhaseHintAnchor = null;
+
+            function hidePhaseHintPopover() {
+                if (phaseHintPopover) {
+                    phaseHintPopover.hidden = true;
+                    activePhaseHintAnchor = null;
+                }
+            }
+
+            function ensurePhaseHintPopover() {
+                if (!phaseHintPopover) {
+                    phaseHintPopover = document.createElement('div');
+                    phaseHintPopover.className = 'phase-hint-popover';
+                    phaseHintPopover.hidden = true;
+                    phaseHintPopover.setAttribute('role', 'tooltip');
+                    document.body.appendChild(phaseHintPopover);
+                    document.addEventListener('click', (e) => {
+                        if (
+                            !phaseHintPopover.hidden
+                            && !e.target.closest('.phase-hint-link')
+                            && !e.target.closest('.phase-hint-popover')
+                        ) {
+                            hidePhaseHintPopover();
+                        }
+                    });
+                }
+                return phaseHintPopover;
+            }
+
+            function togglePhaseHintPopover(anchorEl, text) {
+                const popover = ensurePhaseHintPopover();
+                if (!popover.hidden && activePhaseHintAnchor === anchorEl) {
+                    hidePhaseHintPopover();
+                    return;
+                }
+                activePhaseHintAnchor = anchorEl;
+                popover.textContent = text;
+                popover.hidden = false;
+                const rect = anchorEl.getBoundingClientRect();
+                popover.style.top = `${rect.bottom + window.scrollY + 6}px`;
+                popover.style.left = `${Math.max(8, rect.left + window.scrollX)}px`;
             }
 
             // Update level display
             function updateLevelDisplay() {
-                levelDisplay.textContent = `lvl: ${userLevel}`;
+                hidePhaseHintPopover();
+                let html = `lvl: ${userLevel}`;
+                if (accessoryTemplate === 'bbb-forever') {
+                    if (bbbForeverPhase === 'anchor') {
+                        html += ' · <span class="phase-hint-link" data-phase="anchor" tabindex="0" role="button">Anchor</span>';
+                    } else {
+                        html += ' · <span class="phase-hint-link" data-phase="leader" tabindex="0" role="button">Leader</span>';
+                    }
+                }
+                levelDisplay.innerHTML = html;
+            }
+
+            function isForeverBbbLeaderPhase() {
+                return accessoryTemplate === 'bbb-forever' && bbbForeverPhase === 'leader';
+            }
+
+            function isForeverBbbAnchorPhase() {
+                return accessoryTemplate === 'bbb-forever' && bbbForeverPhase === 'anchor';
+            }
+
+            function resetBbbForeverPhaseState() {
+                bbbForeverPhase = 'leader';
+                bbbLeaderCyclesCompleted = 0;
+            }
+
+            function getEffectiveAccessoryTemplate() {
+                if (isForeverBbbAnchorPhase()) return 'fsl';
+                return accessoryTemplate;
             }
 
             function updateBbbAccessoryInputsVisibility() {
                 const block = document.getElementById('bbb-accessory-inputs');
+                const isBbb = accessorySelect.value === 'bbb' || accessorySelect.value === 'bbb-forever';
                 if (block) {
-                    block.style.display = accessorySelect.value === 'bbb' ? 'block' : 'none';
+                    block.style.display = isBbb ? 'block' : 'none';
+                }
+                updateBbbTemplateHelper();
+                updateBbbWeightPreview();
+                updateProgressionGuide();
+                updateWeekTabLabels();
+            }
+
+            function updateProgressionGuide() {
+                const amrapTip = document.getElementById('progression-amrap-tip');
+                const adjustTip = amrapTip?.nextElementSibling;
+                if (!amrapTip) return;
+                if (accessoryTemplate === 'bbb-forever') {
+                    if (isForeverBbbAnchorPhase()) {
+                        amrapTip.textContent = 'Anchor cycle — use AMRAP sets to gauge progress and set your next TM';
+                        if (adjustTip) adjustTip.style.display = '';
+                    } else {
+                        amrapTip.textContent = 'Leader cycle — no AMRAP sets; increase TM by standard amounts after each 4-week cycle';
+                        if (adjustTip) adjustTip.style.display = 'none';
+                    }
+                } else {
+                    amrapTip.textContent = 'Use AMRAP sets to gauge progress';
+                    if (adjustTip) adjustTip.style.display = '';
+                }
+            }
+
+            function updateBbbTemplateHelper() {
+                const helper = document.getElementById('bbb-template-helper');
+                if (!helper) return;
+                if (accessorySelect.value === 'bbb-forever') {
+                    if (isForeverBbbAnchorPhase()) {
+                        helper.textContent = 'Anchor cycle: AMRAP main work + FSL 5×5 supplemental + 50–100 reps assistance. Push PRs on Week 3 top sets, then return to leader phase.';
+                    } else {
+                        const cyclesLeft = Math.max(0, BBB_FOREVER_LEADER_CYCLES - bbbLeaderCyclesCompleted);
+                        const cycleNote = cyclesLeft === 1
+                            ? '1 leader cycle left before Anchor prompt.'
+                            : `${cyclesLeft} leader cycles left before Anchor prompt.`;
+                        helper.textContent = `Forever BBB leader: 5s Pro main work (no AMRAP), 5×10 supplemental, push/pull 25–50, core 0–25. ${cycleNote}`;
+                    }
+                } else if (accessorySelect.value === 'bbb') {
+                    helper.textContent = 'Classic BBB: pressing days include Chin-ups 5×10 (bodyweight). Squat/deadlift days include ab work. Cap AMRAP at prescribed reps to preserve 5×10 quality.';
+                } else {
+                    helper.textContent = '';
                 }
             }
 
@@ -123,6 +344,8 @@
                     currentWeek,
                     currentDay,
                     userLevel, // Save user level
+                    bbbForeverPhase,
+                    bbbLeaderCyclesCompleted,
                     amrapResults, // Save AMRAP results
                     restTimeSettings, // Save rest time settings
                     checkedDays, // Save checked days
@@ -162,6 +385,84 @@
                     { reps: 5, percentage: 60 }
                 ]
             };
+
+            const weekPercentages5sPro = {
+                1: [
+                    { reps: 5, percentage: 65 },
+                    { reps: 5, percentage: 75 },
+                    { reps: 5, percentage: 85 }
+                ],
+                2: [
+                    { reps: 5, percentage: 70 },
+                    { reps: 5, percentage: 80 },
+                    { reps: 5, percentage: 90 }
+                ],
+                3: [
+                    { reps: 5, percentage: 75 },
+                    { reps: 5, percentage: 85 },
+                    { reps: 5, percentage: 95 }
+                ],
+                4: [
+                    { reps: 5, percentage: 40 },
+                    { reps: 5, percentage: 50 },
+                    { reps: 5, percentage: 60 }
+                ]
+            };
+
+            const coreOnlySuggestions = [
+                'Ab Wheel', 'Hanging Leg Raises', 'Planks', 'Russian Twists', 'Sit-ups', 'Pallof Press'
+            ];
+
+            const foreverBbbPullExtras = ['Reverse Curls', 'Wrist Roller'];
+            const foreverBbbCoreExtras = ['Standing Bag Kicks'];
+
+            function getMainLiftSets(week) {
+                if (isForeverBbbLeaderPhase() && week !== 4) {
+                    return weekPercentages5sPro[week];
+                }
+                return weekPercentages[week];
+            }
+
+            function getWeekLabel(week) {
+                if (isForeverBbbLeaderPhase()) {
+                    switch (week) {
+                        case 1: case 2: case 3: return '5/5/5';
+                        case 4: return 'Deload';
+                    }
+                }
+                if (isForeverBbbAnchorPhase()) {
+                    switch (week) {
+                        case 1: return '5/5/5+';
+                        case 2: return '3/3/3+';
+                        case 3: return '5/3/1+';
+                        case 4: return 'Deload';
+                    }
+                }
+                switch (week) {
+                    case 1: return '5/5/5+';
+                    case 2: return '3/3/3+';
+                    case 3: return '5/3/1+';
+                    case 4: return 'Deload';
+                }
+            }
+
+            function updateWeekTabLabels() {
+                for (let week = 1; week <= 4; week++) {
+                    const tab = document.querySelector(`.week-tab[data-week="${week}"]`);
+                    if (tab) {
+                        const label = getWeekLabel(week);
+                        tab.innerHTML = `Week ${week}<br>(${label})`;
+                    }
+                }
+            }
+
+            function usesForeverBbbMainWork() {
+                return isForeverBbbLeaderPhase();
+            }
+
+            function skipsAmrapGate() {
+                return isForeverBbbLeaderPhase();
+            }
 
             const accessoryExercises = {
                 standard: {
@@ -260,8 +561,8 @@
                 }
             };
 
-            // DOM elements
-            const saveButton = document.getElementById('save-button');
+            // DOM elements — support legacy cached HTML that still has #generate-button
+            const saveButton = document.getElementById('save-button') || document.getElementById('generate-button');
             const weekTabs = document.querySelectorAll('.week-tab');
             const mainTabs = document.querySelectorAll('.main-tab');
             const inputSection = document.querySelector('.input-section');
@@ -269,9 +570,36 @@
             const tmOptions = document.querySelectorAll('.toggle-option');
             const accessorySelect = document.getElementById('accessory-template');
             const levelDisplay = document.getElementById('level-display');
+            levelDisplay.addEventListener('click', (e) => {
+                const link = e.target.closest('.phase-hint-link');
+                if (link) {
+                    e.stopPropagation();
+                    togglePhaseHintPopover(link, getPhaseHintText(link.dataset.phase));
+                }
+            });
+            levelDisplay.addEventListener('keydown', (e) => {
+                const link = e.target.closest('.phase-hint-link');
+                if (link && (e.key === 'Enter' || e.key === ' ')) {
+                    e.preventDefault();
+                    togglePhaseHintPopover(link, getPhaseHintText(link.dataset.phase));
+                }
+            });
             const exitWorkoutModeButton = document.getElementById('exit-workout-mode');
             const workoutModeBar = document.getElementById('workout-mode-bar');
             const workoutModeTitle = document.getElementById('workout-mode-title');
+
+            function setActiveMainTab(tabType) {
+                mainTabs.forEach(t => {
+                    t.classList.toggle('active', t.dataset.tab === tabType);
+                });
+                if (tabType === 'setup') {
+                    inputSection.classList.add('active');
+                    resultSection.classList.remove('active');
+                } else {
+                    inputSection.classList.remove('active');
+                    resultSection.classList.add('active');
+                }
+            }
 
             function renderWorkoutItem(timerType, timerId, label, detail, options = {}) {
                 const classes = ['workout-item'];
@@ -367,11 +695,7 @@
                 workoutModeActive = true;
                 document.body.classList.add('workout-mode');
                 if (workoutModeBar) workoutModeBar.style.display = 'flex';
-                mainTabs.forEach(t => {
-                    t.classList.toggle('active', t.dataset.tab === 'workout');
-                });
-                inputSection.classList.remove('active');
-                resultSection.classList.add('active');
+                setActiveMainTab('workout');
                 updateWorkoutModeTitle();
                 requestAnimationFrame(() => scrollToFirstIncompleteItem());
             }
@@ -415,17 +739,7 @@
             // Main tab switching (for mobile)
             mainTabs.forEach(tab => {
                 tab.addEventListener('click', () => {
-                    const tabType = tab.dataset.tab;
-                    mainTabs.forEach(t => t.classList.remove('active'));
-                    tab.classList.add('active');
-                    
-                    if (tabType === 'setup') {
-                        inputSection.classList.add('active');
-                        resultSection.classList.remove('active');
-                    } else {
-                        inputSection.classList.remove('active');
-                        resultSection.classList.add('active');
-                    }
+                    setActiveMainTab(tab.dataset.tab);
                 });
             });
             
@@ -449,52 +763,51 @@
                 {
                     question: "What's your primary training goal?",
                     options: [
-                        { text: "Build muscle mass and size", scores: { bbb: 3, standard: 2, fsl: 1, triumvirate: 1, beginners: 1 } },
-                        { text: "Increase strength and power", scores: { fsl: 3, standard: 2, bbb: 1, triumvirate: 2, beginners: 2 } },
-                        { text: "General fitness and conditioning", scores: { standard: 3, triumvirate: 2, fsl: 1, bbb: 1, beginners: 2 } },
-                        { text: "I'm new to 5/3/1 and need structure", scores: { beginners: 3, standard: 2, fsl: 1, bbb: 1, triumvirate: 1 } }
+                        { text: "Build muscle mass and size", scores: { 'bbb-forever': 6, standard: 2, fsl: 1, triumvirate: 1, beginners: 1 } },
+                        { text: "Increase strength and power", scores: { fsl: 3, standard: 2, 'bbb-forever': 1, triumvirate: 2, beginners: 2 } },
+                        { text: "General fitness and conditioning", scores: { standard: 3, triumvirate: 2, fsl: 1, 'bbb-forever': 2, beginners: 2 } },
+                        { text: "I'm new to 5/3/1 and need structure", scores: { beginners: 3, standard: 2, fsl: 1, 'bbb-forever': 1, triumvirate: 1 } }
                     ]
                 },
                 {
                     question: "How much time do you have for accessory work?",
                     options: [
-                        { text: "30+ minutes - I want maximum volume", scores: { bbb: 3, beginners: 2, standard: 2, fsl: 1, triumvirate: 1 } },
-                        { text: "20-30 minutes - moderate volume", scores: { standard: 3, fsl: 2, triumvirate: 2, bbb: 1, beginners: 1 } },
-                        { text: "15-20 minutes - focused work", scores: { triumvirate: 3, fsl: 2, standard: 1, bbb: 1, beginners: 1 } },
-                        { text: "10-15 minutes - minimal but effective", scores: { fsl: 3, triumvirate: 2, standard: 1, bbb: 1, beginners: 1 } }
+                        { text: "30+ minutes - I want maximum volume", scores: { 'bbb-forever': 6, beginners: 2, standard: 2, fsl: 1, triumvirate: 1 } },
+                        { text: "20-30 minutes - moderate volume", scores: { standard: 3, fsl: 2, triumvirate: 2, 'bbb-forever': 3, beginners: 1 } },
+                        { text: "15-20 minutes - focused work", scores: { triumvirate: 3, fsl: 2, standard: 1, 'bbb-forever': 2, beginners: 1 } },
+                        { text: "10-15 minutes - minimal but effective", scores: { fsl: 3, triumvirate: 2, standard: 1, 'bbb-forever': 1, beginners: 1 } }
                     ]
                 },
                 {
                     question: "What's your experience level with 5/3/1?",
                     options: [
-                        { text: "Complete beginner to 5/3/1", scores: { beginners: 3, standard: 2, fsl: 1, bbb: 1, triumvirate: 1 } },
-                        { text: "Some experience, still learning", scores: { standard: 3, fsl: 2, beginners: 2, bbb: 1, triumvirate: 1 } },
-                        { text: "Intermediate - comfortable with the program", scores: { fsl: 3, bbb: 2, standard: 2, triumvirate: 2, beginners: 1 } },
-                        { text: "Advanced - ready for challenging variations", scores: { bbb: 3, fsl: 2, triumvirate: 2, standard: 1, beginners: 1 } }
+                        { text: "Complete beginner to 5/3/1", scores: { beginners: 3, standard: 2, fsl: 1, 'bbb-forever': 1, triumvirate: 1 } },
+                        { text: "Some experience, still learning", scores: { standard: 3, fsl: 2, beginners: 2, 'bbb-forever': 2, triumvirate: 1 } },
+                        { text: "Intermediate - comfortable with the program", scores: { fsl: 3, 'bbb-forever': 4, standard: 2, triumvirate: 2, beginners: 1 } },
+                        { text: "Advanced - ready for challenging variations", scores: { 'bbb-forever': 5, fsl: 2, triumvirate: 2, standard: 1, beginners: 1 } }
                     ]
                 },
                 {
                     question: "How do you prefer to structure your accessory work?",
                     options: [
-                        { text: "Same movement as main lift (more volume)", scores: { bbb: 3, fsl: 2, standard: 1, triumvirate: 1, beginners: 1 } },
-                        { text: "Related movements at same intensity", scores: { fsl: 3, standard: 2, bbb: 1, triumvirate: 1, beginners: 2 } },
-                        { text: "Variety of movements for balance", scores: { standard: 3, triumvirate: 2, fsl: 1, bbb: 1, beginners: 2 } },
-                        { text: "Minimal, focused movements", scores: { triumvirate: 3, fsl: 2, standard: 1, bbb: 1, beginners: 1 } }
+                        { text: "Same movement as main lift (more volume)", scores: { 'bbb-forever': 6, fsl: 2, standard: 1, triumvirate: 1, beginners: 1 } },
+                        { text: "Related movements at same intensity", scores: { fsl: 3, standard: 2, 'bbb-forever': 2, triumvirate: 1, beginners: 2 } },
+                        { text: "Variety of movements for balance", scores: { standard: 3, 'bbb-forever': 3, triumvirate: 2, fsl: 1, beginners: 2 } },
+                        { text: "Minimal, focused movements", scores: { triumvirate: 3, fsl: 2, standard: 1, 'bbb-forever': 1, beginners: 1 } }
                     ]
                 },
                 {
                     question: "What's your recovery capacity?",
                     options: [
-                        { text: "Excellent - I recover quickly", scores: { bbb: 3, beginners: 2, standard: 2, fsl: 1, triumvirate: 1 } },
-                        { text: "Good - moderate volume works well", scores: { standard: 3, fsl: 2, triumvirate: 2, bbb: 1, beginners: 1 } },
-                        { text: "Average - need to manage fatigue", scores: { fsl: 3, triumvirate: 2, standard: 2, bbb: 1, beginners: 1 } },
-                        { text: "Limited - prefer lower volume", scores: { triumvirate: 3, fsl: 2, standard: 1, bbb: 1, beginners: 1 } }
+                        { text: "Excellent - I recover quickly", scores: { 'bbb-forever': 5, beginners: 2, standard: 2, fsl: 1, triumvirate: 1 } },
+                        { text: "Good - moderate volume works well", scores: { standard: 3, fsl: 2, triumvirate: 2, 'bbb-forever': 3, beginners: 1 } },
+                        { text: "Average - need to manage fatigue", scores: { fsl: 3, 'bbb-forever': 4, triumvirate: 2, standard: 2, beginners: 1 } },
+                        { text: "Limited - prefer lower volume", scores: { triumvirate: 3, fsl: 2, standard: 1, 'bbb-forever': 2, beginners: 1 } }
                     ]
                 }
             ];
             
-            // Event listeners
-            saveButton.addEventListener('click', () => {
+            function handleSave1RMs() {
                 const squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
                 const bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
                 const deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
@@ -509,10 +822,24 @@
                     return;
                 }
 
-                generateWorkoutPlan();
-                saveProfile();
-                alert('Workout plan saved.');
-            });
+                try {
+                    generateWorkoutPlan();
+                    updateBbbWeightPreview();
+                    saveProfile();
+                    alert('Workout plan saved.');
+                } catch (err) {
+                    log531Error('handleSave1RMs', err.message, {});
+                    console.error('Save failed:', err);
+                    alert('Could not save workout plan. Try refreshing the page.');
+                }
+            }
+
+            // Event listeners
+            if (saveButton) {
+                saveButton.addEventListener('click', handleSave1RMs);
+            } else {
+                log531Error('init', 'No save or generate button found in DOM', {});
+            }
             
             weekTabs.forEach(tab => {
                 tab.addEventListener('click', () => {
@@ -529,13 +856,25 @@
                     tmOptions.forEach(o => o.classList.remove('active'));
                     option.classList.add('active');
                     tmPercentage = parseInt(option.dataset.value);
+                    updateBbbWeightPreview();
+                    if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                        generateWorkoutPlan();
+                    }
                     saveProfile();
                 });
             });
             
             accessorySelect.addEventListener('change', () => {
+                const previousTemplate = accessoryTemplate;
                 accessoryTemplate = accessorySelect.value;
+                if (accessoryTemplate === 'bbb-forever' && previousTemplate !== 'bbb-forever') {
+                    resetBbbForeverPhaseState();
+                } else if (accessoryTemplate !== 'bbb-forever') {
+                    resetBbbForeverPhaseState();
+                }
                 updateBbbAccessoryInputsVisibility();
+                updateExplanation();
+                updateLevelDisplay();
                 
                 // If workout plan already exists, regenerate it with new accessory template
                 if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
@@ -752,6 +1091,7 @@
 
             // Load saved profile on page load
             loadProfile();
+            setActiveMainTab(hasWorkoutPlan() ? 'workout' : 'setup');
             
             // Rest Timer Functions
             function formatTime(seconds) {
@@ -1090,8 +1430,52 @@
             function round5(num) {
                 return Math.round(num / 5) * 5;
             }
+
+            function getBbbWeights(exerciseTM) {
+                return {
+                    fifty: round5(exerciseTM * 0.5),
+                    sixty: round5(exerciseTM * 0.6)
+                };
+            }
+
+            function formatBbbWeightLine(exerciseTM, deload) {
+                const { fifty, sixty } = getBbbWeights(exerciseTM);
+                if (deload) {
+                    return `3 sets of 10 @ ${fifty} lbs (50% TM, deload — may skip entirely)`;
+                }
+                return `5 sets of 10 @ ${fifty} lbs (50% TM) or ${sixty} lbs (60% TM)`;
+            }
+
+            function updateBbbWeightPreview() {
+                const preview = document.getElementById('bbb-weight-preview');
+                if (!preview) return;
+                if (accessorySelect.value !== 'bbb' && accessorySelect.value !== 'bbb-forever') {
+                    preview.innerHTML = '';
+                    return;
+                }
+                const lifts = [
+                    { key: 'squat', label: 'Squat' },
+                    { key: 'bench', label: 'Bench' },
+                    { key: 'deadlift', label: 'Deadlift' },
+                    { key: 'ohp', label: 'OHP' }
+                ];
+                const lines = [];
+                lifts.forEach(({ key, label }) => {
+                    const oneRM = parseFloat(document.getElementById(`${key}-1rm`).value) || 0;
+                    if (oneRM <= 0) return;
+                    const tm = round5(oneRM * (tmPercentage / 100));
+                    const { fifty, sixty } = getBbbWeights(tm);
+                    lines.push(`${label}: ${fifty} lbs (50%) / ${sixty} lbs (60%)`);
+                });
+                preview.innerHTML = lines.length
+                    ? lines.map(l => `<div>${l}</div>`).join('')
+                    : '<div>Enter 1RMs and save to see calculated BBB weights.</div>';
+            }
             
-            function generateWarmupSets(exerciseTM) {
+            function generateWarmupSets(exerciseTM, week) {
+                if (week === 4) {
+                    return [];
+                }
                 return [
                     { reps: 5, weight: round5(exerciseTM * 0.4), percentage: 40 },
                     { reps: 5, weight: round5(exerciseTM * 0.5), percentage: 50 },
@@ -1154,14 +1538,14 @@
                             mainLift: { 
                                 name: main.charAt(0).toUpperCase() + main.slice(1),
                                 tm: exerciseTM,
-                                warmup: generateWarmupSets(exerciseTM),
+                                warmup: generateWarmupSets(exerciseTM, week),
                                 sets: []
                             },
                             accessories: []
                         };
                         
                         // Add main lift sets based on week percentages
-                        weekPercentages[week].forEach(set => {
+                        getMainLiftSets(week).forEach(set => {
                             dayPlan.mainLift.sets.push({
                                 reps: set.reps,
                                 weight: round5(exerciseTM * (set.percentage / 100)),
@@ -1171,7 +1555,8 @@
                         });
                         
                         // Add accessories based on template
-                        if (accessoryTemplate === 'standard') {
+                        const effectiveTemplate = getEffectiveAccessoryTemplate();
+                        if (effectiveTemplate === 'standard') {
                             const exercises = accessoryExercises.standard[main];
                             const accessoryReps = week === 4 ? '10-25 total reps (deload - may skip entirely)' : '25-50 total reps';
                             
@@ -1183,20 +1568,21 @@
                                 { type: 'Pull', exercise: exercises.pull[exerciseIndex], reps: accessoryReps },
                                 { type: exercises.core ? 'Core' : 'Legs', exercise: (exercises.core || exercises.legs)[exerciseIndex], reps: accessoryReps }
                             ];
-                        } else if (accessoryTemplate === 'bbb') {
+                        } else if (effectiveTemplate === 'bbb') {
                             const bbbExercise = accessoryExercises.bbb[main];
-                            const bbbWeight = round5(exerciseTM * 0.5); // 50% TM for BBB
+                            const bbbWeights = getBbbWeights(exerciseTM);
                             
                             // Reduce BBB volume during deload week
-                            const bbbSets = week === 4 ? '3 sets of 10 reps (deload - may skip entirely)' : '5 sets of 10 reps';
-                            const isPressingDay = (main === 'ohp' || main === 'bench');
                             const deload = week === 4;
+                            const bbbSetsDetail = formatBbbWeightLine(exerciseTM, deload);
+                            const isPressingDay = (main === 'ohp' || main === 'bench');
                             
                             const bbbBase = {
                                 type: 'Boring But Big',
                                 exercise: bbbExercise.main,
-                                sets: bbbSets,
-                                weight: bbbWeight
+                                setsDetail: bbbSetsDetail,
+                                weight50: bbbWeights.fifty,
+                                weight60: bbbWeights.sixty
                             };
                             
                             if (isPressingDay) {
@@ -1216,7 +1602,53 @@
                                     { type: 'AbWork', sets: abSets, suggestions: abSuggestions }
                                 ];
                             }
-                        } else if (accessoryTemplate === 'fsl') {
+                        } else if (effectiveTemplate === 'bbb-forever') {
+                            const deload = week === 4;
+                            const exerciseIndex = (day - 1) % 4;
+                            const exercises = accessoryExercises.standard[main];
+                            const pushReps = deload ? '10–25 total reps (deload - may skip entirely)' : '25–50 total reps';
+                            const pullReps = pushReps;
+                            const coreReps = deload ? '0–15 total reps (deload - may skip entirely)' : '0–25 total reps (core only — no leg assistance)';
+                            const pullSuggestions = [...exercises.pull, ...foreverBbbPullExtras];
+                            const coreSuggestions = [...(exercises.core || coreOnlySuggestions), ...foreverBbbCoreExtras];
+                            const pullNote = 'If you can\'t reach 25–50 chin-ups, add a second lighter pull exercise.';
+                            const pushNote = (main === 'squat' || main === 'deadlift')
+                                ? 'Prefer dips or push-ups — easy on the lower back.'
+                                : undefined;
+                            const pullNoteExtra = main === 'deadlift'
+                                ? 'Prefer chest-supported or cable rows — spare the lower back.'
+                                : pullNote;
+
+                            dayPlan.accessories = [
+                                {
+                                    type: 'Boring But Big',
+                                    exercise: main.charAt(0).toUpperCase() + main.slice(1),
+                                    setsDetail: formatBbbWeightLine(exerciseTM, deload),
+                                    weight50: getBbbWeights(exerciseTM).fifty,
+                                    weight60: getBbbWeights(exerciseTM).sixty
+                                },
+                                {
+                                    type: 'Push',
+                                    exercise: exercises.push[exerciseIndex],
+                                    reps: pushReps,
+                                    suggestions: exercises.push,
+                                    note: pushNote
+                                },
+                                {
+                                    type: 'Pull',
+                                    exercise: exercises.pull[exerciseIndex],
+                                    reps: pullReps,
+                                    suggestions: pullSuggestions,
+                                    note: pullNoteExtra
+                                },
+                                {
+                                    type: 'Core',
+                                    exercise: coreSuggestions[exerciseIndex % coreSuggestions.length],
+                                    reps: coreReps,
+                                    suggestions: coreSuggestions
+                                }
+                            ];
+                        } else if (effectiveTemplate === 'fsl') {
                             // First set last - use first working set weight for 5x5
                             const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
                             const fslExercises = accessoryExercises.fsl[main];
@@ -1238,7 +1670,7 @@
                                     reps: supplementalReps
                                 }
                             ];
-                        } else if (accessoryTemplate === 'triumvirate') {
+                        } else if (effectiveTemplate === 'triumvirate') {
                             const triumvirateExercises = accessoryExercises.triumvirate[main];
                             
                             // Reduce Triumvirate volume during deload week
@@ -1254,7 +1686,7 @@
                             } else {
                                 dayPlan.accessories = triumvirateExercises.accessories;
                             }
-                        } else if (accessoryTemplate === 'beginners') {
+                        } else if (effectiveTemplate === 'beginners') {
                             // First set last - use first working set weight for 5x5
                             const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
                             const beginnerExercises = accessoryExercises.beginners[main];
@@ -1327,6 +1759,8 @@
                     currentDay = 0;
                     showWeekContent(1, 0);
                 }
+                updateWeekTabLabels();
+                updateBbbWeightPreview();
             }
             
             // Function to safely join an array or return a default string
@@ -1339,6 +1773,9 @@
             
             // Check if all AMRAP sets have been logged
             function areAllAmrapSetsLogged() {
+                if (skipsAmrapGate()) {
+                    return true;
+                }
                 // Get the exercises that have 1RM values (are being used)
                 const exercises = [];
                 if (parseFloat(document.getElementById('squat-1rm').value) > 0) exercises.push('squat');
@@ -1366,7 +1803,7 @@
                 
                 let html = '';
                 
-                if (allLogged) {
+                if (allLogged || skipsAmrapGate()) {
                     html += '<button id="level-up-button" class="level-up-button" style="width: 100%; margin-top: 1rem;">LEVEL UP! (Complete Cycle & Increase Weights)</button>';
                 } else {
                     html += '<button id="level-up-button" class="level-up-button" disabled style="opacity: 0.5; cursor: not-allowed; width: 100%; margin-top: 1rem;">LEVEL UP! (Log Week 3 AMRAP Sets First)</button>';
@@ -1393,18 +1830,13 @@
                 
                 // Create HTML for each week
                 for (let week = 1; week <= 4; week++) {
-                    let weekName = '';
-                    switch(week) {
-                        case 1: weekName = '5/5/5+'; break;
-                        case 2: weekName = '3/3/3+'; break;
-                        case 3: weekName = '5/3/1+'; break;
-                        case 4: weekName = 'Deload'; break;
-                    }
+                    const weekName = getWeekLabel(week);
+                    const weekDays = workoutPlan.weeks[week];
                     
                     html += `<div class="week-content ${week === 1 ? 'active' : ''}" data-week="${week}">`;
                     html += `<h3>Week ${week} (${weekName})</h3>`;
                     
-                    if (workoutPlan.weeks[week].length === 0) {
+                    if (!weekDays || weekDays.length === 0) {
                         html += '<p>Please enter at least one 1RM value to generate workout days.</p>';
                     } else {
                         // Add day tabs
@@ -1420,6 +1852,28 @@
                         html += '<div class="day-contents">';
                         workoutPlan.weeks[week].forEach((day, dayIndex) => {
                             const isLastDayOfCycle = (week === 4 && dayIndex === workoutPlan.weeks[week].length - 1);
+                            const isForeverBbbLeader = isForeverBbbLeaderPhase();
+                            const notesItems = isForeverBbbLeader
+                                ? [
+                                    'TM = Training Max',
+                                    '5s Pro: all working sets are 5 reps — stop with 1–2 reps in reserve (no AMRAP)',
+                                    'Rest 2-3 minutes between main lift sets',
+                                    'Rest 60-90 seconds between accessory sets',
+                                    'Accessory work at 70-80% RPE — leave 2-3 reps in reserve',
+                                    'On hard days, use the low end of assistance rep ranges (25 push, 25 pull, 0–15 core)'
+                                ]
+                                : [
+                                    'TM = Training Max',
+                                    'AMRAP = As Many Reps As Possible (with good form)',
+                                    'Rest 2-3 minutes between main lift sets',
+                                    'Rest 60-90 seconds between accessory sets',
+                                    'Accessory work should be done at 70-80% RPE (Rate of Perceived Exertion)',
+                                    'Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight',
+                                    'Increase weight only when you can complete all reps with good form'
+                                ];
+                            if (week === 4) {
+                                notesItems.push('Deload: no separate warm-up — work sets at 40/50/60% TM are your session (empty bar × 5–10 optional)');
+                            }
                             
                             html += `
                             <div class="day-content ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">
@@ -1434,17 +1888,12 @@
                                         </div>
                                         <div class="collapsible-content collapsed">
                                             <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
-                                                <li>TM = Training Max</li>
-                                                <li>AMRAP = As Many Reps As Possible (with good form)</li>
-                                                <li>Rest 2-3 minutes between main lift sets</li>
-                                                <li>Rest 60-90 seconds between accessory sets</li>
-                                                <li>Accessory work should be done at 70-80% RPE (Rate of Perceived Exertion)</li>
-                                                <li>Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight</li>
-                                                <li>Increase weight only when you can complete all reps with good form</li>
+                                                ${notesItems.map(item => `<li>${item}</li>`).join('')}
                                             </ul>
                                         </div>
                                     </div>
                                     
+                                    ${(day.mainLift.warmup || []).length > 0 ? `
                                     <div class="warm-up-section workout-section">
                                         <h4>Warm-up Sets</h4>
                                         <div class="workout-stack set-stack">
@@ -1462,7 +1911,10 @@
                                                 }
                                             )).join('')}
                                         </div>
-                                    </div>
+                                    </div>` : (week === 4 ? `
+                                    <div class="warm-up-section workout-section">
+                                        <p style="font-size:0.9rem; color:#666; margin:0.5rem 0;">Deload: no separate warm-up — work sets at 40/50/60% TM are your session.</p>
+                                    </div>` : '')}
                                     
                                     <div class="workout-section">
                                         <h4>Main Lift: ${day.mainLift.name}</h4>
@@ -1490,8 +1942,8 @@
                                         </div>
                                     </div>`;
                             
-                            // Add AMRAP logging section for Week 3 only
-                            if (week === 3) {
+                            // Add AMRAP logging section for Week 3 only (not Forever BBB)
+                            if (week === 3 && !skipsAmrapGate()) {
                                 const exerciseName = day.mainLift.name.toLowerCase();
                                 const amrapData = amrapResults[exerciseName] || {};
                                 const hasLogged = amrapData.reps !== undefined;
@@ -1534,10 +1986,11 @@
                             
                             html += `
                                     <div class="accessory-section workout-section">
-                                        <h4>Accessory Work</h4>
+                                        <h4>Accessory Work${isForeverBbbAnchorPhase() ? ' (Anchor — FSL)' : ''}</h4>
                                         <div class="workout-stack">`;
                             
-                            if (accessoryTemplate === 'standard') {
+                            const renderTemplate = getEffectiveAccessoryTemplate();
+                            if (renderTemplate === 'standard') {
                                 day.accessories.forEach((accessory, accIndex) => {
                                     html += renderWorkoutItem(
                                         'accessory',
@@ -1546,14 +1999,14 @@
                                         accessory.reps
                                     );
                                 });
-                            } else if (accessoryTemplate === 'bbb') {
+                            } else if (renderTemplate === 'bbb') {
                                 day.accessories.forEach((acc, accIndex) => {
                                     if (acc.type === 'Boring But Big') {
                                         html += renderWorkoutItem(
                                             'accessory',
                                             `accessory-${week}-${dayIndex}-${accIndex}`,
                                             `${acc.type}: ${acc.exercise}`,
-                                            `${acc.sets} @ ${acc.weight} lbs`
+                                            acc.setsDetail
                                         );
                                     } else if (acc.type === 'Chinups') {
                                         html += renderWorkoutItem(
@@ -1573,7 +2026,26 @@
                                         );
                                     }
                                 });
-                            } else if (accessoryTemplate === 'fsl') {
+                            } else if (renderTemplate === 'bbb-forever') {
+                                day.accessories.forEach((acc, accIndex) => {
+                                    if (acc.type === 'Boring But Big') {
+                                        html += renderWorkoutItem(
+                                            'accessory',
+                                            `accessory-${week}-${dayIndex}-${accIndex}`,
+                                            `${acc.type}: ${acc.exercise}`,
+                                            acc.setsDetail
+                                        );
+                                    } else {
+                                        html += renderWorkoutItem(
+                                            'accessory',
+                                            `accessory-${week}-${dayIndex}-${accIndex}`,
+                                            `${acc.type}: ${acc.exercise}`,
+                                            acc.reps,
+                                            { suggestions: acc.suggestions, note: acc.note }
+                                        );
+                                    }
+                                });
+                            } else if (renderTemplate === 'fsl') {
                                 html += renderWorkoutItem(
                                     'accessory',
                                     `accessory-${week}-${dayIndex}-0`,
@@ -1586,7 +2058,7 @@
                                     `${day.accessories[1].type}: ${safeJoin(day.accessories[1].exercises, ', ')}`,
                                     day.accessories[1].reps
                                 );
-                            } else if (accessoryTemplate === 'triumvirate') {
+                            } else if (renderTemplate === 'triumvirate') {
                                 day.accessories.forEach((accessory, accIndex) => {
                                     html += renderWorkoutItem(
                                         'accessory',
@@ -1595,7 +2067,7 @@
                                         `${accessory.sets} sets of ${accessory.reps} reps`
                                     );
                                 });
-                            } else if (accessoryTemplate === 'beginners') {
+                            } else if (renderTemplate === 'beginners') {
                                 const fslAccessory = day.accessories.find(acc => acc.type === 'First Set Last');
                                 let accIndex = 0;
                                 if (fslAccessory) {
@@ -1641,6 +2113,7 @@
 
                 // Update week checkmarks after rendering
                 updateAllWeekCheckmarks();
+                updateWeekTabLabels();
                 
                 // Add event listeners for level up button
                 const levelUpButton = document.getElementById('level-up-button');
@@ -1704,7 +2177,7 @@
             const explanations = {
                 'standard': 'The Standard template focuses on balanced development with 25-50 reps each of pushing, pulling, and core exercises. This provides a well-rounded approach to assistance work that complements the main lifts without excessive fatigue.',
                 
-                'bbb': 'Boring But Big (BBB) adds 5×10 at ~50% of your training max after the main lift. Pressing days include chin-ups and barbell curl; squat and deadlift days include ab work (pick from the suggestions). Enter a curl working weight when using this template.',
+                'bbb-forever': 'Forever BBB alternates Leader and Anchor cycles. Leaders use 5s Pro main work (no AMRAP) plus 5×10 supplemental at 50–60% TM with push/pull 25–50 and core 0–25. After 2 leader cycles you\'ll be prompted to run an Anchor cycle: AMRAP main lifts, FSL 5×5 supplemental, and 50–100 reps assistance — then return to leaders.',
                 
                 'fsl': 'First Set Last (FSL) uses the weight from your first work set (the 5 reps set) for 5 additional sets of 5 reps. This provides additional volume at a moderate intensity, helping to build strength and reinforce technique without excessive fatigue.',
                 
@@ -1789,7 +2262,7 @@
             }
             
             function calculateRecommendation() {
-                const scores = { standard: 0, bbb: 0, fsl: 0, triumvirate: 0, beginners: 0 };
+                const scores = { standard: 0, 'bbb-forever': 0, fsl: 0, triumvirate: 0, beginners: 0 };
                 
                 // Calculate total scores
                 quizAnswers.forEach((answerIndex, questionIndex) => {
@@ -1809,7 +2282,7 @@
                 const recommendation = calculateRecommendation();
                 const templateNames = {
                     standard: 'Standard Template',
-                    bbb: 'Boring But Big (BBB)',
+                    'bbb-forever': 'Forever BBB (Leader/Anchor cycles)',
                     fsl: 'First Set Last (FSL)',
                     triumvirate: 'Triumvirate',
                     beginners: '5/3/1 for Beginners'
@@ -1839,24 +2312,24 @@
             }
             
             // Quiz event listeners
-            quizButton.addEventListener('click', showQuiz);
-            closeQuiz.addEventListener('click', hideQuiz);
+            if (quizButton) quizButton.addEventListener('click', showQuiz);
+            if (closeQuiz) closeQuiz.addEventListener('click', hideQuiz);
             
             // Close quiz when clicking outside
-            quizModal.addEventListener('click', (e) => {
+            if (quizModal) quizModal.addEventListener('click', (e) => {
                 if (e.target === quizModal) {
                     hideQuiz();
                 }
             });
             
-            prevButton.addEventListener('click', () => {
+            if (prevButton) prevButton.addEventListener('click', () => {
                 if (currentQuestion > 0) {
                     currentQuestion--;
                     displayQuestion();
                 }
             });
             
-            nextButton.addEventListener('click', () => {
+            if (nextButton) nextButton.addEventListener('click', () => {
                 if (currentQuestion < quizData.length - 1) {
                     currentQuestion++;
                     displayQuestion();
@@ -2236,6 +2709,45 @@
                 }
             }
             
+            function handleBbbForeverPhaseTransition() {
+                if (accessoryTemplate !== 'bbb-forever') return null;
+
+                if (bbbForeverPhase === 'leader') {
+                    bbbLeaderCyclesCompleted++;
+                    if (bbbLeaderCyclesCompleted >= BBB_FOREVER_LEADER_CYCLES) {
+                        const startAnchor = confirm(
+                            'You\'ve completed 2 Forever BBB leader cycles.\n\n' +
+                            'Start an Anchor cycle?\n' +
+                            '• Main lifts: AMRAP top sets (5+/3+/1+)\n' +
+                            '• Supplemental: FSL 5×5 (lower volume than BBB)\n' +
+                            '• Assistance: 50–100 total reps\n\n' +
+                            'Click OK to start Anchor, or Cancel to run another leader cycle.'
+                        );
+                        bbbLeaderCyclesCompleted = 0;
+                        if (startAnchor) {
+                            bbbForeverPhase = 'anchor';
+                            return 'started-anchor';
+                        }
+                        return 'leader-continued';
+                    }
+                    return 'leader';
+                }
+
+                const returnLeader = confirm(
+                    'Anchor cycle complete.\n\n' +
+                    'Return to Forever BBB leader phase?\n' +
+                    '• Main lifts: 5s Pro (no AMRAP)\n' +
+                    '• Supplemental: BBB 5×10\n\n' +
+                    'Click OK to resume leaders, or Cancel to run another anchor cycle.'
+                );
+                if (returnLeader) {
+                    bbbForeverPhase = 'leader';
+                    bbbLeaderCyclesCompleted = 0;
+                    return 'returned-leader';
+                }
+                return 'anchor-continued';
+            }
+
             // Function to level up (increase weights)
             function levelUp() {
                 // Check if all AMRAP sets have been logged
@@ -2271,7 +2783,11 @@
                 
                 // Increase user level
                 userLevel++;
+
+                const phaseTransition = handleBbbForeverPhaseTransition();
                 updateLevelDisplay();
+                updateBbbTemplateHelper();
+                updateProgressionGuide();
                 
                 // Clear AMRAP results for the new cycle
                 amrapResults = {};
@@ -2286,6 +2802,7 @@
                 
                 // Generate new workout plan
                 generateWorkoutPlan();
+                updateWeekTabLabels();
                 
                 // Update week tabs UI
                 weekTabs.forEach(tab => {
@@ -2296,6 +2813,16 @@
                 saveProfile();
                 
                 // Show success message
-                alert(`Congratulations! You've leveled up to Level ${userLevel}! Your lift weights have been ${hasAmrapResults ? 'updated based on your AMRAP performance' : 'increased'} and a new cycle has been generated.`);
+                let phaseMessage = '';
+                if (phaseTransition === 'started-anchor') {
+                    phaseMessage = ' You\'re now on an Anchor cycle — log Week 3 AMRAP sets to guide progression.';
+                } else if (phaseTransition === 'returned-leader') {
+                    phaseMessage = ' You\'re back on Forever BBB leader cycles.';
+                } else if (phaseTransition === 'leader-continued') {
+                    phaseMessage = ' Staying on leader phase for another block.';
+                } else if (phaseTransition === 'anchor-continued') {
+                    phaseMessage = ' Running another anchor cycle.';
+                }
+                alert(`Congratulations! You've leveled up to Level ${userLevel}! Your lift weights have been ${hasAmrapResults ? 'updated based on your AMRAP performance' : 'increased'} and a new cycle has been generated.${phaseMessage}`);
             }
         });

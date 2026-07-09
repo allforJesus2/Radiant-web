@@ -6,7 +6,7 @@
 // bump this during local development. The default deployed strategy is
 // network-first; cache-first only kicks in when the user enables "offline
 // only" in settings.
-const CACHE_VERSION = 'v4.4';
+const CACHE_VERSION = 'v4.7';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
 
 // On localhost the SW acts as a transparent pass-through — no caching, no
@@ -74,6 +74,7 @@ const FILES_TO_CACHE = [
   'js/charts/charts.js',
   'js/settings/settings.js',
   'js/vendor/chart.min.js',
+  'js/vendor/three.module.min.js',
   'js/workout/workout-utils.js',
   'js/workout/531-workout.js',
   'js/workout/gzcl.js',
