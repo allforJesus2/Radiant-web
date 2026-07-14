@@ -1,3 +1,26 @@
+.loading-status {
+    max-width: 500px;
+    margin: 40px auto;
+    padding: 0 16px;
+    text-align: center;
+}
+
+.loading-status-text {
+    margin-bottom: 10px;
+    opacity: 0.85;
+    font-size: 0.9em;
+}
+
+.loading-status .progress-bar {
+    height: 14px;
+}
+
+.loading-status .progress {
+    height: 100%;
+    margin: 0;
+    transition: width 0.2s ease-out;
+}
+
 .chart-container {
     background-color: transparent;
     border-radius: 8px;

@@ -14,96 +14,107 @@
     <header id="dateHeader"></header>
     <div class="blur-overlay" id="blurOverlay"></div>
 
-    <!-- Modified date selector with buttons -->
-    <div class="date-selector">
-        <div style="display: flex; gap: 8px; align-items: center;">
-            <span>Select Date for Overview:</span>
-            <select id="yearSelect"></select>
-            <select id="monthSelect"></select>
-            <select id="daySelect"></select>
-        </div>
-        <div class="data-actions">
-            <button onclick="exportData()">Export Data</button>
-            <label class="upload-btn">
-                Import Data
-                <input type="file" id="importInput" hidden accept=".json" onchange="importData(this)">
-            </label>
+    <!-- Loading indicator shown while the food log migrates / charts data loads -->
+    <div class="loading-status" id="chartsLoading">
+        <div class="loading-status-text" id="chartsLoadingText">Loading…</div>
+        <div class="progress-bar">
+            <div class="progress" id="chartsLoadingBar" style="width: 0%;"></div>
         </div>
     </div>
 
-    <!-- Daily breakdown - moved here -->
-    <div id="dailyBreakdown"></div>
-
-    <!-- Chart containers -->
-    <div class="chart-container">
-        <h2>Calorie Trend</h2>
-        <canvas id="calorieChart"></canvas>
-    </div>
-
-    <div class="chart-container">
-        <h2>Macronutrient Trend</h2>
-        <canvas id="macroChart"></canvas>
-    </div>
-
-    <div class="chart-container">
-        <h2>Sleep Quality Trend</h2>
-        <canvas id="sleepChart"></canvas>
-    </div>
-
-    <!-- Add new chart container -->
-    <div class="chart-container">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Daily Calorie Distribution</h2>
-            <div style="display: flex; gap: 8px;">
-                <select id="dotSize" onchange="updateDistributionChart()">
-                    <option value="2">Small</option>
-                    <option value="5" selected>Medium</option>
-                    <option value="8">Large</option>
-                </select>
-                <select id="distributionRange" onchange="updateDistributionChart()">
-                    <option value="7">Last Week</option>
-                    <option value="30">Last Month</option>
-                    <option value="365">Last Year</option>
-                    <option value="all">All Time</option>
-                </select>
-            </div>
-        </div>
-        <canvas id="distributionChart"></canvas>
-    </div>
-
-    <!-- Add new food totals container after distribution chart -->
-    <div class="chart-container">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2>Food Totals</h2>
+    <!-- All charts content is hidden until data has finished loading/migrating -->
+    <div id="chartsContent" style="display: none;">
+        <!-- Modified date selector with buttons -->
+        <div class="date-selector">
             <div style="display: flex; gap: 8px; align-items: center;">
-                <select id="foodTotalsRange" onchange="handleFoodTotalsRangeChange()">
-                    <option value="1">Last 1 Days</option>
-                    <option value="3">Last 3 Days</option>
-                    <option value="7" selected>Last 7 Days</option>
-                    <option value="30">Last 30 Days</option>
-                    <option value="custom">Custom</option>
-                </select>
-                <input 
-                    type="number" 
-                    id="customDaysInput" 
-                    min="1" 
-                    placeholder="Days" 
-                    style="display: none; width: 80px; padding: 8px; border: none; border-radius: 4px; background-color: var(--button); color: var(--text);"
-                    onchange="updateFoodTotals()"
-                >
+                <span>Select Date for Overview:</span>
+                <select id="yearSelect"></select>
+                <select id="monthSelect"></select>
+                <select id="daySelect"></select>
+            </div>
+            <div class="data-actions">
+                <button onclick="exportData()">Export Data</button>
+                <label class="upload-btn">
+                    Import Data
+                    <input type="file" id="importInput" hidden accept=".json" onchange="importData(this)">
+                </label>
             </div>
         </div>
-        <table class="food-table">
-            <thead>
-                <tr>
-                    <th>Food</th>
-                    <th>Total Amount</th>
-                    <th>Times Eaten</th>
-                    <th>Total Calories</th>
-                </tr>
-            </thead>
-            <tbody id="foodTotalsBody"></tbody>
-        </table>
+
+        <!-- Daily breakdown - moved here -->
+        <div id="dailyBreakdown"></div>
+
+        <!-- Chart containers -->
+        <div class="chart-container">
+            <h2>Calorie Trend</h2>
+            <canvas id="calorieChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Macronutrient Trend</h2>
+            <canvas id="macroChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h2>Sleep Quality Trend</h2>
+            <canvas id="sleepChart"></canvas>
+        </div>
+
+        <!-- Add new chart container -->
+        <div class="chart-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Daily Calorie Distribution</h2>
+                <div style="display: flex; gap: 8px;">
+                    <select id="dotSize" onchange="updateDistributionChart()">
+                        <option value="2">Small</option>
+                        <option value="5" selected>Medium</option>
+                        <option value="8">Large</option>
+                    </select>
+                    <select id="distributionRange" onchange="updateDistributionChart()">
+                        <option value="7">Last Week</option>
+                        <option value="30">Last Month</option>
+                        <option value="365">Last Year</option>
+                        <option value="all">All Time</option>
+                    </select>
+                </div>
+            </div>
+            <canvas id="distributionChart"></canvas>
+        </div>
+
+        <!-- Add new food totals container after distribution chart -->
+        <div class="chart-container">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h2>Food Totals</h2>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <select id="foodTotalsRange" onchange="handleFoodTotalsRangeChange()">
+                        <option value="1">Last 1 Days</option>
+                        <option value="3">Last 3 Days</option>
+                        <option value="7" selected>Last 7 Days</option>
+                        <option value="30">Last 30 Days</option>
+                        <option value="custom">Custom</option>
+                    </select>
+                    <input 
+                        type="number" 
+                        id="customDaysInput" 
+                        min="1" 
+                        placeholder="Days" 
+                        style="display: none; width: 80px; padding: 8px; border: none; border-radius: 4px; background-color: var(--button); color: var(--text);"
+                        onchange="updateFoodTotals()"
+                    >
+                </div>
+            </div>
+            <table class="food-table">
+                <thead>
+                    <tr>
+                        <th>Food</th>
+                        <th>Total Amount</th>
+                        <th>Times Eaten</th>
+                        <th>Total Calories</th>
+                    </tr>
+                </thead>
+                <tbody id="foodTotalsBody"></tbody>
+            </table>
+        </div>
     </div>
 
     <script src="js/core/menu.js"></script>

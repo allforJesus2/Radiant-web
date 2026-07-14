@@ -541,8 +541,23 @@
             `).join('');
         }
 
+        function setLoadingStatus(text, pct) {
+            const textEl = document.getElementById('chartsLoadingText');
+            const barEl = document.getElementById('chartsLoadingBar');
+            if (textEl) textEl.textContent = text;
+            if (barEl && pct != null) barEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
+        }
+
+        function hideLoadingStatus() {
+            const loadingEl = document.getElementById('chartsLoading');
+            const contentEl = document.getElementById('chartsContent');
+            if (loadingEl) loadingEl.style.display = 'none';
+            if (contentEl) contentEl.style.display = '';
+        }
+
         document.addEventListener('DOMContentLoaded', async function() {
             setupHeader('Nutrition Analysis');
+            setLoadingStatus('Loading food database…', 0);
             try {
                 await loadFoodNamesAndCache();
             } catch (e) {
@@ -552,7 +567,14 @@
                 const logStr = RadiantStorage.getRaw(RadiantStorage.KEYS.FOOD_LOG);
                 window.foodLog = JSON.parse(logStr);
                 if (!window.foodLog) throw new Error('No food log found');
-                await migrateFoodLogIfNeeded(window.foodLog);
+
+                setLoadingStatus('Updating food log…', 0);
+                await migrateFoodLogIfNeeded(window.foodLog, function(done, total) {
+                    const pct = total > 0 ? (done / total) * 100 : 100;
+                    setLoadingStatus('Updating food log… (' + done + ' / ' + total + ')', pct);
+                });
+
+                setLoadingStatus('Loading charts…', 100);
                 window.foodLog = RadiantStorage.nutrition.getFoodLog();
                 window.foodLog = await enrichFullFoodLog(window.foodLog);
             } catch (e) {
@@ -569,6 +591,7 @@
                 };
             }
 
+            hideLoadingStatus();
             createCharts(window.foodLog);
             updateFoodTotals();
             populateDateSelectors(window.foodLog);

@@ -1121,7 +1121,12 @@ async function searchFoodsByPrefix(userInput, limit = AUTOCOMPLETE_LIMIT) {
  */
 const FOOD_LOG_MIGRATION_VERSION = 1;
 
-async function migrateFoodLogIfNeeded(foodLog) {
+/**
+ * @param {object} foodLog
+ * @param {(done:number, total:number) => void} [onProgress] Called as items
+ *   needing a name lookup are processed, so callers can render a progress bar.
+ */
+async function migrateFoodLogIfNeeded(foodLog, onProgress) {
   const storedVer = RadiantStorage.nutrition.getFoodLogMigrationVersion();
   if (storedVer === String(FOOD_LOG_MIGRATION_VERSION)) {
     const log = foodLog && typeof foodLog === 'object' ? foodLog : {};
@@ -1129,9 +1134,22 @@ async function migrateFoodLogIfNeeded(foodLog) {
   }
 
   const log = foodLog && typeof foodLog === 'object' ? foodLog : {};
+  const days = Object.keys(log);
+
+  let total = 0;
+  for (const day of days) {
+    const list = Array.isArray(log[day]) ? log[day] : [];
+    for (const item of list) {
+      const hasFdcId = item && 'fdc_id' in item && item.fdc_id !== undefined;
+      const needsLookup = item && (item.calories != null || item.protein != null);
+      if (!hasFdcId && needsLookup) total++;
+    }
+  }
+
   let changed = false;
+  let done = 0;
   const out = {};
-  for (const day of Object.keys(log)) {
+  for (const day of days) {
     const list = Array.isArray(log[day]) ? log[day] : [];
     const nextList = [];
     for (const item of list) {
@@ -1159,6 +1177,8 @@ async function migrateFoodLogIfNeeded(foodLog) {
           row.fdc_id = null;
         }
         changed = true;
+        done++;
+        if (typeof onProgress === 'function') onProgress(done, total);
       }
       nextList.push(row);
     }

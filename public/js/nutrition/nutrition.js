@@ -2315,7 +2315,10 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 		try {
 			var foodLogRaw = RadiantStorage.nutrition.getFoodLog();
-			var mig = await migrateFoodLogIfNeeded(foodLogRaw);
+			setWarm('Updating food log…');
+			var mig = await migrateFoodLogIfNeeded(foodLogRaw, function(done, total) {
+				setWarm('Updating food log… (' + done + ' / ' + total + ')');
+			});
 			nutritionStartupPerfMark('migrationDone');
 			if (mig.changed) {
 				var fl = RadiantStorage.nutrition.getFoodLog();
