@@ -258,11 +258,18 @@
             // Create sleep chart
             const sleepData = getSleepData();
             const sleepCtx = document.getElementById('sleepChart').getContext('2d');
-            
-            // Get sleep ratings for the same dates as food data
-            const sleepRatings = dates.map(date => {
-                const rating = sleepData[date];
-                return rating ? parseInt(rating) : null;
+
+            // Sleep can be logged on days with no food log entry, so the sleep
+            // chart's date range is the union of food-log dates and sleep-log
+            // dates, not just the food-log dates.
+            const sleepDates = Array.from(new Set([...dates, ...Object.keys(sleepData)])).sort();
+            const sleepDateLabels = sleepDates.map(date => formatDate(date));
+            const sleepRatings = sleepDates.map(date => {
+                const dayData = sleepData[date];
+                const rating = dayData && dayData.sleepRating != null
+                    ? parseInt(dayData.sleepRating, 10)
+                    : null;
+                return Number.isFinite(rating) ? rating : null;
             });
 
             // Sleep quality labels
@@ -279,7 +286,7 @@
             sleepChart = new Chart(sleepCtx, {
                 type: 'line',
                 data: {
-                    labels: chartData.map(d => d.date),
+                    labels: sleepDateLabels,
                     datasets: [{
                         label: 'Sleep Quality',
                         data: sleepRatings,

@@ -312,12 +312,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js')
       .then(registration => {
         console.log('ServiceWorker registration successful');
-        
-        // Check for updates every 60 minutes
-        setInterval(() => {
-          registration.update();
-        }, 1000 * 60 * 60);
-        
+
         // Listen for new service worker installation
         registration.addEventListener('updatefound', () => {
           const newWorker = registration.installing;
