@@ -320,7 +320,7 @@
                         const cycleNote = cyclesLeft === 1
                             ? '1 leader cycle left before Anchor prompt.'
                             : `${cyclesLeft} leader cycles left before Anchor prompt.`;
-                        helper.textContent = `Forever BBB leader: 5s Pro main work (no AMRAP), 5×10 supplemental, push/pull 25–50, core 0–25. ${cycleNote}`;
+                        helper.textContent = `Forever BBB leader: 5s Pro main work (no AMRAP), 5×10 supplemental. One accessory per day: Pull 25–50 on Bench/OHP, Core/abs 25–50 on Squat/Deadlift. ${cycleNote}`;
                     }
                 } else if (accessorySelect.value === 'bbb') {
                     helper.textContent = 'Classic BBB: pressing days include Chin-ups 5×10 (bodyweight). Squat/deadlift days include ab work. Cap AMRAP at prescribed reps to preserve 5×10 quality.';
@@ -1606,48 +1606,44 @@
                             const deload = week === 4;
                             const exerciseIndex = (day - 1) % 4;
                             const exercises = accessoryExercises.standard[main];
-                            const pushReps = deload ? '10–25 total reps (deload - may skip entirely)' : '25–50 total reps';
-                            const pullReps = pushReps;
-                            const coreReps = deload ? '0–15 total reps (deload - may skip entirely)' : '0–25 total reps (core only — no leg assistance)';
-                            const pullSuggestions = [...exercises.pull, ...foreverBbbPullExtras];
-                            const coreSuggestions = [...(exercises.core || coreOnlySuggestions), ...foreverBbbCoreExtras];
-                            const pullNote = 'If you can\'t reach 25–50 chin-ups, add a second lighter pull exercise.';
-                            const pushNote = (main === 'squat' || main === 'deadlift')
-                                ? 'Prefer dips or push-ups — easy on the lower back.'
-                                : undefined;
-                            const pullNoteExtra = main === 'deadlift'
-                                ? 'Prefer chest-supported or cable rows — spare the lower back.'
-                                : pullNote;
+                            const isPressingDay = (main === 'bench' || main === 'ohp');
+                            const accessoryReps = deload ? '10–25 total reps (deload - may skip entirely)' : '25–50 total reps';
 
-                            dayPlan.accessories = [
-                                {
-                                    type: 'Boring But Big',
-                                    exercise: main.charAt(0).toUpperCase() + main.slice(1),
-                                    setsDetail: formatBbbWeightLine(exerciseTM, deload),
-                                    weight50: getBbbWeights(exerciseTM).fifty,
-                                    weight60: getBbbWeights(exerciseTM).sixty
-                                },
-                                {
-                                    type: 'Push',
-                                    exercise: exercises.push[exerciseIndex],
-                                    reps: pushReps,
-                                    suggestions: exercises.push,
-                                    note: pushNote
-                                },
-                                {
-                                    type: 'Pull',
-                                    exercise: exercises.pull[exerciseIndex],
-                                    reps: pullReps,
-                                    suggestions: pullSuggestions,
-                                    note: pullNoteExtra
-                                },
-                                {
-                                    type: 'Core',
-                                    exercise: coreSuggestions[exerciseIndex % coreSuggestions.length],
-                                    reps: coreReps,
-                                    suggestions: coreSuggestions
-                                }
-                            ];
+                            const bbbBlock = {
+                                type: 'Boring But Big',
+                                exercise: main.charAt(0).toUpperCase() + main.slice(1),
+                                setsDetail: formatBbbWeightLine(exerciseTM, deload),
+                                weight50: getBbbWeights(exerciseTM).fifty,
+                                weight60: getBbbWeights(exerciseTM).sixty
+                            };
+
+                            if (isPressingDay) {
+                                const pullSuggestions = [...exercises.pull, ...foreverBbbPullExtras];
+                                dayPlan.accessories = [
+                                    bbbBlock,
+                                    {
+                                        type: 'Pull',
+                                        exercise: exercises.pull[exerciseIndex],
+                                        reps: accessoryReps,
+                                        suggestions: pullSuggestions,
+                                        note: 'Your one accessory for the day — main + BBB already cover pressing. Superset with the BBB sets to save time.'
+                                    }
+                                ];
+                            } else {
+                                const coreSuggestions = [...(exercises.core || coreOnlySuggestions), ...foreverBbbCoreExtras];
+                                dayPlan.accessories = [
+                                    bbbBlock,
+                                    {
+                                        type: 'Core',
+                                        exercise: coreSuggestions[exerciseIndex % coreSuggestions.length],
+                                        reps: accessoryReps,
+                                        suggestions: coreSuggestions,
+                                        note: main === 'deadlift'
+                                            ? 'Avoid back extensions/good mornings — deadlift + BBB already hammers the lower back. Stick to ab-focused work.'
+                                            : 'Ab-focused — squat + BBB already provide the lower-body/lower-back stimulus.'
+                                    }
+                                ];
+                            }
                         } else if (effectiveTemplate === 'fsl') {
                             // First set last - use first working set weight for 5x5
                             const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
@@ -2177,7 +2173,7 @@
             const explanations = {
                 'standard': 'The Standard template focuses on balanced development with 25-50 reps each of pushing, pulling, and core exercises. This provides a well-rounded approach to assistance work that complements the main lifts without excessive fatigue.',
                 
-                'bbb-forever': 'Forever BBB alternates Leader and Anchor cycles. Leaders use 5s Pro main work (no AMRAP) plus 5×10 supplemental at 50–60% TM with push/pull 25–50 and core 0–25. After 2 leader cycles you\'ll be prompted to run an Anchor cycle: AMRAP main lifts, FSL 5×5 supplemental, and 50–100 reps assistance — then return to leaders.',
+                'bbb-forever': 'Forever BBB alternates Leader and Anchor cycles. Leaders use 5s Pro main work (no AMRAP) plus 5×10 supplemental at 50–60% TM, with one accessory per day: Pull 25–50 on Bench/OHP, Core/abs 25–50 on Squat/Deadlift. After 2 leader cycles you\'ll be prompted to run an Anchor cycle: AMRAP main lifts, FSL 5×5 supplemental, and 50–100 reps assistance — then return to leaders.',
                 
                 'fsl': 'First Set Last (FSL) uses the weight from your first work set (the 5 reps set) for 5 additional sets of 5 reps. This provides additional volume at a moderate intensity, helping to build strength and reinforce technique without excessive fatigue.',
                 

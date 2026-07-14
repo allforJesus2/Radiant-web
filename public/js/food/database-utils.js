@@ -232,6 +232,12 @@ let dbPromise = null;
 let nutrientDefMemory = new Map();
 let _autocompleteEntries = [];
 let _fdcCount = 0;
+// In-memory name lookup indexes built by loadFoodNamesAndCache(), reused by
+// getFoodByName() to avoid re-scanning the whole fdcStore per lookup. Null
+// when not warmed (e.g. cursor mode for very large stores) — callers fall
+// back to the slower per-call IndexedDB cursor scan in that case.
+let _byRawLowerIndex = null;
+let _byCanonLowerIndex = null;
 
 const USDA_FDP_NAME_SUFFIX =
   /\s*\(includes foods for usda['\u2019]s food distribution program\)\s*$/i;
@@ -389,10 +395,22 @@ async function getFoodByName(name) {
       return pickPreferredFood(exact);
     }
   }
-  const n = await countStore('fdcStore');
-  if (n > ARRAY_MODE_MAX_FOODS) return null;
   const wantCanon = normalizeFdcFoodName(raw).toLowerCase();
   const rawLower = raw.toLowerCase();
+
+  // Fast path: reuse the in-memory name index built by loadFoodNamesAndCache()
+  // instead of re-scanning the entire fdcStore for every single lookup.
+  if (_byRawLowerIndex && _byCanonLowerIndex) {
+    const byRaw = _byRawLowerIndex.get(rawLower);
+    const byCanon = _byCanonLowerIndex.get(wantCanon);
+    if (byRaw && byCanon && byRaw !== byCanon) {
+      return pickPreferredFood([byRaw, byCanon]);
+    }
+    return byRaw || byCanon || null;
+  }
+
+  const n = await countStore('fdcStore');
+  if (n > ARRAY_MODE_MAX_FOODS) return null;
   return new Promise((resolve, reject) => {
     const tx2 = db.transaction(['fdcStore'], 'readonly');
     const req = tx2.objectStore('fdcStore').openCursor();
@@ -634,6 +652,8 @@ async function loadFoodNamesAndCache() {
   if (useCursorMode) {
     nutritionCache.clear();
     _autocompleteEntries = [];
+    _byRawLowerIndex = null;
+    _byCanonLowerIndex = null;
     return {
       entries: [],
       fdcCount: _fdcCount,
@@ -643,6 +663,7 @@ async function loadFoodNamesAndCache() {
 
   nutritionCache.clear();
   const byName = new Map();
+  const byCanon = new Map();
   await new Promise((resolve, reject) => {
     const tx = db.transaction(['fdcStore'], 'readonly');
     const s = tx.objectStore('fdcStore');
@@ -653,14 +674,16 @@ async function loadFoodNamesAndCache() {
         const rec = c.value;
         nutritionCache.set(rec.fdc_id, extractMacrosPer100g(rec.nutrients));
         const ln = String(rec.name).toLowerCase();
-        const prev = byName.get(ln);
         const src = rec.source || 'sr_legacy';
+        const entry = { name: rec.name, fdc_id: rec.fdc_id, source: src };
+        const prev = byName.get(ln);
         if (!prev || (src === 'branded' && prev.source !== 'branded')) {
-          byName.set(ln, {
-            name: rec.name,
-            fdc_id: rec.fdc_id,
-            source: src,
-          });
+          byName.set(ln, entry);
+        }
+        const cn = normalizeFdcFoodName(rec.name).toLowerCase();
+        const prevCanon = byCanon.get(cn);
+        if (!prevCanon || (src === 'branded' && prevCanon.source !== 'branded')) {
+          byCanon.set(cn, entry);
         }
         c.continue();
       } else resolve();
@@ -670,6 +693,8 @@ async function loadFoodNamesAndCache() {
 
   const fdcNamesLower = new Set(byName.keys());
   _autocompleteEntries = Array.from(byName.values());
+  _byRawLowerIndex = byName;
+  _byCanonLowerIndex = byCanon;
 
   if (db.objectStoreNames.contains('recipeStore')) {
     const tx = db.transaction(['recipeStore'], 'readonly');
