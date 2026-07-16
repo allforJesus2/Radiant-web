@@ -14,37 +14,46 @@
     <header id="dateHeader"></header>
     <div class="blur-overlay" id="blurOverlay"></div>
 
-    <!-- Loading indicator shown while the food log migrates / charts data loads -->
     <div class="loading-status" id="chartsLoading">
         <div class="loading-status-text" id="chartsLoadingText">Loading…</div>
         <div class="progress-bar">
-            <div class="progress" id="chartsLoadingBar" style="width: 0%;"></div>
+            <div class="progress loading-progress" id="chartsLoadingBar"></div>
         </div>
     </div>
 
-    <!-- All charts content is hidden until data has finished loading/migrating -->
-    <div id="chartsContent" style="display: none;">
-        <!-- Modified date selector with buttons -->
+    <div id="chartsContent" class="is-hidden">
         <div class="date-selector">
-            <div style="display: flex; gap: 8px; align-items: center;">
+            <div class="date-selector-inner">
                 <span>Select Date for Overview:</span>
                 <select id="yearSelect"></select>
                 <select id="monthSelect"></select>
                 <select id="daySelect"></select>
             </div>
             <div class="data-actions">
-                <button onclick="exportData()">Export Data</button>
+                <button type="button" id="exportDataBtn">Export Data</button>
                 <label class="upload-btn">
                     Import Data
-                    <input type="file" id="importInput" hidden accept=".json" onchange="importData(this)">
+                    <input type="file" id="importInput" hidden accept=".json">
                 </label>
             </div>
         </div>
 
-        <!-- Daily breakdown - moved here -->
         <div id="dailyBreakdown"></div>
 
-        <!-- Chart containers -->
+        <div class="chart-container">
+            <div class="chart-header">
+                <h2>Trend Charts</h2>
+                <div class="chart-controls">
+                    <select id="trendRange">
+                        <option value="7">Last 7 Days</option>
+                        <option value="30" selected>Last 30 Days</option>
+                        <option value="90">Last 90 Days</option>
+                        <option value="all">All Time</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
         <div class="chart-container">
             <h2>Calorie Trend</h2>
             <canvas id="calorieChart"></canvas>
@@ -60,17 +69,16 @@
             <canvas id="sleepChart"></canvas>
         </div>
 
-        <!-- Add new chart container -->
         <div class="chart-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="chart-header">
                 <h2>Daily Calorie Distribution</h2>
-                <div style="display: flex; gap: 8px;">
-                    <select id="dotSize" onchange="updateDistributionChart()">
+                <div class="chart-controls">
+                    <select id="dotSize">
                         <option value="2">Small</option>
                         <option value="5" selected>Medium</option>
                         <option value="8">Large</option>
                     </select>
-                    <select id="distributionRange" onchange="updateDistributionChart()">
+                    <select id="distributionRange">
                         <option value="7">Last Week</option>
                         <option value="30">Last Month</option>
                         <option value="365">Last Year</option>
@@ -81,39 +89,39 @@
             <canvas id="distributionChart"></canvas>
         </div>
 
-        <!-- Add new food totals container after distribution chart -->
         <div class="chart-container">
-            <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div class="chart-header">
                 <h2>Food Totals</h2>
-                <div style="display: flex; gap: 8px; align-items: center;">
-                    <select id="foodTotalsRange" onchange="handleFoodTotalsRangeChange()">
+                <div class="chart-controls">
+                    <select id="foodTotalsRange">
                         <option value="1">Last 1 Days</option>
                         <option value="3">Last 3 Days</option>
                         <option value="7" selected>Last 7 Days</option>
                         <option value="30">Last 30 Days</option>
                         <option value="custom">Custom</option>
                     </select>
-                    <input 
-                        type="number" 
-                        id="customDaysInput" 
-                        min="1" 
-                        placeholder="Days" 
-                        style="display: none; width: 80px; padding: 8px; border: none; border-radius: 4px; background-color: var(--button); color: var(--text);"
-                        onchange="updateFoodTotals()"
+                    <input
+                        type="number"
+                        id="customDaysInput"
+                        class="custom-days-input is-hidden"
+                        min="1"
+                        placeholder="Days"
                     >
                 </div>
             </div>
-            <table class="food-table">
-                <thead>
-                    <tr>
-                        <th>Food</th>
-                        <th>Total Amount</th>
-                        <th>Times Eaten</th>
-                        <th>Total Calories</th>
-                    </tr>
-                </thead>
-                <tbody id="foodTotalsBody"></tbody>
-            </table>
+            <div class="table-scroll">
+                <table class="food-table">
+                    <thead>
+                        <tr>
+                            <th>Food</th>
+                            <th>Total Amount</th>
+                            <th>Times Eaten</th>
+                            <th>Total Calories</th>
+                        </tr>
+                    </thead>
+                    <tbody id="foodTotalsBody"></tbody>
+                </table>
+            </div>
         </div>
     </div>
 
