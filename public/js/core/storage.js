@@ -108,6 +108,37 @@ const RadiantStorage = {
         });
     },
 
+    backup: {
+        VERSION: 2,
+
+        isV2(data) {
+            return !!(data && data.version === RadiantStorage.backup.VERSION);
+        },
+
+        parse(data) {
+            if (RadiantStorage.backup.isV2(data)) {
+                return {
+                    version: RadiantStorage.backup.VERSION,
+                    localStorage: data.localStorage || {},
+                    scannedFoods: Array.isArray(data.scannedFoods) ? data.scannedFoods : [],
+                };
+            }
+            return {
+                version: 1,
+                localStorage: data || {},
+                scannedFoods: [],
+            };
+        },
+
+        wrap(localStorageData, scannedFoods) {
+            return {
+                version: RadiantStorage.backup.VERSION,
+                localStorage: localStorageData,
+                scannedFoods: Array.isArray(scannedFoods) ? scannedFoods : [],
+            };
+        },
+    },
+
     clearAll() {
         localStorage.clear();
     },
@@ -460,17 +491,40 @@ const RadiantStorage = {
     },
 
     debug: {
-        MAX_ENTRIES: 100,
+        MAX_ENTRIES: 300,
 
-        log(source, location, message, data) {
+        log(source, location, message, data, extra) {
+            const extraObj = extra && typeof extra === 'object' ? extra : {};
             const entry = {
                 ts: Date.now(),
                 source: source || 'app',
                 location: location || '',
                 message: message || '',
                 data: data && typeof data === 'object' ? data : {},
+                count: 1,
             };
+            if (extraObj.stack) {
+                entry.stack = String(extraObj.stack);
+            }
             const log = RadiantStorage.getJSON(RadiantStorage.KEYS.DEBUG_LOG, []);
+            if (log.length > 0) {
+                const prev = log[0];
+                if (
+                    prev.source === entry.source &&
+                    prev.location === entry.location &&
+                    prev.message === entry.message
+                ) {
+                    prev.count = (prev.count || 1) + 1;
+                    prev.ts = entry.ts;
+                    if (entry.stack && !prev.stack) {
+                        prev.stack = entry.stack;
+                    }
+                    try {
+                        RadiantStorage.setJSON(RadiantStorage.KEYS.DEBUG_LOG, log);
+                    } catch (_) { /* ignore quota errors */ }
+                    return;
+                }
+            }
             log.unshift(entry);
             if (log.length > RadiantStorage.debug.MAX_ENTRIES) {
                 log.length = RadiantStorage.debug.MAX_ENTRIES;
@@ -490,6 +544,7 @@ const RadiantStorage = {
                     location: legacy.location || 'legacy',
                     message: legacy.message || '',
                     data: legacy.data || {},
+                    count: 1,
                 };
                 const duplicate = log.some(
                     e => e.ts === legacyEntry.ts && e.message === legacyEntry.message
@@ -506,5 +561,66 @@ const RadiantStorage = {
             RadiantStorage.remove(RadiantStorage.KEYS.DEBUG_LOG);
             RadiantStorage.remove('531-last-error');
         },
+
+        captureGlobalErrors() {
+            if (typeof window === 'undefined' || window.__radiantDebugInstalled) {
+                return;
+            }
+            window.__radiantDebugInstalled = true;
+
+            window.addEventListener('error', function (event) {
+                try {
+                    RadiantStorage.debug.log(
+                        'window',
+                        (event.filename || '') + ':' + (event.lineno || 0),
+                        event.message || 'Unknown error',
+                        {},
+                        { stack: event.error && event.error.stack ? event.error.stack : '' }
+                    );
+                } catch (_) { /* ignore logging failures */ }
+            });
+
+            window.addEventListener('unhandledrejection', function (event) {
+                try {
+                    const reason = event.reason;
+                    const msg =
+                        reason && reason.message != null
+                            ? String(reason.message)
+                            : String(reason);
+                    RadiantStorage.debug.log(
+                        'promise',
+                        window.location && window.location.pathname
+                            ? window.location.pathname
+                            : '',
+                        msg,
+                        {},
+                        { stack: reason && reason.stack ? reason.stack : '' }
+                    );
+                } catch (_) { /* ignore logging failures */ }
+            });
+
+            const origError = console.error;
+            console.error = function () {
+                origError.apply(console, arguments);
+                try {
+                    const args = Array.prototype.slice.call(arguments);
+                    const msg = args.map(function (a) {
+                        return String(a);
+                    }).join(' ');
+                    RadiantStorage.debug.log(
+                        'console',
+                        window.location && window.location.pathname
+                            ? window.location.pathname
+                            : '',
+                        msg,
+                        {}
+                    );
+                } catch (_) { /* ignore logging failures */ }
+            };
+        },
     },
 };
+
+if (typeof window !== 'undefined' && RadiantStorage.debug) {
+    RadiantStorage.debug.captureGlobalErrors();
+}

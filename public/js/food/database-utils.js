@@ -518,6 +518,53 @@ async function putNutrientDefsBatch(defs) {
   }
 }
 
+const SCANNED_FOOD_SOURCES = new Set(['usda_api', 'off_api']);
+
+/**
+ * Export user-saved barcode foods from fdcStore (not bulk USDA imports).
+ * @returns {Promise<object[]>}
+ */
+async function exportScannedFoods() {
+  const db = await getDB();
+  if (!db.objectStoreNames.contains('fdcStore')) return [];
+  const records = [];
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(['fdcStore'], 'readonly');
+    const store = tx.objectStore('fdcStore');
+    const req = store.openCursor();
+    req.onsuccess = (e) => {
+      const cursor = e.target.result;
+      if (!cursor) return;
+      const rec = cursor.value;
+      if (rec && SCANNED_FOOD_SOURCES.has(rec.source)) {
+        records.push(rec);
+      }
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  return records;
+}
+
+/**
+ * Restore user-saved barcode foods into fdcStore (upsert by fdc_id).
+ * @param {object[]} records
+ * @returns {Promise<{ imported: number }>}
+ */
+async function importScannedFoods(records) {
+  if (!Array.isArray(records) || records.length === 0) {
+    return { imported: 0 };
+  }
+  const valid = records.filter(
+    (r) => r && r.fdc_id != null && SCANNED_FOOD_SOURCES.has(r.source)
+  );
+  if (valid.length === 0) return { imported: 0 };
+  await putFoodBatch(valid);
+  return { imported: valid.length };
+}
+
 async function putFoodBatch(records) {
   const db = await getDB();
   const batch = 500;

@@ -6,7 +6,13 @@
     <title>Debug Page</title>
     <link rel="stylesheet" href="css/theme/dark-theme.css">
     <style>
-        body { padding: 1rem; max-width: 900px; margin: 0 auto; }
+        body { padding: 0; margin: 0; }
+        .container.debug-page {
+            padding: 1rem;
+            max-width: 900px;
+            margin: 0 auto;
+            box-sizing: border-box;
+        }
         pre {
             background: var(--card-bg, #1e1e1e);
             border: 1px solid var(--border-color, #444);
@@ -17,37 +23,243 @@
             word-break: break-word;
             font-size: 0.85rem;
         }
-        .debug-actions { margin: 0.75rem 0 1.25rem; }
-        .debug-actions button {
-            margin-right: 0.5rem;
+        .debug-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            margin: 0;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border-color, #444);
+        }
+        .debug-toolbar button {
             padding: 0.5rem 1rem;
             cursor: pointer;
         }
-        .log-entry { margin-bottom: 1rem; padding-bottom: 1rem; border-bottom: 1px solid var(--border-color, #444); }
-        .log-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
-        .log-meta { color: var(--text-muted, #aaa); font-size: 0.8rem; }
-        .log-message { margin: 0.35rem 0; font-weight: 600; }
-        .log-data { margin: 0; font-size: 0.8rem; opacity: 0.9; }
+        .debug-toolbar input[type="search"] {
+            flex: 1 1 180px;
+            min-width: 0;
+            padding: 0.5rem 0.75rem;
+            box-sizing: border-box;
+        }
+        .log-counter {
+            color: var(--text-muted, #aaa);
+            font-size: 0.85rem;
+            margin: 0;
+            padding: 0.5rem 0.75rem 0;
+        }
+        .section-hint {
+            color: var(--text-muted, #aaa);
+            font-size: 0.85rem;
+            margin: 0;
+            padding: 0.5rem 0.75rem 0;
+        }
+        .log-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .log-entry {
+            border: 1px solid var(--border-color, #444);
+            border-radius: 6px;
+            background: var(--card-bg, #1e1e1e);
+            overflow: hidden;
+        }
+        .log-summary {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.65rem 0.75rem;
+            cursor: pointer;
+            user-select: none;
+        }
+        .log-summary:hover { background: rgba(255, 255, 255, 0.03); }
+        .log-chevron {
+            flex-shrink: 0;
+            width: 1rem;
+            color: var(--text-muted, #aaa);
+            transition: transform 0.15s ease;
+        }
+        .log-entry.expanded .log-chevron { transform: rotate(90deg); }
+        .log-summary-main { flex: 1; min-width: 0; }
+        .log-meta {
+            color: var(--text-muted, #aaa);
+            font-size: 0.78rem;
+            margin-bottom: 0.2rem;
+        }
+        .log-message-preview {
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .log-badges { display: flex; flex-wrap: wrap; gap: 0.35rem; flex-shrink: 0; }
+        .log-badge {
+            font-size: 0.72rem;
+            padding: 0.15rem 0.45rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            color: var(--text-muted, #ccc);
+        }
+        .log-badge.count { background: rgba(200, 120, 80, 0.25); }
+        .log-details {
+            display: none;
+            padding: 0 0.75rem 0.75rem;
+            border-top: 1px solid var(--border-color, #444);
+        }
+        .log-entry.expanded .log-details { display: block; }
+        .log-message-full {
+            margin: 0.75rem 0 0.5rem;
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .log-data, .log-stack {
+            margin: 0.5rem 0 0;
+            font-size: 0.8rem;
+            opacity: 0.9;
+        }
         .empty-log { color: var(--text-muted, #aaa); font-style: italic; }
+        details.debug-section {
+            margin: 1.5rem 0;
+            border: 1px solid var(--border-color, #444);
+            border-radius: 6px;
+            background: var(--card-bg, #1e1e1e);
+        }
+        details.debug-section > summary {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        details.debug-section > .tree-list,
+        details.debug-section > .log-list {
+            padding-top: 0;
+        }
+        details.debug-section > pre {
+            margin: 0;
+            border: none;
+            border-top: 1px solid var(--border-color, #444);
+            border-radius: 0 0 6px 6px;
+        }
+        .ls-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--border-color, #444);
+        }
+        .ls-toolbar button {
+            padding: 0.35rem 0.75rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+        .tree-list {
+            padding: 0.5rem 0.75rem 0.75rem;
+            font-size: 0.85rem;
+        }
+        .tree-node {
+            margin: 0.15rem 0;
+        }
+        .tree-node > summary {
+            cursor: pointer;
+            padding: 0.2rem 0;
+            word-break: break-word;
+        }
+        .tree-node > summary:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+        .tree-children {
+            margin-left: 0.75rem;
+            border-left: 1px solid var(--border-color, #444);
+            padding-left: 0.5rem;
+        }
+        .tree-leaf {
+            display: block;
+            padding: 0.2rem 0;
+            color: var(--text-muted, #ccc);
+            word-break: break-word;
+        }
+        .tree-leaf-key {
+            color: var(--text-color, #fff);
+            font-weight: 600;
+        }
+        .tree-pre {
+            margin: 0.25rem 0;
+            padding: 0.5rem;
+            font-size: 0.8rem;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        .idb-sample-note {
+            color: var(--text-muted, #aaa);
+            font-size: 0.8rem;
+            margin: 0 0 0.5rem;
+        }
+        .idb-resample {
+            padding: 0.2rem 0.5rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            margin-left: 0.35rem;
+        }
     </style>
 </head>
 <body>
-    <h1>App Debug Log</h1>
-    <p>Errors and diagnostics from app pages (e.g. 5/3/1 workout). Newest first. Open this page on your phone after reproducing an issue.</p>
-    <div class="debug-actions">
-        <button type="button" id="refresh-debug-log">Refresh</button>
-        <button type="button" id="clear-debug-log">Clear log</button>
+    <header id="dateHeader"></header>
+    <div class="blur-overlay" id="blurOverlay"></div>
+
+    <div class="container debug-page">
+    <p>Browse app errors, localStorage, and IndexedDB data.</p>
+
+    <details class="debug-section">
+        <summary id="debug-log-section-summary">App Debug Log</summary>
+        <p class="section-hint">Errors and diagnostics from app pages. Newest first. Open this section after reproducing an issue.</p>
+        <div class="debug-toolbar">
+            <button type="button" id="refresh-debug-log">Refresh</button>
+            <button type="button" id="clear-debug-log">Clear log</button>
+            <button type="button" id="expand-all-log">Expand all</button>
+            <button type="button" id="collapse-all-log">Collapse all</button>
+            <input type="search" id="log-filter" placeholder="Filter by source or message" autocomplete="off">
+        </div>
+        <p class="log-counter" id="log-counter"></p>
+        <div id="debug-log" class="log-list"></div>
+    </details>
+
+    <details class="debug-section">
+        <summary>Local Storage Contents</summary>
+        <div class="ls-toolbar">
+            <button type="button" id="expand-all-ls">Expand all</button>
+            <button type="button" id="collapse-all-ls">Collapse all</button>
+        </div>
+        <div id="local-storage" class="tree-list"></div>
+    </details>
+
+    <details class="debug-section">
+        <summary>IndexedDB (csvDB)</summary>
+        <div class="ls-toolbar">
+            <button type="button" id="expand-all-idb">Expand all</button>
+            <button type="button" id="collapse-all-idb">Collapse all</button>
+            <button type="button" id="refresh-idb">Refresh</button>
+        </div>
+        <div id="indexeddb-stores" class="tree-list"></div>
+    </details>
     </div>
-    <div id="debug-log"></div>
-
-    <h1>Local Storage Contents</h1>
-    <pre id="local-storage"></pre>
-
-    <h1>IndexedDB Stores</h1>
-    <pre id="indexeddb-stores"></pre>
 
     <script src="js/core/storage.js"></script>
     <script>
+    (function () {
+        let allEntries = [];
+        let filterText = '';
+        let debugCsvDb = null;
+
+        const IDB_NAME = 'csvDB';
+        const FDC_SAMPLE_SIZE = 5;
+
+        function escapeHtml(value) {
+            return String(value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
         function formatTimestamp(ts) {
             if (!ts) return 'unknown time';
             try {
@@ -57,49 +269,403 @@
             }
         }
 
+        function entryMatchesFilter(entry, query) {
+            if (!query) return true;
+            const haystack = [
+                entry.source,
+                entry.location,
+                entry.message,
+                entry.stack,
+                entry.data ? JSON.stringify(entry.data) : '',
+            ].join(' ').toLowerCase();
+            return haystack.indexOf(query) !== -1;
+        }
+
         function renderDebugLog() {
             const container = document.getElementById('debug-log');
-            if (!window.RadiantStorage || !RadiantStorage.debug) {
+            const counter = document.getElementById('log-counter');
+            const sectionSummary = document.getElementById('debug-log-section-summary');
+
+            if (typeof RadiantStorage === 'undefined' || !RadiantStorage.debug) {
                 container.innerHTML = '<p class="empty-log">RadiantStorage.debug not available.</p>';
+                counter.textContent = '';
+                if (sectionSummary) sectionSummary.textContent = 'App Debug Log (unavailable)';
                 return;
             }
 
-            const entries = RadiantStorage.debug.getLog();
-            if (!entries.length) {
+            allEntries = RadiantStorage.debug.getLog();
+            if (sectionSummary) {
+                sectionSummary.textContent = 'App Debug Log (' + allEntries.length + ' entries)';
+            }
+            const query = filterText.trim().toLowerCase();
+            const visible = allEntries.filter(function (entry) {
+                return entryMatchesFilter(entry, query);
+            });
+
+            counter.textContent = visible.length + ' of ' + allEntries.length + ' entries';
+
+            if (!allEntries.length) {
                 container.innerHTML = '<p class="empty-log">No debug entries yet.</p>';
                 return;
             }
 
-            container.innerHTML = entries.map(function (entry) {
-                const dataBlock = entry.data && Object.keys(entry.data).length
-                    ? '<pre class="log-data">' + JSON.stringify(entry.data, null, 2) + '</pre>'
+            if (!visible.length) {
+                container.innerHTML = '<p class="empty-log">No entries match the current filter.</p>';
+                return;
+            }
+
+            container.innerHTML = visible.map(function (entry, index) {
+                const message = entry.message || '(no message)';
+                const countBadge = (entry.count || 1) > 1
+                    ? '<span class="log-badge count">x' + entry.count + '</span>'
                     : '';
+                const dataBlock = entry.data && Object.keys(entry.data).length
+                    ? '<pre class="log-data">' + escapeHtml(JSON.stringify(entry.data, null, 2)) + '</pre>'
+                    : '';
+                const stackBlock = entry.stack
+                    ? '<pre class="log-stack">' + escapeHtml(entry.stack) + '</pre>'
+                    : '';
+
                 return (
-                    '<div class="log-entry">' +
-                        '<div class="log-meta">' + formatTimestamp(entry.ts) +
-                        ' · <strong>' + (entry.source || 'app') + '</strong>' +
-                        (entry.location ? ' · ' + entry.location : '') +
+                    '<article class="log-entry" data-entry-index="' + index + '">' +
+                        '<div class="log-summary" role="button" tabindex="0" aria-expanded="false">' +
+                            '<span class="log-chevron" aria-hidden="true">&#9654;</span>' +
+                            '<div class="log-summary-main">' +
+                                '<div class="log-meta">' + escapeHtml(formatTimestamp(entry.ts)) +
+                                    (entry.location ? ' · ' + escapeHtml(entry.location) : '') +
+                                '</div>' +
+                                '<div class="log-message-preview">' + escapeHtml(message) + '</div>' +
+                            '</div>' +
+                            '<div class="log-badges">' +
+                                '<span class="log-badge">' + escapeHtml(entry.source || 'app') + '</span>' +
+                                countBadge +
+                            '</div>' +
                         '</div>' +
-                        '<div class="log-message">' + (entry.message || '(no message)') + '</div>' +
-                        dataBlock +
-                    '</div>'
+                        '<div class="log-details">' +
+                            '<div class="log-message-full">' + escapeHtml(message) + '</div>' +
+                            dataBlock +
+                            stackBlock +
+                        '</div>' +
+                    '</article>'
                 );
+            }).join('');
+
+            container.querySelectorAll('.log-summary').forEach(function (summary) {
+                summary.addEventListener('click', function () {
+                    toggleEntry(summary.closest('.log-entry'));
+                });
+                summary.addEventListener('keydown', function (event) {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        toggleEntry(summary.closest('.log-entry'));
+                    }
+                });
+            });
+        }
+
+        function toggleEntry(entry) {
+            if (!entry) return;
+            const expanded = entry.classList.toggle('expanded');
+            const summary = entry.querySelector('.log-summary');
+            if (summary) {
+                summary.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+            }
+        }
+
+        function setAllExpanded(expanded) {
+            document.querySelectorAll('#debug-log .log-entry').forEach(function (entry) {
+                entry.classList.toggle('expanded', expanded);
+                const summary = entry.querySelector('.log-summary');
+                if (summary) {
+                    summary.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+                }
+            });
+        }
+
+        function setTreeExpanded(container, expanded) {
+            if (!container) return;
+            container.querySelectorAll('details.tree-node').forEach(function (node) {
+                node.open = expanded;
+            });
+        }
+
+        const TREE_MAX_DEPTH = 8;
+
+        function valueTypeLabel(value) {
+            if (value === null) return 'null';
+            if (Array.isArray(value)) return 'array, ' + value.length + ' items';
+            if (typeof value === 'object') return 'object, ' + Object.keys(value).length + ' keys';
+            if (typeof value === 'string') return 'string, ' + value.length + ' chars';
+            return typeof value;
+        }
+
+        function previewPrimitive(value) {
+            const text = value === null ? 'null' : String(value);
+            return text.length > 120 ? text.slice(0, 120) + '…' : text;
+        }
+
+        function renderValueTree(value, depth) {
+            if (value === null || typeof value !== 'object') {
+                return '<span class="tree-leaf">' + escapeHtml(previewPrimitive(value)) + '</span>';
+            }
+            if (depth >= TREE_MAX_DEPTH) {
+                return '<pre class="tree-pre">' + escapeHtml(JSON.stringify(value, null, 2)) + '</pre>';
+            }
+            if (Array.isArray(value)) {
+                return value.map(function (item, index) {
+                    return renderTreeNode(String(index), item, depth);
+                }).join('');
+            }
+            return Object.keys(value).map(function (key) {
+                return renderTreeNode(key, value[key], depth);
             }).join('');
         }
 
+        function renderTreeNode(label, value, depth) {
+            const isExpandable = value !== null && typeof value === 'object';
+            const summaryText = isExpandable
+                ? label + ' (' + valueTypeLabel(value) + ')'
+                : '<span class="tree-leaf-key">' + escapeHtml(label) + '</span>: ' + escapeHtml(previewPrimitive(value));
+
+            if (!isExpandable) {
+                return '<div class="tree-node tree-leaf">' + summaryText + '</div>';
+            }
+
+            return (
+                '<details class="tree-node">' +
+                    '<summary>' + escapeHtml(summaryText) + '</summary>' +
+                    '<div class="tree-children">' + renderValueTree(value, depth + 1) + '</div>' +
+                '</details>'
+            );
+        }
+
         function renderLocalStorage() {
-            const filtered = {};
+            const container = document.getElementById('local-storage');
+            const debugLogKey = typeof RadiantStorage !== 'undefined'
+                ? RadiantStorage.KEYS.DEBUG_LOG
+                : 'radiant-debug-log';
+            const keys = [];
+
             for (let i = 0; i < localStorage.length; i++) {
                 const key = localStorage.key(i);
-                if (key === RadiantStorage.KEYS.DEBUG_LOG) continue;
-                filtered[key] = localStorage.getItem(key);
+                if (key === debugLogKey) continue;
+                keys.push(key);
             }
-            document.getElementById('local-storage').textContent = JSON.stringify(filtered, null, 2);
+            keys.sort();
+
+            if (!keys.length) {
+                container.innerHTML = '<p class="empty-log">No localStorage keys.</p>';
+                return;
+            }
+
+            container.innerHTML = keys.map(function (key) {
+                const raw = localStorage.getItem(key);
+                let parsed = raw;
+                try {
+                    parsed = JSON.parse(raw);
+                } catch (_) {
+                    /* keep raw string */
+                }
+                return renderTreeNode(key, parsed, 0);
+            }).join('');
+        }
+
+        function idbRequest(req) {
+            return new Promise(function (resolve, reject) {
+                req.onsuccess = function () { resolve(req.result); };
+                req.onerror = function () { reject(req.error); };
+            });
+        }
+
+        function openCsvDb() {
+            return new Promise(function (resolve, reject) {
+                const req = indexedDB.open(IDB_NAME);
+                req.onerror = function () { reject(req.error); };
+                req.onsuccess = function () { resolve(req.result); };
+            });
+        }
+
+        function closeDebugCsvDb() {
+            if (debugCsvDb) {
+                debugCsvDb.close();
+                debugCsvDb = null;
+            }
+        }
+
+        async function countIdbStore(db, storeName) {
+            const tx = db.transaction([storeName], 'readonly');
+            return idbRequest(tx.objectStore(storeName).count());
+        }
+
+        async function getAllFromIdbStore(db, storeName) {
+            const tx = db.transaction([storeName], 'readonly');
+            return idbRequest(tx.objectStore(storeName).getAll());
+        }
+
+        async function getRandomSampleFromIdbStore(db, storeName, sampleSize) {
+            const count = await countIdbStore(db, storeName);
+            if (!count) {
+                return { total: 0, records: [] };
+            }
+            const actualSize = Math.min(sampleSize, count);
+            const samples = [];
+
+            await new Promise(function (resolve, reject) {
+                const tx = db.transaction([storeName], 'readonly');
+                const store = tx.objectStore(storeName);
+                const req = store.openCursor();
+                let index = 0;
+
+                req.onsuccess = function (event) {
+                    const cursor = event.target.result;
+                    if (!cursor) return;
+                    if (samples.length < actualSize) {
+                        samples.push(cursor.value);
+                    } else {
+                        const pick = Math.floor(Math.random() * (index + 1));
+                        if (pick < actualSize) {
+                            samples[pick] = cursor.value;
+                        }
+                    }
+                    index += 1;
+                    cursor.continue();
+                };
+                req.onerror = function () { reject(req.error); };
+                tx.oncomplete = function () { resolve(); };
+                tx.onerror = function () { reject(tx.error); };
+            });
+
+            return { total: count, records: samples };
+        }
+
+        function idbRecordLabel(storeName, rec) {
+            if (!rec || typeof rec !== 'object') return '?';
+            if (storeName === 'fdcStore') {
+                const name = rec.name || 'unknown';
+                const src = rec.source ? ' · ' + rec.source : '';
+                return String(rec.fdc_id != null ? rec.fdc_id : '?') + ' · ' + name + src;
+            }
+            if (storeName === 'recipeStore') {
+                return String(rec.id != null ? rec.id : '?') + ' · ' + (rec.name || 'unnamed');
+            }
+            if (storeName === 'fdcMeta') {
+                return String(rec.key || 'meta');
+            }
+            if (storeName === 'recipeIngredients') {
+                return String(rec.recipeId != null ? rec.recipeId : '?');
+            }
+            if (storeName === 'nutrientStore') {
+                return String(rec.nutrient_id != null ? rec.nutrient_id : rec.name || '?');
+            }
+            const fallback = rec.fdc_id || rec.id || rec.key || rec.nutrient_id || rec.recipeId;
+            return fallback != null ? String(fallback) : '?';
+        }
+
+        async function loadIdbStoreContents(db, storeName, containerEl) {
+            containerEl.innerHTML = '<p class="empty-log">Loading…</p>';
+            try {
+                if (storeName === 'fdcStore') {
+                    const result = await getRandomSampleFromIdbStore(db, storeName, FDC_SAMPLE_SIZE);
+                    if (!result.records.length) {
+                        containerEl.innerHTML = '<p class="empty-log">Store is empty.</p>';
+                        return;
+                    }
+                    const note =
+                        '<p class="idb-sample-note">Random sample of ' + result.records.length +
+                        ' of ' + result.total + ' records.' +
+                        ' <button type="button" class="idb-resample">Resample</button></p>';
+                    containerEl.innerHTML = note + result.records.map(function (rec) {
+                        return renderTreeNode(idbRecordLabel(storeName, rec), rec, 0);
+                    }).join('');
+                    const resampleBtn = containerEl.querySelector('.idb-resample');
+                    if (resampleBtn) {
+                        resampleBtn.addEventListener('click', function () {
+                            loadIdbStoreContents(db, storeName, containerEl);
+                        });
+                    }
+                    return;
+                }
+
+                const records = await getAllFromIdbStore(db, storeName);
+                if (!records.length) {
+                    containerEl.innerHTML = '<p class="empty-log">Store is empty.</p>';
+                    return;
+                }
+                containerEl.innerHTML = records.map(function (rec) {
+                    return renderTreeNode(idbRecordLabel(storeName, rec), rec, 0);
+                }).join('');
+            } catch (err) {
+                containerEl.innerHTML =
+                    '<p class="empty-log">Error: ' + escapeHtml(err.message || String(err)) + '</p>';
+            }
+        }
+
+        async function renderIndexedDbStores() {
+            const target = document.getElementById('indexeddb-stores');
+            if (!('indexedDB' in window)) {
+                target.innerHTML = '<p class="empty-log">IndexedDB is not supported in this browser.</p>';
+                return;
+            }
+
+            closeDebugCsvDb();
+            target.innerHTML = '<p class="empty-log">Loading database…</p>';
+
+            let db;
+            try {
+                db = await openCsvDb();
+                debugCsvDb = db;
+            } catch (err) {
+                target.innerHTML =
+                    '<p class="empty-log">Error opening csvDB: ' + escapeHtml(err.message || String(err)) + '</p>';
+                return;
+            }
+
+            const storeNames = Array.from(db.objectStoreNames).sort();
+            if (!storeNames.length) {
+                target.innerHTML = '<p class="empty-log">csvDB has no object stores.</p>';
+                return;
+            }
+
+            const counts = {};
+            for (let i = 0; i < storeNames.length; i++) {
+                try {
+                    counts[storeNames[i]] = await countIdbStore(db, storeNames[i]);
+                } catch (_) {
+                    counts[storeNames[i]] = '?';
+                }
+            }
+
+            target.innerHTML = storeNames.map(function (storeName) {
+                const count = counts[storeName];
+                const sampleHint = storeName === 'fdcStore'
+                    ? ' — expand for random sample of ' + FDC_SAMPLE_SIZE
+                    : '';
+                return (
+                    '<details class="tree-node idb-store" data-store="' + escapeHtml(storeName) + '">' +
+                        '<summary>' + escapeHtml(storeName) + ' (' + count + ' records' + sampleHint + ')</summary>' +
+                        '<div class="tree-children idb-store-body"></div>' +
+                    '</details>'
+                );
+            }).join('');
+
+            target.querySelectorAll('.idb-store').forEach(function (detailsEl) {
+                const storeName = detailsEl.getAttribute('data-store');
+                const body = detailsEl.querySelector('.idb-store-body');
+
+                detailsEl.addEventListener('toggle', function () {
+                    if (!detailsEl.open || body.getAttribute('data-loaded') === 'true') {
+                        return;
+                    }
+                    body.setAttribute('data-loaded', 'true');
+                    loadIdbStoreContents(db, storeName, body);
+                });
+            });
         }
 
         document.getElementById('refresh-debug-log').addEventListener('click', function () {
             renderDebugLog();
             renderLocalStorage();
+            renderIndexedDbStores();
         });
 
         document.getElementById('clear-debug-log').addEventListener('click', function () {
@@ -108,32 +674,58 @@
             renderDebugLog();
         });
 
+        document.getElementById('expand-all-log').addEventListener('click', function () {
+            setAllExpanded(true);
+        });
+
+        document.getElementById('collapse-all-log').addEventListener('click', function () {
+            setAllExpanded(false);
+        });
+
+        document.getElementById('expand-all-ls').addEventListener('click', function () {
+            setTreeExpanded(document.getElementById('local-storage'), true);
+        });
+
+        document.getElementById('collapse-all-ls').addEventListener('click', function () {
+            setTreeExpanded(document.getElementById('local-storage'), false);
+        });
+
+        document.getElementById('expand-all-idb').addEventListener('click', function () {
+            const container = document.getElementById('indexeddb-stores');
+            setTreeExpanded(container, true);
+            if (!debugCsvDb) return;
+            container.querySelectorAll('.idb-store').forEach(function (detailsEl) {
+                const body = detailsEl.querySelector('.idb-store-body');
+                if (body.getAttribute('data-loaded') === 'true') return;
+                body.setAttribute('data-loaded', 'true');
+                loadIdbStoreContents(debugCsvDb, detailsEl.getAttribute('data-store'), body);
+            });
+        });
+
+        document.getElementById('collapse-all-idb').addEventListener('click', function () {
+            setTreeExpanded(document.getElementById('indexeddb-stores'), false);
+        });
+
+        document.getElementById('refresh-idb').addEventListener('click', function () {
+            renderIndexedDbStores();
+        });
+
+        document.getElementById('log-filter').addEventListener('input', function (event) {
+            filterText = event.target.value;
+            renderDebugLog();
+        });
+
         renderDebugLog();
         renderLocalStorage();
-
-        if ('indexedDB' in window) {
-            const request = indexedDB.open('myDatabase');
-
-            request.onsuccess = function (event) {
-                const db = event.target.result;
-                const storeNames = db.objectStoreNames;
-                const storeInfo = [];
-
-                for (let i = 0; i < storeNames.length; i++) {
-                    const storeName = storeNames[i];
-                    storeInfo.push({ name: storeName });
-                }
-
-                document.getElementById('indexeddb-stores').textContent = JSON.stringify(storeInfo, null, 2);
-            };
-
-            request.onerror = function (event) {
-                document.getElementById('indexeddb-stores').textContent =
-                    'Error opening IndexedDB: ' + event.target.error;
-            };
-        } else {
-            document.getElementById('indexeddb-stores').textContent = 'IndexedDB is not supported in this browser.';
-        }
+        renderIndexedDbStores();
+    })();
+    </script>
+    <script src="js/core/menu.js"></script>
+    <script src="js/core/page-shell.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            initPageShell({ title: 'Debug', nav: 'app' });
+        });
     </script>
 </body>
 </html>

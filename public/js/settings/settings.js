@@ -275,17 +275,26 @@
             }
         });
 
-        document.getElementById('downloadData').addEventListener('click', function() {
-            const data = RadiantStorage.exportAll();
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'radiant-backup-' + new Date().toISOString().split('T')[0] + '.json';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+        document.getElementById('downloadData').addEventListener('click', async function() {
+            try {
+                const localData = RadiantStorage.exportAll();
+                let scannedFoods = [];
+                if (typeof exportScannedFoods === 'function') {
+                    scannedFoods = await exportScannedFoods();
+                }
+                const data = RadiantStorage.backup.wrap(localData, scannedFoods);
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'radiant-backup-' + new Date().toISOString().split('T')[0] + '.json';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (error) {
+                alert('Error creating backup: ' + error.message);
+            }
         });
 
         document.getElementById('uploadData').addEventListener('change', function(event) {
@@ -293,19 +302,30 @@
             if (!file) return;
 
             const reader = new FileReader();
-            reader.onload = function(e) {
+            reader.onload = async function(e) {
                 try {
-                    const data = JSON.parse(e.target.result);
-                    
-                    // Confirm before overwriting data
-                    if (confirm('This will replace all existing data. Are you sure you want to continue?')) {
-                        RadiantStorage.importAll(data);
-                        
-                        alert('Data restored successfully!');
-                        window.location.reload();
+                    const raw = JSON.parse(e.target.result);
+                    const parsed = RadiantStorage.backup.parse(raw);
+
+                    if (!confirm('This will replace all existing data. Are you sure you want to continue?')) {
+                        return;
                     }
+
+                    RadiantStorage.importAll(parsed.localStorage);
+
+                    if (parsed.scannedFoods.length > 0) {
+                        if (typeof importScannedFoods !== 'function') {
+                            throw new Error('database-utils.js is not loaded.');
+                        }
+                        await importScannedFoods(parsed.scannedFoods);
+                    }
+
+                    alert('Data restored successfully!');
+                    window.location.reload();
                 } catch (error) {
                     alert('Error loading backup file: ' + error.message);
+                } finally {
+                    event.target.value = '';
                 }
             };
             reader.readAsText(file);
