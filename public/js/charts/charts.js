@@ -7,7 +7,104 @@ let resizeTimer = null;
 let customRangeStart = null;
 let customRangeEnd = null;
 let lastAppliedTrendRange = '30';
+let foodTotalsCustomStart = null;
+let foodTotalsCustomEnd = null;
+let lastAppliedFoodTotalsRange = '7';
+let lastPresetBeforeCustomTrend = '30';
+let lastPresetBeforeCustomFoodTotals = '7';
+let customRangeContext = null;
 let customRangeModalOpen = false;
+let dailyViewDate = null;
+let dailySortColumn = 'timeAdded';
+let dailySortDir = 'asc';
+let foodTotalsCache = null;
+let foodTotalsSortColumn = 'calories';
+let foodTotalsSortDir = 'desc';
+
+function compareSortValues(a, b, dir) {
+    const mult = dir === 'asc' ? 1 : -1;
+    if (typeof a === 'string') {
+        return mult * a.localeCompare(b, undefined, { sensitivity: 'base' });
+    }
+    return mult * (Number(a) - Number(b));
+}
+
+function nextSortState(column, activeColumn, activeDir) {
+    if (column === activeColumn) {
+        return { column, dir: activeDir === 'asc' ? 'desc' : 'asc' };
+    }
+    const defaultDir = (column === 'name' || column === 'timeAdded') ? 'asc' : 'desc';
+    return { column, dir: defaultDir };
+}
+
+function sortFoodEntries(foods, column, dir) {
+    return [...foods].sort((a, b) => compareSortValues(a[column], b[column], dir));
+}
+
+function sortFoodTotalsEntries(entries, column, dir) {
+    return [...entries].sort(([nameA, dataA], [nameB, dataB]) => {
+        const aVal = column === 'name' ? nameA : dataA[column];
+        const bVal = column === 'name' ? nameB : dataB[column];
+        return compareSortValues(aVal, bVal, dir);
+    });
+}
+
+function updateFoodTotalsSortHeaders() {
+    document.querySelectorAll('#foodTotalsSection .food-table thead th[data-sort-col]').forEach(th => {
+        const col = th.dataset.sortCol;
+        th.classList.toggle('sort-asc', col === foodTotalsSortColumn && foodTotalsSortDir === 'asc');
+        th.classList.toggle('sort-desc', col === foodTotalsSortColumn && foodTotalsSortDir === 'desc');
+    });
+}
+
+function updateDailySortHeaders() {
+    document.querySelectorAll('#dailyTotalsSection .food-table thead th[data-sort-col]').forEach(th => {
+        const col = th.dataset.sortCol;
+        th.classList.toggle('sort-asc', col === dailySortColumn && dailySortDir === 'asc');
+        th.classList.toggle('sort-desc', col === dailySortColumn && dailySortDir === 'desc');
+    });
+}
+
+function setCustomRangeSelectUI(wrapId, active) {
+    const wrap = document.getElementById(wrapId);
+    if (wrap) wrap.classList.toggle('is-custom-active', active);
+}
+
+function setRangeSelectToCustomApplied(selectId) {
+    const wrapId = selectId === 'foodTotalsRange' ? 'foodTotalsRangeWrap' : 'trendRangeWrap';
+    const select = document.getElementById(selectId);
+    if (select) select.value = 'custom';
+    setCustomRangeSelectUI(wrapId, true);
+}
+
+function clearCustomRangeSelectUI(selectId) {
+    const wrapId = selectId === 'foodTotalsRange' ? 'foodTotalsRangeWrap' : 'trendRangeWrap';
+    setCustomRangeSelectUI(wrapId, false);
+}
+
+function normalizeRangeSelect(selectId, wrapId) {
+    const select = document.getElementById(selectId);
+    if (!select) return;
+
+    select.querySelector('option[value="custom-edit"]')?.remove();
+    const appliedOpt = select.querySelector('option[value="custom-applied"]');
+    if (appliedOpt) appliedOpt.value = 'custom';
+
+    const lastApplied = selectId === 'foodTotalsRange'
+        ? lastAppliedFoodTotalsRange
+        : lastAppliedTrendRange;
+
+    if (lastApplied === 'custom') {
+        select.value = 'custom';
+        setCustomRangeSelectUI(wrapId, true);
+    } else {
+        setCustomRangeSelectUI(wrapId, false);
+    }
+}
+
+function getRangeSelectRevertValue(context) {
+    return context === 'foodTotals' ? lastAppliedFoodTotalsRange : lastAppliedTrendRange;
+}
 
 const SLEEP_LABELS = {
     1: 'Ugh X(',
@@ -139,6 +236,11 @@ function getTrendRangeValue() {
     return el ? el.value : '30';
 }
 
+function getFoodTotalsRangeValue() {
+    const el = document.getElementById('foodTotalsRange');
+    return el ? el.value : '7';
+}
+
 function getAvailableDataBounds() {
     const allDates = getFoodLogDates();
     const sleepData = getSleepData();
@@ -188,16 +290,29 @@ function setCustomRangeModalOpen(isOpen) {
     if (blurOverlay) blurOverlay.classList.toggle('active', isOpen);
 }
 
-function openCustomRangeModal() {
+function openCustomRangeModal(context) {
+    customRangeContext = context;
+
+    if (context === 'foodTotals') {
+        if (lastAppliedFoodTotalsRange !== 'custom') {
+            lastPresetBeforeCustomFoodTotals = lastAppliedFoodTotalsRange;
+        }
+    } else if (lastAppliedTrendRange !== 'custom') {
+        lastPresetBeforeCustomTrend = lastAppliedTrendRange;
+    }
+
     setupCustomRangeDateLimits();
 
     const startInput = document.getElementById('trendCustomStart');
     const endInput = document.getElementById('trendCustomEnd');
     const defaults = getDefaultCustomRange();
 
-    if (customRangeStart && customRangeEnd) {
-        startInput.value = customRangeStart;
-        endInput.value = customRangeEnd;
+    const savedStart = context === 'foodTotals' ? foodTotalsCustomStart : customRangeStart;
+    const savedEnd = context === 'foodTotals' ? foodTotalsCustomEnd : customRangeEnd;
+
+    if (savedStart && savedEnd) {
+        startInput.value = savedStart;
+        endInput.value = savedEnd;
     } else {
         startInput.value = defaults.start;
         endInput.value = defaults.end;
@@ -207,9 +322,15 @@ function openCustomRangeModal() {
 }
 
 function closeCustomRangeModal(revertSelect) {
+    const context = customRangeContext;
     setCustomRangeModalOpen(false);
-    if (revertSelect) {
-        document.getElementById('trendRange').value = lastAppliedTrendRange;
+    customRangeContext = null;
+    if (revertSelect && context) {
+        const selectId = context === 'foodTotals' ? 'foodTotalsRange' : 'trendRange';
+        const wrapId = context === 'foodTotals' ? 'foodTotalsRangeWrap' : 'trendRangeWrap';
+        const revertValue = getRangeSelectRevertValue(context);
+        document.getElementById(selectId).value = revertValue;
+        setCustomRangeSelectUI(wrapId, revertValue === 'custom');
     }
 }
 
@@ -219,12 +340,23 @@ function applyCustomRange() {
     const start = startInput.value;
     const end = endInput.value;
 
-    if (!start || !end || start > end) return;
+    if (!start || !end || start > end || !customRangeContext) return;
+
+    if (customRangeContext === 'foodTotals') {
+        foodTotalsCustomStart = start;
+        foodTotalsCustomEnd = end;
+        lastAppliedFoodTotalsRange = 'custom';
+        closeCustomRangeModal(false);
+        setRangeSelectToCustomApplied('foodTotalsRange');
+        updateFoodTotals();
+        return;
+    }
 
     customRangeStart = start;
     customRangeEnd = end;
     lastAppliedTrendRange = 'custom';
     closeCustomRangeModal(false);
+    setRangeSelectToCustomApplied('trendRange');
     updateTrendCharts();
 }
 
@@ -232,11 +364,12 @@ function handleTrendRangeChange() {
     const value = getTrendRangeValue();
 
     if (value === 'custom') {
-        openCustomRangeModal();
+        openCustomRangeModal('trend');
         return;
     }
 
     closeCustomRangeModal(false);
+    clearCustomRangeSelectUI('trendRange');
     lastAppliedTrendRange = value;
     updateTrendCharts();
 }
@@ -319,7 +452,7 @@ function destroyCharts() {
 
 function createCalorieChart() {
     destroyCalorieChart();
-    const chartData = buildNutritionTrendData(getTrendRangeValue());
+    const chartData = buildNutritionTrendData(lastAppliedTrendRange);
     const options = baseChartOptions();
 
     calorieChart = new Chart(document.getElementById('calorieChart').getContext('2d'), {
@@ -340,7 +473,7 @@ function createCalorieChart() {
 
 function createMacroChart() {
     destroyMacroChart();
-    const chartData = buildNutritionTrendData(getTrendRangeValue());
+    const chartData = buildNutritionTrendData(lastAppliedTrendRange);
     const options = baseChartOptions();
 
     macroChart = new Chart(document.getElementById('macroChart').getContext('2d'), {
@@ -374,7 +507,7 @@ function createMacroChart() {
 function createSleepChart() {
     destroySleepChart();
     const sleepData = getSleepData();
-    const range = getTrendRangeValue();
+    const range = lastAppliedTrendRange;
     const trendDates = getChartDateRange(range);
 
     const sleepDateLabels = trendDates.map(date => formatDate(date));
@@ -467,7 +600,7 @@ function buildDistributionData(recentDates) {
 function createDistributionChart() {
     destroyDistributionChart();
 
-    const recentDates = getChartDateRange(getTrendRangeValue());
+    const recentDates = getChartDateRange(lastAppliedTrendRange);
 
     const distributionData = buildDistributionData(recentDates);
     const maxCalories = Math.max(1, ...distributionData.flat());
@@ -569,6 +702,10 @@ function tryCreateChart(label, createFn) {
 }
 
 function createCharts() {
+    return updateTrendCharts();
+}
+
+function refreshTrendChartsCore() {
     tryCreateChart('calorie', createCalorieChart);
     tryCreateChart('macro', createMacroChart);
     tryCreateChart('sleep', createSleepChart);
@@ -576,14 +713,15 @@ function createCharts() {
 }
 
 function updateTrendCharts() {
-    tryCreateChart('calorie', createCalorieChart);
-    tryCreateChart('macro', createMacroChart);
-    tryCreateChart('sleep', createSleepChart);
+    return runWithLoading('Updating charts…', refreshTrendChartsCore);
+}
+
+function refreshDistributionChartCore() {
     tryCreateChart('distribution', createDistributionChart);
 }
 
 function updateDistributionChart() {
-    tryCreateChart('distribution', createDistributionChart);
+    return runWithLoading('Updating chart…', refreshDistributionChartCore);
 }
 
 function populateDateSelectors(log) {
@@ -624,7 +762,11 @@ function populateDateSelectors(log) {
             daySelect.value = newest.getDate();
         }
 
-        updateView(buildSelectedDate());
+        if (preferNewest) {
+            refreshDailyViewCore(buildSelectedDate());
+        } else {
+            updateView(buildSelectedDate());
+        }
     }
 
     function updateMonths(preferNewest) {
@@ -653,69 +795,58 @@ function populateDateSelectors(log) {
     updateMonths(true);
 }
 
+function renderDailySummaryBar(totals) {
+    const bar = document.getElementById('dailySummaryBar');
+    const body = document.getElementById('dailySummaryBody');
+    if (!bar || !body) return;
+
+    body.innerHTML = `
+        <tr>
+            <td>${totals.calories}</td>
+            <td>${totals.protein}g</td>
+            <td>${totals.carbs}g</td>
+            <td>${totals.fat}g</td>
+        </tr>
+    `;
+    bar.classList.remove('is-hidden');
+}
+
+function renderDailyTotalsTable(foods) {
+    const sortedFoods = sortFoodEntries(foods, dailySortColumn, dailySortDir);
+
+    document.getElementById('dailyTotalsBody').innerHTML = sortedFoods.map(food => `
+        <tr>
+            <td>${food.timeAdded}</td>
+            <td class="food-name-cell">${food.name}</td>
+            <td>${food.grams}g</td>
+            <td>${Math.round(food.calories)}</td>
+            <td>${Math.round(food.protein)}g</td>
+            <td>${Math.round(food.carbs)}g</td>
+            <td>${Math.round(food.fat)}g</td>
+        </tr>
+    `).join('');
+
+    updateDailySortHeaders();
+}
+
 function createDailyBreakdown(foods) {
-    const breakdown = document.getElementById('dailyBreakdown');
+    const summaryBar = document.getElementById('dailySummaryBar');
+    const tableWrap = document.getElementById('dailyTableWrap');
+    const emptyMessage = document.getElementById('dailyEmptyMessage');
+
     if (!Array.isArray(foods) || foods.length === 0) {
-        breakdown.innerHTML = '<p class="empty-day-message">No food logged for this day.</p>';
+        summaryBar?.classList.add('is-hidden');
+        tableWrap?.classList.add('is-hidden');
+        emptyMessage?.classList.remove('is-hidden');
+        document.getElementById('dailyTotalsBody').innerHTML = '';
+        document.getElementById('dailySummaryBody').innerHTML = '';
         return;
     }
 
-    const totals = calculateDailyTotals(foods);
-    const sortedFoods = [...foods].sort((a, b) => a.timeAdded.localeCompare(b.timeAdded));
-
-    breakdown.innerHTML = `
-        <div class="summary-box">
-            <h3>Daily Totals</h3>
-            <div class="table-scroll">
-                <table class="food-table summary-table">
-                    <thead>
-                        <tr>
-                            <th>Calories</th>
-                            <th>Protein</th>
-                            <th>Carbs</th>
-                            <th>Fat</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>${totals.calories} kcal</td>
-                            <td>${totals.protein}g</td>
-                            <td>${totals.carbs}g</td>
-                            <td>${totals.fat}g</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-        <div class="table-scroll">
-            <table class="food-table">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Food</th>
-                        <th>Amount</th>
-                        <th>Calories</th>
-                        <th>Protein</th>
-                        <th>Carbs</th>
-                        <th>Fat</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${sortedFoods.map(food => `
-                        <tr>
-                            <td>${food.timeAdded}</td>
-                            <td>${food.name}</td>
-                            <td>${food.grams}g</td>
-                            <td>${Math.round(food.calories)}</td>
-                            <td>${Math.round(food.protein)}g</td>
-                            <td>${Math.round(food.carbs)}g</td>
-                            <td>${Math.round(food.fat)}g</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-    `;
+    emptyMessage?.classList.add('is-hidden');
+    tableWrap?.classList.remove('is-hidden');
+    renderDailySummaryBar(calculateDailyTotals(foods));
+    renderDailyTotalsTable(foods);
 }
 
 function getSleepData() {
@@ -727,8 +858,13 @@ function getSleepData() {
     }
 }
 
-function updateView(date) {
+function refreshDailyViewCore(date) {
+    dailyViewDate = date;
     createDailyBreakdown(getFoodsForDate(date));
+}
+
+function updateView(date) {
+    return runWithLoading('Loading daily totals…', () => refreshDailyViewCore(date));
 }
 
 function scrollToChartSection(sectionId) {
@@ -756,29 +892,35 @@ function switchChartsTab(tabName) {
 }
 
 function handleFoodTotalsRangeChange() {
-    const rangeSelect = document.getElementById('foodTotalsRange');
-    const customInput = document.getElementById('customDaysInput');
+    const value = getFoodTotalsRangeValue();
 
-    customInput.classList.toggle('is-hidden', rangeSelect.value !== 'custom');
+    if (value === 'custom') {
+        openCustomRangeModal('foodTotals');
+        return;
+    }
+
+    closeCustomRangeModal(false);
+    clearCustomRangeSelectUI('foodTotalsRange');
+    lastAppliedFoodTotalsRange = value;
     updateFoodTotals();
 }
 
-function updateFoodTotals() {
-    const rangeSelect = document.getElementById('foodTotalsRange');
-    const customInput = document.getElementById('customDaysInput');
+function refreshFoodTotalsCore() {
+    const range = lastAppliedFoodTotalsRange;
+    let dates;
 
-    let daysToShow;
-    if (rangeSelect.value === 'custom') {
-        daysToShow = parseInt(customInput.value, 10) || 7;
+    if (range === 'custom') {
+        if (!foodTotalsCustomStart || !foodTotalsCustomEnd || foodTotalsCustomStart > foodTotalsCustomEnd) {
+            return;
+        }
+        dates = getDateRange(foodTotalsCustomStart, foodTotalsCustomEnd);
     } else {
-        daysToShow = parseInt(rangeSelect.value, 10);
+        dates = getFoodLogDates().slice(-parseInt(range, 10));
     }
 
-    const dates = getFoodLogDates();
-    const recentDays = dates.slice(-daysToShow);
     const foodTotals = {};
 
-    recentDays.forEach(date => {
+    dates.forEach(date => {
         getFoodsForDate(date).forEach(food => {
             if (!foodTotals[food.name]) {
                 foodTotals[food.name] = { grams: 0, calories: 0, count: 0 };
@@ -789,18 +931,61 @@ function updateFoodTotals() {
         });
     });
 
-    const sortedFoods = Object.entries(foodTotals)
-        .sort(([, a], [, b]) => b.calories - a.calories);
+    foodTotalsCache = foodTotals;
+    renderFoodTotalsTable();
+}
+
+function renderFoodTotalsTable() {
+    if (!foodTotalsCache) return;
+
+    const sortedFoods = sortFoodTotalsEntries(
+        Object.entries(foodTotalsCache),
+        foodTotalsSortColumn,
+        foodTotalsSortDir
+    );
 
     document.getElementById('foodTotalsBody').innerHTML = sortedFoods.map(([name, data]) => `
         <tr>
-            <td>${name}</td>
+            <td class="food-name-cell">${name}</td>
             <td>${Math.round(data.grams)}g</td>
             <td>${data.count}</td>
-            <td>${Math.round(data.calories)} kcal</td>
+            <td>${Math.round(data.calories)}</td>
         </tr>
     `).join('');
+
+    updateFoodTotalsSortHeaders();
 }
+
+function updateFoodTotals() {
+    return runWithLoading('Calculating food totals…', refreshFoodTotalsCore);
+}
+
+function collapseExpandedFoodNames() {
+    document.querySelectorAll('#chartsContent .food-name-cell.is-expanded').forEach(cell => {
+        cell.classList.remove('is-expanded');
+    });
+}
+
+function handleFoodNameCellTap(cell) {
+    const wasExpanded = cell.classList.contains('is-expanded');
+    collapseExpandedFoodNames();
+    if (!wasExpanded) {
+        cell.classList.add('is-expanded');
+    }
+}
+
+function wireFoodNameExpand() {
+    document.getElementById('chartsContent').addEventListener('click', (e) => {
+        const cell = e.target.closest('.food-name-cell');
+        if (cell) {
+            handleFoodNameCellTap(cell);
+            return;
+        }
+        collapseExpandedFoodNames();
+    });
+}
+
+let loadingToken = 0;
 
 function setLoadingStatus(text, pct) {
     const textEl = document.getElementById('chartsLoadingText');
@@ -809,11 +994,36 @@ function setLoadingStatus(text, pct) {
     if (barEl && pct != null) barEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
 }
 
+function showLoadingStatus(text, pct) {
+    const loadingEl = document.getElementById('chartsLoading');
+    if (loadingEl) {
+        loadingEl.classList.remove('is-hidden');
+        loadingEl.classList.toggle('is-indeterminate', pct == null);
+    }
+    setLoadingStatus(text, pct);
+}
+
 function hideLoadingStatus() {
     const loadingEl = document.getElementById('chartsLoading');
     const contentEl = document.getElementById('chartsContent');
-    if (loadingEl) loadingEl.classList.add('is-hidden');
+    if (loadingEl) {
+        loadingEl.classList.add('is-hidden');
+        loadingEl.classList.remove('is-indeterminate');
+    }
     if (contentEl) contentEl.classList.remove('is-hidden');
+}
+
+async function runWithLoading(text, work) {
+    const token = ++loadingToken;
+    showLoadingStatus(text, null);
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    try {
+        return work();
+    } finally {
+        if (token === loadingToken) {
+            hideLoadingStatus();
+        }
+    }
 }
 
 function handleChartsResize() {
@@ -839,6 +1049,38 @@ function handleChartsResize() {
     }, 150);
 }
 
+function wireCustomRangeSelect(selectId, wrapId, context, onChange) {
+    const select = document.getElementById(selectId);
+    const wrap = document.getElementById(wrapId);
+    if (!select || !wrap) return;
+
+    const lastApplied = () => (
+        context === 'foodTotals' ? lastAppliedFoodTotalsRange : lastAppliedTrendRange
+    );
+    const lastPreset = () => (
+        context === 'foodTotals' ? lastPresetBeforeCustomFoodTotals : lastPresetBeforeCustomTrend
+    );
+
+    select.addEventListener('pointerdown', () => {
+        if (lastApplied() === 'custom' && select.value === 'custom') {
+            select.value = lastPreset();
+        }
+    });
+
+    select.addEventListener('focus', () => {
+        wrap.classList.add('is-open');
+    });
+
+    select.addEventListener('change', onChange);
+
+    select.addEventListener('blur', () => {
+        wrap.classList.remove('is-open');
+        if (lastApplied() === 'custom' && select.value !== 'custom') {
+            select.value = 'custom';
+        }
+    });
+}
+
 function wireChartsEvents() {
     document.querySelectorAll('#chartsContent .tab-btn').forEach(btn => {
         btn.addEventListener('click', () => switchChartsTab(btn.dataset.tab));
@@ -846,7 +1088,7 @@ function wireChartsEvents() {
     document.querySelectorAll('.chart-jump-btn').forEach(btn => {
         btn.addEventListener('click', () => scrollToChartSection(btn.dataset.scrollTarget));
     });
-    document.getElementById('trendRange').addEventListener('change', handleTrendRangeChange);
+    wireCustomRangeSelect('trendRange', 'trendRangeWrap', 'trend', handleTrendRangeChange);
     document.getElementById('customRangeApply').addEventListener('click', applyCustomRange);
     document.getElementById('customRangeCancel').addEventListener('click', () => closeCustomRangeModal(true));
     document.getElementById('customRangeModal').addEventListener('click', (e) => {
@@ -859,8 +1101,26 @@ function wireChartsEvents() {
         if (e.key === 'Escape' && customRangeModalOpen) closeCustomRangeModal(true);
     });
     document.getElementById('dotSize').addEventListener('change', updateDistributionChart);
-    document.getElementById('foodTotalsRange').addEventListener('change', handleFoodTotalsRangeChange);
-    document.getElementById('customDaysInput').addEventListener('change', updateFoodTotals);
+    wireCustomRangeSelect('foodTotalsRange', 'foodTotalsRangeWrap', 'foodTotals', handleFoodTotalsRangeChange);
+    wireFoodNameExpand();
+    document.getElementById('dailyTotalsSection').addEventListener('click', (e) => {
+        const th = e.target.closest('th[data-sort-col]');
+        if (!th || !dailyViewDate) return;
+
+        const next = nextSortState(th.dataset.sortCol, dailySortColumn, dailySortDir);
+        dailySortColumn = next.column;
+        dailySortDir = next.dir;
+        renderDailyTotalsTable(getFoodsForDate(dailyViewDate));
+    });
+    document.getElementById('foodTotalsSection').addEventListener('click', (e) => {
+        const th = e.target.closest('th[data-sort-col]');
+        if (!th || !foodTotalsCache) return;
+
+        const next = nextSortState(th.dataset.sortCol, foodTotalsSortColumn, foodTotalsSortDir);
+        foodTotalsSortColumn = next.column;
+        foodTotalsSortDir = next.dir;
+        renderFoodTotalsTable();
+    });
     window.addEventListener('resize', handleChartsResize);
 }
 
@@ -904,10 +1164,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     window.foodLog = foodLog;
-    hideLoadingStatus();
     setupCustomRangeDateLimits();
     lastAppliedTrendRange = getTrendRangeValue();
+    lastAppliedFoodTotalsRange = getFoodTotalsRangeValue();
+    normalizeRangeSelect('trendRange', 'trendRangeWrap');
+    normalizeRangeSelect('foodTotalsRange', 'foodTotalsRangeWrap');
+    setLoadingStatus('Loading charts…', 100);
     populateDateSelectors(foodLog);
-    updateFoodTotals();
-    createCharts();
+    refreshFoodTotalsCore();
+    refreshTrendChartsCore();
+    hideLoadingStatus();
 });

@@ -33,9 +33,11 @@
     </div>
 
     <div class="loading-status" id="chartsLoading">
-        <div class="loading-status-text" id="chartsLoadingText">Loading…</div>
-        <div class="progress-bar">
-            <div class="progress loading-progress" id="chartsLoadingBar"></div>
+        <div class="loading-status-panel">
+            <div class="loading-status-text" id="chartsLoadingText">Loading…</div>
+            <div class="progress-bar">
+                <div class="progress loading-progress" id="chartsLoadingBar"></div>
+            </div>
         </div>
     </div>
 
@@ -53,13 +55,16 @@
                     <button type="button" class="chart-jump-btn" data-scroll-target="macroChartSection">Macros</button>
                     <button type="button" class="chart-jump-btn" data-scroll-target="sleepChartSection">Sleep</button>
                     <button type="button" class="chart-jump-btn" data-scroll-target="distributionChartSection">Dist</button>
-                    <select id="trendRange" class="charts-toolbar-range">
-                        <option value="7">Last 7 Days</option>
-                        <option value="30" selected>Last 30 Days</option>
-                        <option value="90">Last 90 Days</option>
-                        <option value="all">All Time</option>
-                        <option value="custom">Custom Range</option>
-                    </select>
+                    <div class="charts-range-select" id="trendRangeWrap">
+                        <span class="charts-range-select-display">Custom Range</span>
+                        <select id="trendRange" class="charts-toolbar-range">
+                            <option value="7">Last 7 Days</option>
+                            <option value="30" selected>Last 30 Days</option>
+                            <option value="90">Last 90 Days</option>
+                            <option value="all">All Time</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="tab-scroll">
@@ -97,49 +102,75 @@
 
             <div id="dailyTotalsTab" class="tab-content">
                 <div class="tab-scroll">
-                    <div class="date-selector">
-                        <div class="date-selector-inner">
-                            <span>Select Date:</span>
-                            <select id="yearSelect"></select>
-                            <select id="monthSelect"></select>
-                            <select id="daySelect"></select>
+                    <div class="chart-container" id="dailyTotalsSection">
+                        <div class="chart-header">
+                            <h2>Daily Totals</h2>
+                            <div class="chart-controls daily-date-controls">
+                                <select id="yearSelect"></select>
+                                <select id="monthSelect"></select>
+                                <select id="daySelect"></select>
+                            </div>
                         </div>
+                        <div id="dailySummaryBar" class="daily-summary-bar is-hidden">
+                            <table class="food-table daily-summary-table">
+                                <thead>
+                                    <tr>
+                                        <th scope="col">Calories</th>
+                                        <th scope="col">Protein</th>
+                                        <th scope="col">Carbs</th>
+                                        <th scope="col">Fat</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dailySummaryBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="table-scroll" id="dailyTableWrap">
+                            <table class="food-table">
+                                <thead>
+                                    <tr>
+                                        <th class="sortable sort-asc" data-sort-col="timeAdded" scope="col">Time</th>
+                                        <th class="sortable" data-sort-col="name" scope="col">Food</th>
+                                        <th class="sortable" data-sort-col="grams" scope="col">Amt</th>
+                                        <th class="sortable" data-sort-col="calories" scope="col">Cal</th>
+                                        <th class="sortable" data-sort-col="protein" scope="col">P</th>
+                                        <th class="sortable" data-sort-col="carbs" scope="col">C</th>
+                                        <th class="sortable" data-sort-col="fat" scope="col">F</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dailyTotalsBody"></tbody>
+                            </table>
+                        </div>
+                        <p id="dailyEmptyMessage" class="empty-day-message is-hidden">No food logged for this day.</p>
                     </div>
-
-                    <div id="dailyBreakdown"></div>
                 </div>
             </div>
 
             <div id="foodTotalsTab" class="tab-content">
                 <div class="tab-scroll">
-                    <div class="chart-container">
+                    <div class="chart-container" id="foodTotalsSection">
                         <div class="chart-header">
                             <h2>Food Totals</h2>
                             <div class="chart-controls">
+                            <div class="charts-range-select" id="foodTotalsRangeWrap">
+                                <span class="charts-range-select-display">Custom Range</span>
                                 <select id="foodTotalsRange">
                                     <option value="1">Last 1 Days</option>
                                     <option value="3">Last 3 Days</option>
                                     <option value="7" selected>Last 7 Days</option>
                                     <option value="30">Last 30 Days</option>
-                                    <option value="custom">Custom</option>
+                                    <option value="custom">Custom Range</option>
                                 </select>
-                                <input
-                                    type="number"
-                                    id="customDaysInput"
-                                    class="custom-days-input is-hidden"
-                                    min="1"
-                                    placeholder="Days"
-                                >
+                            </div>
                             </div>
                         </div>
                         <div class="table-scroll">
                             <table class="food-table">
                                 <thead>
                                     <tr>
-                                        <th>Food</th>
-                                        <th>Total Amount</th>
-                                        <th>Times Eaten</th>
-                                        <th>Total Calories</th>
+                                        <th class="sortable" data-sort-col="name" scope="col">Food</th>
+                                        <th class="sortable" data-sort-col="grams" scope="col">Amt</th>
+                                        <th class="sortable" data-sort-col="count" scope="col">Times</th>
+                                        <th class="sortable sort-desc" data-sort-col="calories" scope="col">Cal</th>
                                     </tr>
                                 </thead>
                                 <tbody id="foodTotalsBody"></tbody>
