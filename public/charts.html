@@ -11,8 +11,26 @@
     <link rel="stylesheet" href="css/charts/charts.css">
 </head>
 <body>
-    <header id="dateHeader"></header>
+    <header id="dateHeader">
+        <p class="charts-tip">You can export data in settings.</p>
+    </header>
     <div class="blur-overlay" id="blurOverlay"></div>
+
+    <div id="customRangeModal" class="charts-modal is-hidden" role="dialog" aria-labelledby="customRangeTitle">
+        <div class="charts-modal-panel">
+            <h3 id="customRangeTitle">Custom Range</h3>
+            <div class="charts-modal-fields">
+                <label for="trendCustomStart">From</label>
+                <input type="date" id="trendCustomStart">
+                <label for="trendCustomEnd">To</label>
+                <input type="date" id="trendCustomEnd">
+            </div>
+            <div class="charts-modal-actions">
+                <button type="button" id="customRangeCancel">Cancel</button>
+                <button type="button" id="customRangeApply">Apply</button>
+            </div>
+        </div>
+    </div>
 
     <div class="loading-status" id="chartsLoading">
         <div class="loading-status-text" id="chartsLoadingText">Loading…</div>
@@ -22,105 +40,113 @@
     </div>
 
     <div id="chartsContent" class="is-hidden">
-        <div class="date-selector">
-            <div class="date-selector-inner">
-                <span>Select Date for Overview:</span>
-                <select id="yearSelect"></select>
-                <select id="monthSelect"></select>
-                <select id="daySelect"></select>
+        <div class="tab-container">
+            <div class="tab-buttons">
+                <button type="button" class="tab-btn active" data-tab="charts">Charts</button>
+                <button type="button" class="tab-btn" data-tab="dailyTotals">Daily Totals</button>
+                <button type="button" class="tab-btn" data-tab="foodTotals">Food Totals</button>
             </div>
-            <div class="data-actions">
-                <button type="button" id="exportDataBtn">Export Data</button>
-                <label class="upload-btn">
-                    Import Data
-                    <input type="file" id="importInput" hidden accept=".json">
-                </label>
-            </div>
-        </div>
 
-        <div id="dailyBreakdown"></div>
-
-        <div class="chart-container">
-            <div class="chart-header">
-                <h2>Trend Charts</h2>
-                <div class="chart-controls">
-                    <select id="trendRange">
+            <div id="chartsTab" class="tab-content active">
+                <div class="charts-toolbar">
+                    <button type="button" class="chart-jump-btn" data-scroll-target="calorieChartSection">Cal</button>
+                    <button type="button" class="chart-jump-btn" data-scroll-target="macroChartSection">Macros</button>
+                    <button type="button" class="chart-jump-btn" data-scroll-target="sleepChartSection">Sleep</button>
+                    <button type="button" class="chart-jump-btn" data-scroll-target="distributionChartSection">Dist</button>
+                    <select id="trendRange" class="charts-toolbar-range">
                         <option value="7">Last 7 Days</option>
                         <option value="30" selected>Last 30 Days</option>
                         <option value="90">Last 90 Days</option>
                         <option value="all">All Time</option>
+                        <option value="custom">Custom Range</option>
                     </select>
                 </div>
-            </div>
-        </div>
 
-        <div class="chart-container">
-            <h2>Calorie Trend</h2>
-            <canvas id="calorieChart"></canvas>
-        </div>
+                <div class="tab-scroll">
+                    <div class="chart-container" id="calorieChartSection">
+                        <h2>Calorie Trend</h2>
+                        <canvas id="calorieChart"></canvas>
+                    </div>
 
-        <div class="chart-container">
-            <h2>Macronutrient Trend</h2>
-            <canvas id="macroChart"></canvas>
-        </div>
+                    <div class="chart-container" id="macroChartSection">
+                        <h2>Macronutrient Trend</h2>
+                        <canvas id="macroChart"></canvas>
+                    </div>
 
-        <div class="chart-container">
-            <h2>Sleep Quality Trend</h2>
-            <canvas id="sleepChart"></canvas>
-        </div>
+                    <div class="chart-container" id="sleepChartSection">
+                        <h2>Sleep Quality Trend</h2>
+                        <canvas id="sleepChart"></canvas>
+                    </div>
 
-        <div class="chart-container">
-            <div class="chart-header">
-                <h2>Daily Calorie Distribution</h2>
-                <div class="chart-controls">
-                    <select id="dotSize">
-                        <option value="2">Small</option>
-                        <option value="5" selected>Medium</option>
-                        <option value="8">Large</option>
-                    </select>
-                    <select id="distributionRange">
-                        <option value="7">Last Week</option>
-                        <option value="30">Last Month</option>
-                        <option value="365">Last Year</option>
-                        <option value="all">All Time</option>
-                    </select>
+                    <div class="chart-container" id="distributionChartSection">
+                        <div class="chart-header">
+                            <h2>Daily Calorie Distribution</h2>
+                            <div class="chart-controls">
+                                <label for="dotSize" class="chart-control-label">Dot Size</label>
+                                <select id="dotSize">
+                                    <option value="2">Small</option>
+                                    <option value="5" selected>Medium</option>
+                                    <option value="8">Large</option>
+                                </select>
+                            </div>
+                        </div>
+                        <canvas id="distributionChart"></canvas>
+                    </div>
                 </div>
             </div>
-            <canvas id="distributionChart"></canvas>
-        </div>
 
-        <div class="chart-container">
-            <div class="chart-header">
-                <h2>Food Totals</h2>
-                <div class="chart-controls">
-                    <select id="foodTotalsRange">
-                        <option value="1">Last 1 Days</option>
-                        <option value="3">Last 3 Days</option>
-                        <option value="7" selected>Last 7 Days</option>
-                        <option value="30">Last 30 Days</option>
-                        <option value="custom">Custom</option>
-                    </select>
-                    <input
-                        type="number"
-                        id="customDaysInput"
-                        class="custom-days-input is-hidden"
-                        min="1"
-                        placeholder="Days"
-                    >
+            <div id="dailyTotalsTab" class="tab-content">
+                <div class="tab-scroll">
+                    <div class="date-selector">
+                        <div class="date-selector-inner">
+                            <span>Select Date:</span>
+                            <select id="yearSelect"></select>
+                            <select id="monthSelect"></select>
+                            <select id="daySelect"></select>
+                        </div>
+                    </div>
+
+                    <div id="dailyBreakdown"></div>
                 </div>
             </div>
-            <div class="table-scroll">
-                <table class="food-table">
-                    <thead>
-                        <tr>
-                            <th>Food</th>
-                            <th>Total Amount</th>
-                            <th>Times Eaten</th>
-                            <th>Total Calories</th>
-                        </tr>
-                    </thead>
-                    <tbody id="foodTotalsBody"></tbody>
-                </table>
+
+            <div id="foodTotalsTab" class="tab-content">
+                <div class="tab-scroll">
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h2>Food Totals</h2>
+                            <div class="chart-controls">
+                                <select id="foodTotalsRange">
+                                    <option value="1">Last 1 Days</option>
+                                    <option value="3">Last 3 Days</option>
+                                    <option value="7" selected>Last 7 Days</option>
+                                    <option value="30">Last 30 Days</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                                <input
+                                    type="number"
+                                    id="customDaysInput"
+                                    class="custom-days-input is-hidden"
+                                    min="1"
+                                    placeholder="Days"
+                                >
+                            </div>
+                        </div>
+                        <div class="table-scroll">
+                            <table class="food-table">
+                                <thead>
+                                    <tr>
+                                        <th>Food</th>
+                                        <th>Total Amount</th>
+                                        <th>Times Eaten</th>
+                                        <th>Total Calories</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="foodTotalsBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

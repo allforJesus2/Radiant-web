@@ -32,6 +32,7 @@ const RadiantStorage = {
         CHECKBOX_STATES: 'checkboxStates',
         PROFILE_531: '531-workout-profile',
         RECENT_FOOD_SELECTIONS: 'recentFoodSelections',
+        MEAL_COLLAPSE_PREFERENCE: 'mealCollapsePreference',
         CUSTOM_RECIPES_BACKUP: 'customRecipesBackup',
         SR_LEGACY_PORTION_VERSION: 'srLegacyPortionVersion',
         SR_LEGACY_IMPORT_COMPLETE: 'srLegacyImportComplete',
@@ -334,6 +335,18 @@ const RadiantStorage = {
 
         saveRecentFoodSelections(selections) {
             RadiantStorage.setJSON(RadiantStorage.KEYS.RECENT_FOOD_SELECTIONS, selections);
+        },
+
+        getMealCollapsePreference() {
+            var pref = RadiantStorage.getRaw(RadiantStorage.KEYS.MEAL_COLLAPSE_PREFERENCE);
+            return pref === 'currentMeal' ? 'currentMeal' : 'allCollapsed';
+        },
+
+        saveMealCollapsePreference(preference) {
+            RadiantStorage.setRaw(
+                RadiantStorage.KEYS.MEAL_COLLAPSE_PREFERENCE,
+                preference === 'currentMeal' ? 'currentMeal' : 'allCollapsed'
+            );
         },
 
         markSrLegacyImported(portionVersion) {

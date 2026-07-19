@@ -4,6 +4,10 @@ let sleepChart = null;
 let distributionChart = null;
 let foodLog = null;
 let resizeTimer = null;
+let customRangeStart = null;
+let customRangeEnd = null;
+let lastAppliedTrendRange = '30';
+let customRangeModalOpen = false;
 
 const SLEEP_LABELS = {
     1: 'Ugh X(',
@@ -135,6 +139,108 @@ function getTrendRangeValue() {
     return el ? el.value : '30';
 }
 
+function getAvailableDataBounds() {
+    const allDates = getFoodLogDates();
+    const sleepData = getSleepData();
+    const sleepDates = Object.keys(sleepData);
+    const combined = [...new Set([...allDates, ...sleepDates])].sort();
+
+    if (combined.length === 0) return null;
+    return { start: combined[0], end: combined[combined.length - 1] };
+}
+
+function getDefaultCustomRange() {
+    const bounds = getAvailableDataBounds();
+    if (!bounds) return { start: '', end: '' };
+
+    const endDate = parseLocalDate(bounds.end);
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 29);
+    let start = formatDateKey(startDate);
+    if (start < bounds.start) start = bounds.start;
+    return { start, end: bounds.end };
+}
+
+function setupCustomRangeDateLimits() {
+    const bounds = getAvailableDataBounds();
+    const startInput = document.getElementById('trendCustomStart');
+    const endInput = document.getElementById('trendCustomEnd');
+    if (!startInput || !endInput) return;
+
+    if (bounds) {
+        startInput.min = bounds.start;
+        startInput.max = bounds.end;
+        endInput.min = bounds.start;
+        endInput.max = bounds.end;
+    } else {
+        startInput.removeAttribute('min');
+        startInput.removeAttribute('max');
+        endInput.removeAttribute('min');
+        endInput.removeAttribute('max');
+    }
+}
+
+function setCustomRangeModalOpen(isOpen) {
+    const modal = document.getElementById('customRangeModal');
+    const blurOverlay = document.getElementById('blurOverlay');
+    customRangeModalOpen = isOpen;
+    if (modal) modal.classList.toggle('is-hidden', !isOpen);
+    if (blurOverlay) blurOverlay.classList.toggle('active', isOpen);
+}
+
+function openCustomRangeModal() {
+    setupCustomRangeDateLimits();
+
+    const startInput = document.getElementById('trendCustomStart');
+    const endInput = document.getElementById('trendCustomEnd');
+    const defaults = getDefaultCustomRange();
+
+    if (customRangeStart && customRangeEnd) {
+        startInput.value = customRangeStart;
+        endInput.value = customRangeEnd;
+    } else {
+        startInput.value = defaults.start;
+        endInput.value = defaults.end;
+    }
+
+    setCustomRangeModalOpen(true);
+}
+
+function closeCustomRangeModal(revertSelect) {
+    setCustomRangeModalOpen(false);
+    if (revertSelect) {
+        document.getElementById('trendRange').value = lastAppliedTrendRange;
+    }
+}
+
+function applyCustomRange() {
+    const startInput = document.getElementById('trendCustomStart');
+    const endInput = document.getElementById('trendCustomEnd');
+    const start = startInput.value;
+    const end = endInput.value;
+
+    if (!start || !end || start > end) return;
+
+    customRangeStart = start;
+    customRangeEnd = end;
+    lastAppliedTrendRange = 'custom';
+    closeCustomRangeModal(false);
+    updateTrendCharts();
+}
+
+function handleTrendRangeChange() {
+    const value = getTrendRangeValue();
+
+    if (value === 'custom') {
+        openCustomRangeModal();
+        return;
+    }
+
+    closeCustomRangeModal(false);
+    lastAppliedTrendRange = value;
+    updateTrendCharts();
+}
+
 function getTrendWindowBounds(range) {
     const allDates = getFoodLogDates();
     const sleepData = getSleepData();
@@ -145,6 +251,11 @@ function getTrendWindowBounds(range) {
 
     if (range === 'all') {
         return { start: combined[0], end: combined[combined.length - 1] };
+    }
+
+    if (range === 'custom') {
+        if (!customRangeStart || !customRangeEnd || customRangeStart > customRangeEnd) return null;
+        return { start: customRangeStart, end: customRangeEnd };
     }
 
     const days = parseInt(range, 10);
@@ -356,11 +467,7 @@ function buildDistributionData(recentDates) {
 function createDistributionChart() {
     destroyDistributionChart();
 
-    const range = document.getElementById('distributionRange').value;
-    const allDates = getFoodLogDates();
-    const recentDates = range === 'all'
-        ? allDates
-        : allDates.slice(-parseInt(range, 10));
+    const recentDates = getChartDateRange(getTrendRangeValue());
 
     const distributionData = buildDistributionData(recentDates);
     const maxCalories = Math.max(1, ...distributionData.flat());
@@ -372,7 +479,7 @@ function createDistributionChart() {
     distributionData.forEach((dayData, dateIndex) => {
         dayData.forEach((calories, hour) => {
             if (calories <= 0) return;
-            points.push({ x: hour, y: dateIndex, calories });
+            points.push({ x: dateIndex, y: hour, calories });
             backgroundColors.push(`rgba(255, 115, 0, ${calories / maxCalories})`);
         });
     });
@@ -399,14 +506,14 @@ function createDistributionChart() {
                     callbacks: {
                         label(context) {
                             const point = context.raw;
-                            const time = `${String(point.x).padStart(2, '0')}:00`;
+                            const time = `${String(point.y).padStart(2, '0')}:00`;
                             return `Time: ${time}, Calories: ${Math.round(point.calories)}`;
                         }
                     }
                 }
             },
             scales: {
-                y: {
+                x: {
                     min: -0.5,
                     max: Math.max(recentDates.length - 0.5, 0.5),
                     afterBuildTicks(scale) {
@@ -430,7 +537,7 @@ function createDistributionChart() {
                         color: theme.text
                     }
                 },
-                x: {
+                y: {
                     min: -0.5,
                     max: 23.5,
                     ticks: {
@@ -472,6 +579,7 @@ function updateTrendCharts() {
     tryCreateChart('calorie', createCalorieChart);
     tryCreateChart('macro', createMacroChart);
     tryCreateChart('sleep', createSleepChart);
+    tryCreateChart('distribution', createDistributionChart);
 }
 
 function updateDistributionChart() {
@@ -621,41 +729,30 @@ function getSleepData() {
 
 function updateView(date) {
     createDailyBreakdown(getFoodsForDate(date));
-    updateFoodTotals();
 }
 
-function exportData() {
-    const dataStr = JSON.stringify(RadiantStorage.getRaw(RadiantStorage.KEYS.FOOD_LOG));
-    const dateStr = new Date().toISOString().split('T')[0];
-    const filename = `nutrition-data_${dateStr}.json`;
-
-    const element = document.createElement('a');
-    element.setAttribute('href', 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr));
-    element.setAttribute('download', filename);
-    element.style.display = 'none';
-    document.body.appendChild(element);
-    element.click();
-    document.body.removeChild(element);
+function scrollToChartSection(sectionId) {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function importData(input) {
-    const file = input.files[0];
-    if (!file) return;
+function switchChartsTab(tabName) {
+    document.querySelectorAll('#chartsContent .tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelectorAll('#chartsContent .tab-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
 
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        try {
-            const data = JSON.parse(e.target.result);
-            if (!data) throw new Error('Invalid data format');
+    const tabPanel = document.getElementById(tabName + 'Tab');
+    const tabButton = document.querySelector(`#chartsContent .tab-btn[data-tab="${tabName}"]`);
+    if (tabPanel) tabPanel.classList.add('active');
+    if (tabButton) tabButton.classList.add('active');
 
-            RadiantStorage.nutrition.saveFoodLog(data);
-            alert('Data imported successfully! Reloading...');
-            setTimeout(() => location.reload(), 1000);
-        } catch (error) {
-            alert('Error importing data: ' + error.message);
-        }
-    };
-    reader.readAsText(file);
+    if (tabName === 'charts') {
+        handleChartsResize();
+    }
 }
 
 function handleFoodTotalsRangeChange() {
@@ -743,13 +840,25 @@ function handleChartsResize() {
 }
 
 function wireChartsEvents() {
-    document.getElementById('exportDataBtn').addEventListener('click', exportData);
-    document.getElementById('importInput').addEventListener('change', function() {
-        importData(this);
+    document.querySelectorAll('#chartsContent .tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchChartsTab(btn.dataset.tab));
     });
-    document.getElementById('trendRange').addEventListener('change', updateTrendCharts);
+    document.querySelectorAll('.chart-jump-btn').forEach(btn => {
+        btn.addEventListener('click', () => scrollToChartSection(btn.dataset.scrollTarget));
+    });
+    document.getElementById('trendRange').addEventListener('change', handleTrendRangeChange);
+    document.getElementById('customRangeApply').addEventListener('click', applyCustomRange);
+    document.getElementById('customRangeCancel').addEventListener('click', () => closeCustomRangeModal(true));
+    document.getElementById('customRangeModal').addEventListener('click', (e) => {
+        if (e.target.id === 'customRangeModal') closeCustomRangeModal(true);
+    });
+    document.querySelector('#customRangeModal .charts-modal-panel').addEventListener('click', (e) => {
+        e.stopPropagation();
+    });
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && customRangeModalOpen) closeCustomRangeModal(true);
+    });
     document.getElementById('dotSize').addEventListener('change', updateDistributionChart);
-    document.getElementById('distributionRange').addEventListener('change', updateDistributionChart);
     document.getElementById('foodTotalsRange').addEventListener('change', handleFoodTotalsRangeChange);
     document.getElementById('customDaysInput').addEventListener('change', updateFoodTotals);
     window.addEventListener('resize', handleChartsResize);
@@ -796,6 +905,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     window.foodLog = foodLog;
     hideLoadingStatus();
+    setupCustomRangeDateLimits();
+    lastAppliedTrendRange = getTrendRangeValue();
     populateDateSelectors(foodLog);
     updateFoodTotals();
     createCharts();

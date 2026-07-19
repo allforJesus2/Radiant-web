@@ -29,17 +29,122 @@
     width: 0%;
 }
 
+#chartsContent {
+    display: flex;
+    flex-direction: column;
+    height: calc(100dvh - 56px);
+    overflow: hidden;
+}
+
+.tab-container {
+    flex: 1;
+    min-height: 0;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+    padding: 0 16px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.tab-buttons {
+    display: flex;
+    border-bottom: 2px solid #543;
+    margin-bottom: 0;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.tab-btn {
+    background-color: var(--button);
+    color: var(--text);
+    border: none;
+    padding: 12px 24px;
+    cursor: pointer;
+    font-size: 16px;
+    border-radius: 5px 5px 0 0;
+    margin-right: 5px;
+}
+
+.tab-btn.active {
+    background-color: #543;
+    color: white;
+}
+
+.tab-btn:hover {
+    background-color: #543;
+}
+
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+}
+
+.tab-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-top: 12px;
+}
+
+.charts-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    width: 100%;
+    padding: 12px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.chart-jump-btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 6px 4px;
+    font-size: 0.85em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.charts-toolbar-range {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 38%;
+    margin-left: 4px;
+    padding: 6px 8px;
+    font-size: 0.85em;
+}
+
+#dateHeader .charts-tip {
+    margin: 0;
+    padding: 0;
+    flex-shrink: 1;
+    min-width: 0;
+    font-size: 0.85em;
+    opacity: 0.7;
+    text-align: left;
+}
+
 .chart-container {
     background-color: transparent;
     border-radius: 8px;
     padding: 16px;
-    margin: 16px 0;
+    margin: 0 0 16px;
     position: relative;
     height: auto;
     width: 100%;
-    max-width: 1200px;
-    margin-left: auto;
-    margin-right: auto;
+    scroll-margin-top: 8px;
 }
 
 .chart-container h2 {
@@ -63,17 +168,30 @@
     gap: 8px;
     align-items: center;
     flex-wrap: wrap;
+    flex-shrink: 0;
+}
+
+.chart-control-label {
+    font-size: 0.9em;
+    opacity: 0.85;
+    white-space: nowrap;
+}
+
+#distributionChartSection .chart-header {
+    flex-wrap: nowrap;
+}
+
+#distributionChartSection .chart-header h2 {
+    margin: 0;
+    min-width: 0;
 }
 
 .date-selector {
     display: flex;
     gap: 8px;
-    margin: 16px auto;
-    padding: 0 16px;
+    margin: 0 0 16px;
     align-items: center;
-    justify-content: space-between;
     flex-wrap: wrap;
-    max-width: 1200px;
 }
 
 .date-selector-inner {
@@ -99,6 +217,64 @@ select {
     border-radius: 4px;
     background-color: var(--button);
     color: var(--text);
+}
+
+.charts-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    box-sizing: border-box;
+}
+
+.charts-modal:not(.is-hidden) {
+    display: flex;
+}
+
+.charts-modal.is-hidden {
+    display: none;
+}
+
+.charts-modal-panel {
+    width: min(92vw, 360px);
+    background-color: var(--button);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+}
+
+.charts-modal-panel h3 {
+    margin: 0 0 16px;
+    font-size: 1.1em;
+}
+
+.charts-modal-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.charts-modal-fields label {
+    font-size: 0.9em;
+    opacity: 0.85;
+}
+
+.charts-modal-fields input[type="date"] {
+    padding: 8px;
+    border: none;
+    border-radius: 4px;
+    background-color: rgba(0, 0, 0, 0.2);
+    color: var(--text);
+    font-family: inherit;
+}
+
+.charts-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
 }
 
 .table-scroll {
@@ -155,13 +331,7 @@ canvas {
     border-radius: 4px;
 }
 
-.data-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-button, .upload-btn {
+button {
     padding: 8px 16px;
     border: none;
     border-radius: 4px;
@@ -171,11 +341,43 @@ button, .upload-btn {
     transition: background-color 0.2s;
 }
 
-button:hover, .upload-btn:hover {
+button:hover {
     background-color: rgba(255, 255, 255, 0.1);
 }
 
 @media (max-width: 768px) {
+    #chartsContent {
+        height: calc(100dvh - 52px);
+    }
+
+    .tab-buttons {
+        margin-bottom: 0;
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 10px 12px;
+        font-size: 14px;
+        margin-right: 4px;
+        text-align: center;
+    }
+
+    #dateHeader .charts-tip {
+        font-size: 0.75em;
+        max-width: 35%;
+    }
+
+    .chart-jump-btn {
+        font-size: 0.75em;
+        padding: 6px 2px;
+    }
+
+    .charts-toolbar-range {
+        max-width: 34%;
+        padding: 6px 4px;
+        font-size: 0.75em;
+    }
+
     .chart-container {
         padding: 8px;
         margin: 16px 0;
@@ -192,13 +394,22 @@ button:hover, .upload-btn:hover {
         align-items: flex-start;
     }
 
+    #distributionChartSection .chart-header {
+        flex-direction: row;
+        align-items: center;
+    }
+
+    #distributionChartSection .chart-header h2 {
+        margin: 0;
+        font-size: 1.1em;
+    }
+
     .date-selector {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .date-selector-inner,
-    .data-actions {
+    .date-selector-inner {
         width: 100%;
     }
 

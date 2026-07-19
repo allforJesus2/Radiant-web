@@ -588,6 +588,32 @@ function getCurrentMealType() {
     return getMealType(currentTime);
 }
 
+function isMealExpandedByDefault(mealType) {
+    if (RadiantStorage.nutrition.getMealCollapsePreference() === 'currentMeal') {
+        return mealType === getCurrentMealType();
+    }
+    return false;
+}
+
+function persistMealCollapsePreference() {
+    var scrollRoot = document.getElementById('scrollableWindow');
+    if (!scrollRoot) return;
+    var anyExpanded = ['breakfast', 'lunch', 'dinner', 'snack'].some(function(m) {
+        var el = scrollRoot.querySelector('.meal-items-' + m);
+        return el && el.style.display !== 'none';
+    });
+    RadiantStorage.nutrition.saveMealCollapsePreference(anyExpanded ? 'currentMeal' : 'allCollapsed');
+}
+
+function applyMealCollapseState(mealHeaderContainer, mealItemsContainer, isExpanded) {
+    mealItemsContainer.style.display = isExpanded ? 'block' : 'none';
+    var toggleBtn = mealHeaderContainer && mealHeaderContainer.querySelector('.meal-toggle-btn');
+    if (toggleBtn) {
+        toggleBtn.textContent = isExpanded ? '▼' : '▶';
+        toggleBtn.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
+    }
+}
+
 // Function to group food items by meal
 function groupByMeal(foodItems) {
     const meals = { Breakfast: [], Lunch: [], Dinner: [], Snack: [] };
@@ -1360,22 +1386,15 @@ async function displayFoodItems(foodItems) {
 
                 mealItemsContainer = document.createElement('div');
                 mealItemsContainer.className = `meal-items-container meal-items-${mealKey}`;
-                // Restore saved collapse state or default to expanded
-                mealItemsContainer.style.display = (collapseState[mealKey] !== undefined)
-                    ? collapseState[mealKey]
-                    : 'block';
 
                 fragment.appendChild(mealHeaderContainer);
                 fragment.appendChild(mealItemsContainer);
             }
 
-            // Restore collapse state for reused containers too
             if (collapseState[mealKey] !== undefined) {
-                mealItemsContainer.style.display = collapseState[mealKey];
-                const toggleBtn = mealHeaderContainer.querySelector('.meal-toggle-btn');
-                if (toggleBtn) {
-                    toggleBtn.textContent = collapseState[mealKey] === 'none' ? '▶' : '▼';
-                }
+                applyMealCollapseState(mealHeaderContainer, mealItemsContainer, collapseState[mealKey] !== 'none');
+            } else {
+                applyMealCollapseState(mealHeaderContainer, mealItemsContainer, isMealExpandedByDefault(mealType));
             }
 
             // Populate items into the (cleared or new) items container
@@ -2195,16 +2214,10 @@ function toggleMealCategory(mealType, button) {
         ? scrollRoot.querySelector('.meal-items-' + mealKey)
         : null;
     if (!mealItemsContainer) return;
-    
-    if (mealItemsContainer.style.display === 'none') {
-        mealItemsContainer.style.display = 'block';
-        button.textContent = '▼';
-        button.style.transform = 'rotate(0deg)';
-    } else {
-        mealItemsContainer.style.display = 'none';
-        button.textContent = '▶';
-        button.style.transform = 'rotate(-90deg)';
-    }
+
+    var mealHeaderContainer = scrollRoot.querySelector('.meal-header-container[data-meal="' + mealType + '"]');
+    applyMealCollapseState(mealHeaderContainer, mealItemsContainer, mealItemsContainer.style.display === 'none');
+    persistMealCollapsePreference();
 }
 
 
@@ -2237,6 +2250,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 	autocompleteList = document.getElementById('autocompleteList');
 	updateScrollableWindowHeight();
 	window.addEventListener('resize', updateScrollableWindowHeight);
+	window.addEventListener('pagehide', persistMealCollapsePreference);
 
 	if (foodInput) {
 		foodInput.addEventListener('focus', function() {
