@@ -37,6 +37,10 @@
             const NOTES_FADE_MS = 300;
             let levelUpReviewActive = false;
             let levelUpReviewOld1RMs = {};
+            let levelUpReviewDeltasAnimated = false;
+            let levelUpDeltaAnimHandles = [];
+            const LEVEL_UP_DELTA_STAGGER_MS = 200;
+            const LEVEL_UP_DELTA_DURATION_MS = 500;
             const LIFT_KEYS = ['squat', 'bench', 'deadlift', 'ohp'];
             const SAVE_BUTTON_DEFAULT_TEXT = 'Save 1 Rep Maxes';
             const SAVE_BUTTON_LEVEL_UP_TEXT = 'Confirm and Level up';
@@ -649,11 +653,14 @@
                 return old1RM + getStandardIncrement(exercise);
             }
 
-            function format1RMDelta(oldVal, newVal) {
-                const diff = newVal - oldVal;
+            function formatDeltaDiff(diff) {
                 if (diff === 0) return '0 lbs';
                 if (diff > 0) return `+${diff} lbs`;
                 return `${diff} lbs`;
+            }
+
+            function format1RMDelta(oldVal, newVal) {
+                return formatDeltaDiff(newVal - oldVal);
             }
 
             function getDeltaClass(oldVal, newVal) {
@@ -661,6 +668,74 @@
                 if (diff > 0) return 'delta-positive';
                 if (diff < 0) return 'delta-negative';
                 return 'delta-zero';
+            }
+
+            function cancelLevelUpDeltaAnimations() {
+                levelUpDeltaAnimHandles.forEach(handle => {
+                    if (handle.timeoutId != null) clearTimeout(handle.timeoutId);
+                    if (handle.rafId != null) cancelAnimationFrame(handle.rafId);
+                });
+                levelUpDeltaAnimHandles = [];
+            }
+
+            function prefersReducedMotion() {
+                return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            }
+
+            function setLevelUpDeltaDisplay(deltaEl, oldVal, newVal, diff) {
+                deltaEl.textContent = formatDeltaDiff(diff);
+                deltaEl.className = `level-up-delta ${getDeltaClass(oldVal, newVal)}`;
+            }
+
+            function animateLevelUpReviewDeltas() {
+                cancelLevelUpDeltaAnimations();
+
+                if (prefersReducedMotion()) {
+                    updateLevelUpReviewDeltas();
+                    return;
+                }
+
+                const rows = [...document.querySelectorAll('.level-up-row:not([hidden])')];
+
+                requestAnimationFrame(() => {
+                    rows.forEach((row, index) => {
+                        const lift = row.dataset.lift;
+                        const oldVal = levelUpReviewOld1RMs[lift] || 0;
+                        const input = row.querySelector('.level-up-new-input');
+                        const deltaEl = row.querySelector('.level-up-delta');
+                        if (!input || !deltaEl || oldVal <= 0) return;
+
+                        const newVal = parseFloat(input.value) || 0;
+                        const targetDiff = newVal - oldVal;
+                        setLevelUpDeltaDisplay(deltaEl, oldVal, newVal, 0);
+                        deltaEl.classList.remove('level-up-delta-landed');
+
+                        const handle = { timeoutId: null, rafId: null };
+                        levelUpDeltaAnimHandles.push(handle);
+
+                        handle.timeoutId = setTimeout(() => {
+                            handle.timeoutId = null;
+                            const startTime = performance.now();
+
+                            function tick(now) {
+                                const progress = Math.min(1, (now - startTime) / LEVEL_UP_DELTA_DURATION_MS);
+                                const eased = 1 - Math.pow(1 - progress, 3);
+                                const currentDiff = Math.round(targetDiff * eased);
+                                setLevelUpDeltaDisplay(deltaEl, oldVal, newVal, currentDiff);
+
+                                if (progress < 1) {
+                                    handle.rafId = requestAnimationFrame(tick);
+                                } else {
+                                    handle.rafId = null;
+                                    setLevelUpDeltaDisplay(deltaEl, oldVal, newVal, targetDiff);
+                                    deltaEl.classList.add('level-up-delta-landed');
+                                }
+                            }
+
+                            handle.rafId = requestAnimationFrame(tick);
+                        }, index * LEVEL_UP_DELTA_STAGGER_MS);
+                    });
+                });
             }
 
             function getLevelUpReviewContextText() {
@@ -678,6 +753,7 @@
             }
 
             function updateLevelUpReviewDeltas() {
+                cancelLevelUpDeltaAnimations();
                 document.querySelectorAll('.level-up-row').forEach(row => {
                     const lift = row.dataset.lift;
                     const oldVal = levelUpReviewOld1RMs[lift] || 0;
@@ -685,12 +761,12 @@
                     const deltaEl = row.querySelector('.level-up-delta');
                     if (!input || !deltaEl || oldVal <= 0) return;
                     const newVal = parseFloat(input.value) || 0;
-                    deltaEl.textContent = format1RMDelta(oldVal, newVal);
-                    deltaEl.className = `level-up-delta ${getDeltaClass(oldVal, newVal)}`;
+                    deltaEl.classList.remove('level-up-delta-landed');
+                    setLevelUpDeltaDisplay(deltaEl, oldVal, newVal, newVal - oldVal);
                 });
             }
 
-            function populateLevelUpReviewRows() {
+            function populateLevelUpReviewRows(animateDeltas = false) {
                 const contextEl = document.getElementById('level-up-review-context');
                 if (contextEl) {
                     contextEl.textContent = getLevelUpReviewContextText();
@@ -708,23 +784,34 @@
                     if (oldEl) oldEl.textContent = `${oldVal} lbs`;
                     if (input) input.value = computeProposed1RM(lift, oldVal);
                 });
-                updateLevelUpReviewDeltas();
+                if (animateDeltas && !levelUpReviewDeltasAnimated) {
+                    animateLevelUpReviewDeltas();
+                    levelUpReviewDeltasAnimated = true;
+                } else {
+                    updateLevelUpReviewDeltas();
+                }
             }
 
-            function enterLevelUpReviewMode() {
-                levelUpReviewActive = true;
+            function ensureLevelUpReviewVisible() {
                 inputSection.classList.add('level-up-review-active');
                 const reviewEl = document.getElementById('level-up-review');
                 const cancelBtn = document.getElementById('cancel-level-up');
                 if (reviewEl) reviewEl.hidden = false;
                 if (cancelBtn) cancelBtn.hidden = false;
                 if (saveButton) saveButton.textContent = SAVE_BUTTON_LEVEL_UP_TEXT;
-                populateLevelUpReviewRows();
+            }
+
+            function enterLevelUpReviewMode({ animateDeltas = false } = {}) {
+                levelUpReviewActive = true;
+                ensureLevelUpReviewVisible();
+                populateLevelUpReviewRows(animateDeltas);
             }
 
             function exitLevelUpReviewMode() {
+                cancelLevelUpDeltaAnimations();
                 levelUpReviewActive = false;
                 levelUpReviewOld1RMs = {};
+                levelUpReviewDeltasAnimated = false;
                 inputSection.classList.remove('level-up-review-active');
                 const reviewEl = document.getElementById('level-up-review');
                 const cancelBtn = document.getElementById('cancel-level-up');
@@ -817,8 +904,8 @@
                     return;
                 }
                 levelUpReviewOld1RMs = get1RMsFromInputs();
-                enterLevelUpReviewMode();
                 setActiveMainTab('setup');
+                enterLevelUpReviewMode({ animateDeltas: true });
             }
 
             function cancelLevelUpReview() {
@@ -1026,7 +1113,7 @@
                     inputSection.classList.add('active');
                     resultSection.classList.remove('active');
                     if (levelUpReviewActive) {
-                        enterLevelUpReviewMode();
+                        ensureLevelUpReviewVisible();
                     }
                 } else {
                     inputSection.classList.remove('active');

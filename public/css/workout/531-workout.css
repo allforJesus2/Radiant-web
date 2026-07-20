@@ -253,6 +253,20 @@ h4 {
     color: var(--accent);
 }
 
+.level-up-delta.level-up-delta-landed {
+    animation: level-up-delta-pop 0.25s ease-out;
+}
+
+@keyframes level-up-delta-pop {
+    50% { transform: scale(1.12); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .level-up-delta.level-up-delta-landed {
+        animation: none;
+    }
+}
+
 .level-up-new-input {
     width: 100%;
 }
