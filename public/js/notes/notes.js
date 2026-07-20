@@ -176,7 +176,7 @@
             const todayData = sleepData[dateKey] || {};
 
             document.getElementById('sleepHours').value = todayData.sleepHours || '';
-            document.getElementById('timeInBed').value = todayData.timeInBed || '';
+            document.getElementById('timeInBed').value = todayData.timeInBed || (isToday(date) ? '22:00' : '');
             document.getElementById('wakeUpTime').value = todayData.wakeUpTime || '';
 
             const rating = todayData.sleepRating;
