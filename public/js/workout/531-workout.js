@@ -35,6 +35,11 @@
             let notesRotationTimer = null;
             let notesRotationPaused = false;
             const NOTES_FADE_MS = 300;
+            let levelUpReviewActive = false;
+            let levelUpReviewOld1RMs = {};
+            const LIFT_KEYS = ['squat', 'bench', 'deadlift', 'ohp'];
+            const SAVE_BUTTON_DEFAULT_TEXT = 'Save 1 Rep Maxes';
+            const SAVE_BUTTON_LEVEL_UP_TEXT = 'Confirm and Level up';
 
             
             // Rest timer state
@@ -300,42 +305,46 @@
                 updateWeekTabLabels();
             }
 
-            function updateProgressionGuide() {
-                const amrapTip = document.getElementById('progression-amrap-tip');
-                const adjustTip = amrapTip?.nextElementSibling;
-                if (!amrapTip) return;
+            function getProgressionAmrapTipText() {
                 if (accessoryTemplate === 'bbb-forever') {
                     if (isForeverBbbAnchorPhase()) {
-                        amrapTip.textContent = 'Anchor cycle — use AMRAP sets to gauge progress and set your next TM';
-                        if (adjustTip) adjustTip.style.display = '';
-                    } else {
-                        amrapTip.textContent = 'Leader cycle — no AMRAP sets; increase TM by standard amounts after each 4-week cycle';
-                        if (adjustTip) adjustTip.style.display = 'none';
+                        return 'Anchor cycle — use AMRAP sets to gauge progress and set your next TM';
                     }
-                } else {
-                    amrapTip.textContent = 'Use AMRAP sets to gauge progress';
-                    if (adjustTip) adjustTip.style.display = '';
+                    return 'Leader cycle — no AMRAP sets; increase TM by standard amounts after each 4-week cycle';
                 }
+                return 'Use AMRAP sets to gauge progress';
+            }
+
+            function showProgressionAdjustTip() {
+                if (accessoryTemplate === 'bbb-forever' && !isForeverBbbAnchorPhase()) {
+                    return false;
+                }
+                return true;
+            }
+
+            function getBbbTemplateHelperText() {
+                if (accessorySelect.value === 'bbb-forever') {
+                    if (isForeverBbbAnchorPhase()) {
+                        return 'Anchor cycle: AMRAP main work + FSL 5×5 supplemental + 50–100 reps assistance. Push PRs on Week 3 top sets, then return to leader phase.';
+                    }
+                    const cyclesLeft = Math.max(0, BBB_FOREVER_LEADER_CYCLES - bbbLeaderCyclesCompleted);
+                    const cycleNote = cyclesLeft === 1
+                        ? '1 leader cycle left before Anchor prompt.'
+                        : `${cyclesLeft} leader cycles left before Anchor prompt.`;
+                    return `Forever BBB leader: 5s Pro main work (no AMRAP), 5×10 supplemental. One accessory per day: Pull 25–50 on Bench/OHP, Core/abs 25–50 on Squat/Deadlift. ${cycleNote}`;
+                }
+                if (accessorySelect.value === 'bbb') {
+                    return 'Classic BBB: pressing days include Chin-ups 5×10 (bodyweight). Squat/deadlift days include ab work. Cap AMRAP at prescribed reps to preserve 5×10 quality.';
+                }
+                return '';
+            }
+
+            function updateProgressionGuide() {
+                // Progression guide content is rendered in the setup notes modal on open.
             }
 
             function updateBbbTemplateHelper() {
-                const helper = document.getElementById('bbb-template-helper');
-                if (!helper) return;
-                if (accessorySelect.value === 'bbb-forever') {
-                    if (isForeverBbbAnchorPhase()) {
-                        helper.textContent = 'Anchor cycle: AMRAP main work + FSL 5×5 supplemental + 50–100 reps assistance. Push PRs on Week 3 top sets, then return to leader phase.';
-                    } else {
-                        const cyclesLeft = Math.max(0, BBB_FOREVER_LEADER_CYCLES - bbbLeaderCyclesCompleted);
-                        const cycleNote = cyclesLeft === 1
-                            ? '1 leader cycle left before Anchor prompt.'
-                            : `${cyclesLeft} leader cycles left before Anchor prompt.`;
-                        helper.textContent = `Forever BBB leader: 5s Pro main work (no AMRAP), 5×10 supplemental. One accessory per day: Pull 25–50 on Bench/OHP, Core/abs 25–50 on Squat/Deadlift. ${cycleNote}`;
-                    }
-                } else if (accessorySelect.value === 'bbb') {
-                    helper.textContent = 'Classic BBB: pressing days include Chin-ups 5×10 (bodyweight). Squat/deadlift days include ab work. Cap AMRAP at prescribed reps to preserve 5×10 quality.';
-                } else {
-                    helper.textContent = '';
-                }
+                // BBB helper content is rendered in the setup notes modal on open.
             }
 
             // Save profile to localStorage
@@ -590,6 +599,293 @@
                 }
             };
 
+            function get1RMsFromInputs() {
+                const lifts = {};
+                LIFT_KEYS.forEach(key => {
+                    lifts[key] = parseFloat(document.getElementById(`${key}-1rm`).value) || 0;
+                });
+                return lifts;
+            }
+
+            function getLocalDateString() {
+                const d = new Date();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${d.getFullYear()}-${month}-${day}`;
+            }
+
+            function getStandardIncrement(exercise) {
+                return (exercise === 'bench' || exercise === 'ohp') ? 5 : 10;
+            }
+
+            function getAmrapDecisionKey(exercise) {
+                const amrap = amrapResults[exercise];
+                if (!amrap) return null;
+                if (['earned', 'smart', 'aggressive', 'decrease'].includes(amrap.decision)) {
+                    return amrap.decision;
+                }
+                const legacy = amrap.decisionText || amrap.decision || '';
+                if (legacy.includes('Earned')) return 'earned';
+                if (legacy.includes('Smart')) return 'smart';
+                if (legacy.includes('Aggressive')) return 'aggressive';
+                if (legacy.includes('Decrease')) return 'decrease';
+                return null;
+            }
+
+            function computeProposed1RM(exercise, old1RM) {
+                if (old1RM <= 0) return 0;
+                const decision = getAmrapDecisionKey(exercise);
+                if (decision) {
+                    switch (decision) {
+                        case 'earned':
+                        case 'aggressive':
+                            return old1RM + getStandardIncrement(exercise);
+                        case 'smart':
+                            return old1RM;
+                        case 'decrease':
+                            return Math.round(old1RM * 0.9);
+                    }
+                }
+                return old1RM + getStandardIncrement(exercise);
+            }
+
+            function format1RMDelta(oldVal, newVal) {
+                const diff = newVal - oldVal;
+                if (diff === 0) return '0 lbs';
+                if (diff > 0) return `+${diff} lbs`;
+                return `${diff} lbs`;
+            }
+
+            function getDeltaClass(oldVal, newVal) {
+                const diff = newVal - oldVal;
+                if (diff > 0) return 'delta-positive';
+                if (diff < 0) return 'delta-negative';
+                return 'delta-zero';
+            }
+
+            function getLevelUpReviewContextText() {
+                if (isForeverBbbAnchorPhase()) {
+                    return 'Anchor cycle — based on Week 3 AMRAP decisions';
+                }
+                if (isForeverBbbLeaderPhase()) {
+                    return 'Leader cycle — standard increases (+5 upper, +10 lower)';
+                }
+                const hasAmrap = LIFT_KEYS.some(key => getAmrapDecisionKey(key));
+                if (hasAmrap) {
+                    return 'Based on Week 3 AMRAP decisions';
+                }
+                return 'Standard increases (+5 upper, +10 lower)';
+            }
+
+            function updateLevelUpReviewDeltas() {
+                document.querySelectorAll('.level-up-row').forEach(row => {
+                    const lift = row.dataset.lift;
+                    const oldVal = levelUpReviewOld1RMs[lift] || 0;
+                    const input = row.querySelector('.level-up-new-input');
+                    const deltaEl = row.querySelector('.level-up-delta');
+                    if (!input || !deltaEl || oldVal <= 0) return;
+                    const newVal = parseFloat(input.value) || 0;
+                    deltaEl.textContent = format1RMDelta(oldVal, newVal);
+                    deltaEl.className = `level-up-delta ${getDeltaClass(oldVal, newVal)}`;
+                });
+            }
+
+            function populateLevelUpReviewRows() {
+                const contextEl = document.getElementById('level-up-review-context');
+                if (contextEl) {
+                    contextEl.textContent = getLevelUpReviewContextText();
+                }
+                document.querySelectorAll('.level-up-row').forEach(row => {
+                    const lift = row.dataset.lift;
+                    const oldVal = levelUpReviewOld1RMs[lift] || 0;
+                    const oldEl = row.querySelector('.level-up-old-value');
+                    const input = row.querySelector('.level-up-new-input');
+                    if (oldVal <= 0) {
+                        row.hidden = true;
+                        return;
+                    }
+                    row.hidden = false;
+                    if (oldEl) oldEl.textContent = `${oldVal} lbs`;
+                    if (input) input.value = computeProposed1RM(lift, oldVal);
+                });
+                updateLevelUpReviewDeltas();
+            }
+
+            function enterLevelUpReviewMode() {
+                levelUpReviewActive = true;
+                inputSection.classList.add('level-up-review-active');
+                const reviewEl = document.getElementById('level-up-review');
+                const cancelBtn = document.getElementById('cancel-level-up');
+                if (reviewEl) reviewEl.hidden = false;
+                if (cancelBtn) cancelBtn.hidden = false;
+                if (saveButton) saveButton.textContent = SAVE_BUTTON_LEVEL_UP_TEXT;
+                populateLevelUpReviewRows();
+            }
+
+            function exitLevelUpReviewMode() {
+                levelUpReviewActive = false;
+                levelUpReviewOld1RMs = {};
+                inputSection.classList.remove('level-up-review-active');
+                const reviewEl = document.getElementById('level-up-review');
+                const cancelBtn = document.getElementById('cancel-level-up');
+                if (reviewEl) reviewEl.hidden = true;
+                if (cancelBtn) cancelBtn.hidden = true;
+                if (saveButton) saveButton.textContent = SAVE_BUTTON_DEFAULT_TEXT;
+            }
+
+            function readLevelUpReviewNew1RMs() {
+                const lifts = {};
+                document.querySelectorAll('.level-up-row').forEach(row => {
+                    if (row.hidden) return;
+                    const lift = row.dataset.lift;
+                    const input = row.querySelector('.level-up-new-input');
+                    lifts[lift] = parseFloat(input?.value) || 0;
+                });
+                return lifts;
+            }
+
+            function collectAmrapDecisionsForHistory() {
+                const decisions = {};
+                LIFT_KEYS.forEach(key => {
+                    const decision = getAmrapDecisionKey(key);
+                    if (decision) {
+                        decisions[key] = decision;
+                    }
+                });
+                return decisions;
+            }
+
+            function build1RMHistoryEntry(source, newLifts, previousLifts, extra = {}) {
+                const lifts = {};
+                const previous = {};
+                const deltas = {};
+                LIFT_KEYS.forEach(key => {
+                    const n = newLifts[key] || 0;
+                    const p = previousLifts[key] || 0;
+                    if (n > 0) {
+                        lifts[key] = n;
+                        if (p > 0) previous[key] = p;
+                        deltas[key] = n - p;
+                    }
+                });
+                const entry = {
+                    ts: Date.now(),
+                    date: getLocalDateString(),
+                    source,
+                    cycleLevel: extra.cycleLevel ?? userLevel,
+                    accessoryTemplate,
+                    bbbForeverPhase: accessoryTemplate === 'bbb-forever' ? bbbForeverPhase : null,
+                    lifts,
+                    previousLifts: previous,
+                    deltas,
+                };
+                if (extra.amrapDecisions && Object.keys(extra.amrapDecisions).length > 0) {
+                    entry.amrapDecisions = extra.amrapDecisions;
+                }
+                return entry;
+            }
+
+            function append1RMHistory(source, newLifts, previousLifts, extra = {}) {
+                RadiantStorage.workout.append5311RMHistoryEntry(
+                    build1RMHistoryEntry(source, newLifts, previousLifts, extra)
+                );
+            }
+
+            function getPreviousLiftsFromHistory() {
+                const history = RadiantStorage.workout.get5311RMHistory();
+                if (history.length === 0) return {};
+                return { ...(history[history.length - 1].lifts || {}) };
+            }
+
+            function liftsDifferFromLastHistory(newLifts) {
+                const history = RadiantStorage.workout.get5311RMHistory();
+                if (history.length === 0) return true;
+                const last = history[history.length - 1];
+                return LIFT_KEYS.some(key => (newLifts[key] || 0) !== (last.lifts?.[key] || 0));
+            }
+
+            function maybeAppendManualSaveHistory(newLifts) {
+                if (!liftsDifferFromLastHistory(newLifts)) return;
+                append1RMHistory('manual-save', newLifts, getPreviousLiftsFromHistory(), {
+                    cycleLevel: userLevel,
+                });
+            }
+
+            function startLevelUpReview() {
+                if (!areAllAmrapSetsLogged()) {
+                    alert('Please log your Week 3 AMRAP performance for all exercises before leveling up.\n\nGo to Week 3, complete your 1+ sets, and log your results.');
+                    return;
+                }
+                levelUpReviewOld1RMs = get1RMsFromInputs();
+                enterLevelUpReviewMode();
+                setActiveMainTab('setup');
+            }
+
+            function cancelLevelUpReview() {
+                exitLevelUpReviewMode();
+            }
+
+            function confirmLevelUp() {
+                const newLifts = readLevelUpReviewNew1RMs();
+                const hasAnyLift = LIFT_KEYS.some(key => (newLifts[key] || 0) > 0);
+                if (!hasAnyLift) {
+                    alert('Please enter at least one 1RM value.');
+                    return;
+                }
+
+                const previousLifts = { ...levelUpReviewOld1RMs };
+                LIFT_KEYS.forEach(key => {
+                    const el = document.getElementById(`${key}-1rm`);
+                    if (!el) return;
+                    if (newLifts[key] > 0) {
+                        el.value = newLifts[key];
+                    }
+                });
+
+                userLevel++;
+                append1RMHistory('level-up', newLifts, previousLifts, {
+                    cycleLevel: userLevel,
+                    amrapDecisions: collectAmrapDecisionsForHistory(),
+                });
+
+                const phaseTransition = handleBbbForeverPhaseTransition();
+                updateLevelDisplay();
+                updateBbbTemplateHelper();
+                updateProgressionGuide();
+
+                amrapResults = {};
+                checkedDays = {};
+                completedTimers = {};
+                currentWeek = 1;
+                currentDay = 0;
+
+                generateWorkoutPlan();
+                updateWeekTabLabels();
+                weekTabs.forEach(tab => {
+                    tab.classList.toggle('active', tab.dataset.week === '1');
+                });
+
+                exitLevelUpReviewMode();
+                setActiveMainTab('workout');
+                saveProfile();
+
+                let phaseMessage = '';
+                if (phaseTransition === 'started-anchor') {
+                    phaseMessage = ' You\'re now on an Anchor cycle — log Week 3 AMRAP sets to guide progression.';
+                } else if (phaseTransition === 'returned-leader') {
+                    phaseMessage = ' You\'re back on Forever BBB leader cycles.';
+                } else if (phaseTransition === 'leader-continued') {
+                    phaseMessage = ' Staying on leader phase for another block.';
+                } else if (phaseTransition === 'anchor-continued') {
+                    phaseMessage = ' Running another anchor cycle.';
+                }
+                alert(`Congratulations! You've leveled up to Level ${userLevel}! Your lift weights have been updated and a new cycle has been generated.${phaseMessage}`);
+            }
+
+            function levelUp() {
+                startLevelUpReview();
+            }
+
             function usesForeverBbbMainWork() {
                 return isForeverBbbLeaderPhase();
             }
@@ -729,6 +1025,9 @@
                 if (tabType === 'setup') {
                     inputSection.classList.add('active');
                     resultSection.classList.remove('active');
+                    if (levelUpReviewActive) {
+                        enterLevelUpReviewMode();
+                    }
                 } else {
                     inputSection.classList.remove('active');
                     resultSection.classList.add('active');
@@ -942,25 +1241,39 @@
             ];
             
             function handleSave1RMs() {
-                const squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
-                const bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
-                const deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
-                const ohp1RM = parseFloat(document.getElementById('ohp-1rm').value) || 0;
+                const newLifts = get1RMsFromInputs();
 
-                if (squat1RM === 0 && bench1RM === 0 && deadlift1RM === 0 && ohp1RM === 0) {
+                if (newLifts.squat === 0 && newLifts.bench === 0 && newLifts.deadlift === 0 && newLifts.ohp === 0) {
                     alert('Please enter at least one 1RM value.');
                     return;
                 }
 
-                if (!confirm('Save your 1RM values and update your workout plan?')) {
+                const isFirstSave = !hasWorkoutPlan();
+
+                if (!isFirstSave && !confirm('Save your 1RM values and update your workout plan?')) {
                     return;
                 }
 
                 try {
-                    generateWorkoutPlan();
+                    generateWorkoutPlan({ navigateToStart: isFirstSave });
                     updateBbbWeightPreview();
+                    maybeAppendManualSaveHistory(newLifts);
                     saveProfile();
-                    alert('Workout plan saved.');
+
+                    if (isFirstSave) {
+                        setTimeout(() => {
+                            currentWeek = 1;
+                            currentDay = 0;
+                            weekTabs.forEach(tab => {
+                                tab.classList.toggle('active', tab.dataset.week === '1');
+                            });
+                            showWeekContent(1, 0);
+                            setActiveMainTab('workout');
+                            showFirstPlanCongratulations();
+                        }, 0);
+                    } else {
+                        alert('Workout plan saved.');
+                    }
                 } catch (err) {
                     log531Error('handleSave1RMs', err.message, {});
                     console.error('Save failed:', err);
@@ -968,11 +1281,64 @@
                 }
             }
 
+            const firstPlanModal = document.getElementById('first-plan-modal');
+            const closeFirstPlanButton = document.getElementById('close-first-plan');
+
+            function showFirstPlanCongratulations() {
+                if (!firstPlanModal) return;
+                firstPlanModal.hidden = false;
+            }
+
+            function hideFirstPlanCongratulations() {
+                if (!firstPlanModal) return;
+                firstPlanModal.hidden = true;
+            }
+
+            if (closeFirstPlanButton) {
+                closeFirstPlanButton.addEventListener('click', hideFirstPlanCongratulations);
+            }
+
+            if (firstPlanModal) {
+                firstPlanModal.addEventListener('click', (e) => {
+                    if (e.target === firstPlanModal) {
+                        hideFirstPlanCongratulations();
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && firstPlanModal && !firstPlanModal.hidden) {
+                    hideFirstPlanCongratulations();
+                }
+            });
+
+            function handleSaveButtonClick() {
+                if (levelUpReviewActive) {
+                    confirmLevelUp();
+                } else {
+                    handleSave1RMs();
+                }
+            }
+
             // Event listeners
             if (saveButton) {
-                saveButton.addEventListener('click', handleSave1RMs);
+                saveButton.addEventListener('click', handleSaveButtonClick);
             } else {
                 log531Error('init', 'No save or generate button found in DOM', {});
+            }
+
+            const cancelLevelUpButton = document.getElementById('cancel-level-up');
+            if (cancelLevelUpButton) {
+                cancelLevelUpButton.addEventListener('click', cancelLevelUpReview);
+            }
+
+            const levelUpReviewEl = document.getElementById('level-up-review');
+            if (levelUpReviewEl) {
+                levelUpReviewEl.addEventListener('input', (e) => {
+                    if (e.target.classList.contains('level-up-new-input')) {
+                        updateLevelUpReviewDeltas();
+                    }
+                });
             }
             
             weekTabs.forEach(tab => {
@@ -1007,7 +1373,6 @@
                     resetBbbForeverPhaseState();
                 }
                 updateBbbAccessoryInputsVisibility();
-                updateExplanation();
                 updateLevelDisplay();
                 
                 // If workout plan already exists, regenerate it with new accessory template
@@ -1623,9 +1988,10 @@
             }
             
             // Main function to generate workout plan
-            function generateWorkoutPlan() {
+            function generateWorkoutPlan(options = {}) {
                 const savedWeek = currentWeek;
                 const savedDay = currentDay;
+                const navigateToStart = options.navigateToStart === true;
                 
                 // Get 1RM values
                 const squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
@@ -1877,11 +2243,20 @@
                 // Restore the UI state if we had a previous workout plan, otherwise show week 1
                 if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
                     setTimeout(() => {
-                        weekTabs.forEach(tab => {
-                            tab.classList.toggle('active', tab.dataset.week === savedWeek.toString());
-                        });
-                        currentWeek = savedWeek;
-                        showWeekContent(savedWeek, savedDay);
+                        if (navigateToStart) {
+                            weekTabs.forEach(tab => {
+                                tab.classList.toggle('active', tab.dataset.week === '1');
+                            });
+                            currentWeek = 1;
+                            currentDay = 0;
+                            showWeekContent(1, 0);
+                        } else {
+                            weekTabs.forEach(tab => {
+                                tab.classList.toggle('active', tab.dataset.week === savedWeek.toString());
+                            });
+                            currentWeek = savedWeek;
+                            showWeekContent(savedWeek, savedDay);
+                        }
                     }, 0);
                 } else {
                     // Show week 1 by default for new workout plans
@@ -2068,7 +2443,7 @@
                                     html += `
                                         <div class="amrap-status logged">
                                             <strong>✓ Logged:</strong> ${amrapData.reps} reps completed | 
-                                            <strong>Decision:</strong> ${amrapData.decision}
+                                            <strong>Decision:</strong> ${amrapData.decisionText || amrapData.decision}
                                         </div>
                                         <button id="amrap-undo-${exerciseName}" class="amrap-submit-btn" style="background-color: var(--accent);">
                                             Undo Decision
@@ -2278,34 +2653,110 @@
                 }
             }
 
-            // Add explanation functionality for accessory templates
-            const accessoryTemplateSelect = document.getElementById('accessory-template');
-            const accessoryExplanation = document.getElementById('accessory-explanation');
-            
             // Template explanations
             const explanations = {
                 'standard': 'The Standard template focuses on balanced development with 25-50 reps each of pushing, pulling, and core exercises. This provides a well-rounded approach to assistance work that complements the main lifts without excessive fatigue.',
-                
+
                 'bbb-forever': 'Forever BBB alternates Leader and Anchor cycles. Leaders use 5s Pro main work (no AMRAP) plus 5×10 supplemental at 50–60% TM, with one accessory per day: Pull 25–50 on Bench/OHP, Core/abs 25–50 on Squat/Deadlift. After 2 leader cycles you\'ll be prompted to run an Anchor cycle: AMRAP main lifts, FSL 5×5 supplemental, and 50–100 reps assistance — then return to leaders.',
-                
+
                 'fsl': 'First Set Last (FSL) uses the weight from your first work set (the 5 reps set) for 5 additional sets of 5 reps. This provides additional volume at a moderate intensity, helping to build strength and reinforce technique without excessive fatigue.',
-                
+
                 'triumvirate': 'The Triumvirate template prescribes two assistance exercises per main lift, each performed for 5 sets of 10-15 reps. This focused approach targets specific muscle groups that support your main lifts, providing balanced development with moderate volume.',
-                
+
                 'beginners': '5/3/1 for Beginners combines FSL work (5 sets of 5 reps at your first set weight) with specific push, pull, and single-leg/core accessories (50 reps each). This template is designed to build a foundation of strength and work capacity for those new to the program.'
             };
-            
-            // Function to update the explanation based on selected template
-            function updateExplanation() {
-                const selectedTemplate = accessoryTemplateSelect.value;
-                accessoryExplanation.textContent = explanations[selectedTemplate] || '';
+
+            const BBB_SUPPLEMENTAL_NOTE = '5×10 supplemental: 50% or 60% TM — start at 50%, move to 60% when 5×10 feels manageable.';
+            const BBB_AMRAP_VS_5S_PRO_NOTE = 'AMRAP is not required for muscle growth on BBB — the 5×10 block (~50 reps at 50–60% TM) is the size stimulus. Forever BBB uses 5s Pro (no AMRAP) so you finish those sets with quality. Save AMRAP for a later Anchor cycle (e.g. FSL).';
+            const TRAINING_MAX_NOTE = 'Wendler recommends 85–90% of 1RM as your Training Max.';
+
+            function renderSetupNotesBody() {
+                const body = document.getElementById('setup-notes-body');
+                if (!body) return;
+
+                const progressionItems = [
+                    'After each 4-week cycle:',
+                    'Increase upper body lifts (Bench, OHP) by 5 lbs',
+                    'Increase lower body lifts (Squat, Deadlift) by 10 lbs',
+                    getProgressionAmrapTipText(),
+                ];
+                if (showProgressionAdjustTip()) {
+                    progressionItems.push('Adjust slower if AMRAP sets are challenging');
+                }
+
+                const selectedTemplate = accessorySelect.value;
+                const templateExplanation = explanations[selectedTemplate] || '';
+                const bbbHelperText = getBbbTemplateHelperText();
+                const showBbbSection = selectedTemplate === 'bbb-forever' || selectedTemplate === 'bbb';
+
+                let html = `
+                    <section class="setup-notes-section">
+                        <h4>Progression Guide</h4>
+                        <ul class="setup-notes-list">
+                            ${progressionItems.map(item => `<li>${item}</li>`).join('')}
+                        </ul>
+                    </section>
+                    <section class="setup-notes-section">
+                        <h4>Training Max</h4>
+                        <p>${TRAINING_MAX_NOTE}</p>
+                    </section>
+                    <section class="setup-notes-section">
+                        <h4>Accessory Template</h4>
+                        <p>${templateExplanation}</p>
+                    </section>`;
+
+                if (showBbbSection) {
+                    html += `
+                    <section class="setup-notes-section">
+                        <h4>Boring But Big</h4>
+                        <p>${BBB_SUPPLEMENTAL_NOTE}</p>`;
+                    if (bbbHelperText) {
+                        html += `<p>${bbbHelperText}</p>`;
+                    }
+                    html += `
+                        <p><strong>AMRAP vs 5s Pro?</strong> ${BBB_AMRAP_VS_5S_PRO_NOTE}</p>
+                    </section>`;
+                }
+
+                body.innerHTML = html;
             }
-            
-            // Set initial explanation
-            updateExplanation();
-            
-            // Update explanation when template changes
-            accessoryTemplateSelect.addEventListener('change', updateExplanation);
+
+            const setupNotesModal = document.getElementById('setup-notes-modal');
+            const setupNotesButton = document.getElementById('setup-notes-button');
+            const closeSetupNotesButton = document.getElementById('close-setup-notes');
+
+            function showSetupNotesModal() {
+                if (!setupNotesModal) return;
+                renderSetupNotesBody();
+                setupNotesModal.hidden = false;
+            }
+
+            function hideSetupNotesModal() {
+                if (!setupNotesModal) return;
+                setupNotesModal.hidden = true;
+            }
+
+            if (setupNotesButton) {
+                setupNotesButton.addEventListener('click', showSetupNotesModal);
+            }
+
+            if (closeSetupNotesButton) {
+                closeSetupNotesButton.addEventListener('click', hideSetupNotesModal);
+            }
+
+            if (setupNotesModal) {
+                setupNotesModal.addEventListener('click', (e) => {
+                    if (e.target === setupNotesModal) {
+                        hideSetupNotesModal();
+                    }
+                });
+            }
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && setupNotesModal && !setupNotesModal.hidden) {
+                    hideSetupNotesModal();
+                }
+            });
             
             // Quiz functionality
             function showQuiz() {
@@ -2400,9 +2851,7 @@
                 // Update the select dropdown
                 accessorySelect.value = recommendation;
                 accessoryTemplate = recommendation;
-                
-                // Update explanation
-                updateExplanation();
+
                 updateBbbAccessoryInputsVisibility();
                 
                 // If workout plan exists, regenerate it
@@ -2596,30 +3045,18 @@
             function undoAmrapDecision(exercise) {
                 const amrapData = amrapResults[exercise];
                 
-                if (!amrapData || amrapData.original1RM === undefined) {
+                if (!amrapData || amrapData.reps === undefined) {
                     alert('No AMRAP decision to undo.');
                     return;
                 }
                 
-                // Confirm undo
-                if (!confirm(`Undo AMRAP decision for ${exercise.toUpperCase()}?\n\nThis will restore the original 1RM value and clear your logged performance.`)) {
+                if (!confirm(`Undo AMRAP decision for ${exercise.toUpperCase()}?\n\nThis will clear your logged performance.`)) {
                     return;
                 }
                 
-                // Restore original 1RM
-                const inputId = `${exercise}-1rm`;
-                document.getElementById(inputId).value = amrapData.original1RM;
-                
-                // Clear the AMRAP result
                 delete amrapResults[exercise];
-                
-                // Save profile
                 saveProfile();
-                
-                // Update the UI to show the input form again
                 updateAmrapUI(exercise);
-                
-                // Update level up button status if we're on Week 4
                 updateLevelUpButtonStatus();
             }
             
@@ -2631,45 +3068,24 @@
                 if (!repsInput || !selectedOption) return;
                 
                 const reps = parseInt(repsInput.value);
-                const { decision, weightChange } = selectedOption;
+                const { decision } = selectedOption;
                 
-                // Get current 1RM
-                const inputId = `${exercise}-1rm`;
-                let current1RM = parseFloat(document.getElementById(inputId).value) || 0;
-                
-                // Calculate new 1RM based on decision
-                let new1RM;
-                if (decision === 'decrease') {
-                    // Decrease by 10%
-                    new1RM = Math.round(current1RM * 0.9);
-                } else {
-                    // Add the weight change
-                    new1RM = current1RM + weightChange;
-                }
-                
-                // Update the 1RM input
-                document.getElementById(inputId).value = new1RM;
-                
-                // Store the AMRAP result
-                const decisionText = decision === 'earned' ? `Earned +${weightChange}lbs` :
-                                    decision === 'smart' ? 'Keep same weight (Smart)' :
-                                    decision === 'aggressive' ? `Add +${weightChange}lbs (Aggressive)` :
-                                    'Decrease TM by 10%';
+                const decisionText = decision === 'earned'
+                    ? `Earned +${getStandardIncrement(exercise)}lbs`
+                    : decision === 'smart'
+                        ? 'Keep same weight (Smart)'
+                        : decision === 'aggressive'
+                            ? `Add +${getStandardIncrement(exercise)}lbs (Aggressive)`
+                            : 'Decrease TM by 10%';
                 
                 amrapResults[exercise] = {
-                    reps: reps,
-                    decision: decisionText,
-                    weightChange: new1RM - current1RM,
-                    original1RM: current1RM // Store original for undo
+                    reps,
+                    decision,
+                    decisionText,
                 };
                 
-                // Save profile
                 saveProfile();
-                
-                // Update the UI to show the logged status
                 updateAmrapUI(exercise);
-                
-                // Update level up button status if we're on Week 4
                 updateLevelUpButtonStatus();
             }
             
@@ -2772,7 +3188,7 @@
                     html += `
                         <div class="amrap-status logged">
                             <strong>✓ Logged:</strong> ${amrapData.reps} reps completed | 
-                            <strong>Decision:</strong> ${amrapData.decision}
+                            <strong>Decision:</strong> ${amrapData.decisionText || amrapData.decision}
                         </div>
                         <button id="amrap-undo-${exercise}" class="amrap-submit-btn" style="background-color: var(--accent);">
                             Undo Decision
@@ -2855,83 +3271,5 @@
                     return 'returned-leader';
                 }
                 return 'anchor-continued';
-            }
-
-            // Function to level up (increase weights)
-            function levelUp() {
-                // Check if all AMRAP sets have been logged
-                if (!areAllAmrapSetsLogged()) {
-                    alert('Please log your Week 3 AMRAP performance for all exercises before leveling up.\n\nGo to Week 3, complete your 1+ sets, and log your results.');
-                    return;
-                }
-                
-                // Get current 1RM values (these may have been modified by AMRAP logging)
-                let squat1RM = parseFloat(document.getElementById('squat-1rm').value) || 0;
-                let bench1RM = parseFloat(document.getElementById('bench-1rm').value) || 0;
-                let deadlift1RM = parseFloat(document.getElementById('deadlift-1rm').value) || 0;
-                let ohp1RM = parseFloat(document.getElementById('ohp-1rm').value) || 0;
-                
-                // Check if any AMRAP results were logged - if not, use standard progression
-                const hasAmrapResults = Object.keys(amrapResults).some(key => amrapResults[key].reps !== undefined);
-                
-                if (!hasAmrapResults) {
-                    // Standard progression: Increase upper body lifts by 5lbs, lower body by 10lbs
-                    if (bench1RM > 0) bench1RM += 5;
-                    if (ohp1RM > 0) ohp1RM += 5;
-                    if (squat1RM > 0) squat1RM += 10;
-                    if (deadlift1RM > 0) deadlift1RM += 10;
-                    
-                    // Update input fields
-                    document.getElementById('squat-1rm').value = squat1RM;
-                    document.getElementById('bench-1rm').value = bench1RM;
-                    document.getElementById('deadlift-1rm').value = deadlift1RM;
-                    document.getElementById('ohp-1rm').value = ohp1RM;
-                }
-                // If AMRAP results exist, the 1RM values have already been updated
-                
-                
-                // Increase user level
-                userLevel++;
-
-                const phaseTransition = handleBbbForeverPhaseTransition();
-                updateLevelDisplay();
-                updateBbbTemplateHelper();
-                updateProgressionGuide();
-                
-                // Clear AMRAP results for the new cycle
-                amrapResults = {};
-                
-                // Clear all checkmarks
-                checkedDays = {};
-                completedTimers = {};
-
-                // Reset to week 1 before generating new plan
-                currentWeek = 1;
-                currentDay = 0;
-                
-                // Generate new workout plan
-                generateWorkoutPlan();
-                updateWeekTabLabels();
-                
-                // Update week tabs UI
-                weekTabs.forEach(tab => {
-                    tab.classList.toggle('active', tab.dataset.week === '1');
-                });
-                
-                // Save profile
-                saveProfile();
-                
-                // Show success message
-                let phaseMessage = '';
-                if (phaseTransition === 'started-anchor') {
-                    phaseMessage = ' You\'re now on an Anchor cycle — log Week 3 AMRAP sets to guide progression.';
-                } else if (phaseTransition === 'returned-leader') {
-                    phaseMessage = ' You\'re back on Forever BBB leader cycles.';
-                } else if (phaseTransition === 'leader-continued') {
-                    phaseMessage = ' Staying on leader phase for another block.';
-                } else if (phaseTransition === 'anchor-continued') {
-                    phaseMessage = ' Running another anchor cycle.';
-                }
-                alert(`Congratulations! You've leveled up to Level ${userLevel}! Your lift weights have been ${hasAmrapResults ? 'updated based on your AMRAP performance' : 'increased'} and a new cycle has been generated.${phaseMessage}`);
             }
         });

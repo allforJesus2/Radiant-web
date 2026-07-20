@@ -31,6 +31,7 @@ const RadiantStorage = {
         STORED_DAY: 'storedDay',
         CHECKBOX_STATES: 'checkboxStates',
         PROFILE_531: '531-workout-profile',
+        PROFILE_531_1RM_HISTORY: '531-1rm-history',
         RECENT_FOOD_SELECTIONS: 'recentFoodSelections',
         MEAL_COLLAPSE_PREFERENCE: 'mealCollapsePreference',
         CUSTOM_RECIPES_BACKUP: 'customRecipesBackup',
@@ -500,6 +501,20 @@ const RadiantStorage = {
 
         save531Profile(profile) {
             RadiantStorage.setJSON(RadiantStorage.KEYS.PROFILE_531, profile);
+        },
+
+        get5311RMHistory() {
+            return RadiantStorage.getJSON(RadiantStorage.KEYS.PROFILE_531_1RM_HISTORY, []);
+        },
+
+        append5311RMHistoryEntry(entry) {
+            const history = RadiantStorage.workout.get5311RMHistory();
+            history.push(entry);
+            const maxEntries = 200;
+            if (history.length > maxEntries) {
+                history.splice(0, history.length - maxEntries);
+            }
+            RadiantStorage.setJSON(RadiantStorage.KEYS.PROFILE_531_1RM_HISTORY, history);
         },
     },
 
