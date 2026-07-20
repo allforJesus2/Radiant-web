@@ -330,12 +330,6 @@ button:hover {
     background: var(--paper);
 }
 
-.week-content.active > h3 {
-    margin-top: 0;
-    padding: 0 var(--pad-x) 0.5rem;
-    border-bottom: 1px solid var(--notebook-line);
-}
-
 .day-tabs {
     margin-top: 0.25rem;
 }
@@ -592,6 +586,28 @@ body.workout-mode .workout-item-suggestions {
     font-size: 1.05rem;
 }
 
+.collapsible-header .notes-rotating-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 8px;
+    transition: opacity 0.3s ease;
+}
+
+.collapsible-header .notes-rotating-label.notes-label-fading {
+    opacity: 0;
+}
+
+.notes-list-item.notes-item-active {
+    background: var(--highlight);
+    border-radius: var(--radius);
+    padding: 2px 6px;
+    margin-left: -6px;
+    margin-right: -6px;
+}
+
 .collapsible-toggle {
     font-size: 1rem;
     color: var(--ink-light);
@@ -754,7 +770,6 @@ body.workout-mode .week-tabs,
 body.workout-mode .day-tabs,
 body.workout-mode .day-checkmark-hint,
 body.workout-mode .begin-workout-btn,
-body.workout-mode .week-content > h3,
 body.workout-mode .collapsible-wrapper,
 body.workout-mode .level-up-button,
 body.workout-mode .notes:not(.workout-mode-keep) {

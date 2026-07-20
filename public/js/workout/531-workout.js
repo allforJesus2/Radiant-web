@@ -10,6 +10,10 @@
                 header.classList.add('collapsed');
                 content.classList.add('collapsed');
             }
+
+            if (header.querySelector('.notes-rotating-label')) {
+                window.onNotesCollapsibleToggle?.(header, !header.classList.contains('collapsed'));
+            }
         }
         
         document.addEventListener('DOMContentLoaded', function() {
@@ -27,6 +31,10 @@
             let checkedDays = {}; // Store checked days: {week: {day: true}}
             let completedTimers = {}; // Store completed rest timers: {timerId: completionCount}
             let workoutModeActive = false;
+            let notesRotationIndex = 0;
+            let notesRotationTimer = null;
+            let notesRotationPaused = false;
+            const NOTES_FADE_MS = 300;
 
             
             // Rest timer state
@@ -149,6 +157,7 @@
                     // Restore checked days
                     checkedDays = profile.checkedDays || {};
                     completedTimers = profile.completedTimers || {};
+                    notesRotationIndex = (profile.notesRotationIndex ?? -1) + 1;
                     
                     // Restore rest time settings
                     if (profile.restTimeSettings) {
@@ -349,7 +358,8 @@
                     amrapResults, // Save AMRAP results
                     restTimeSettings, // Save rest time settings
                     checkedDays, // Save checked days
-                    completedTimers // Save completed rest timers
+                    completedTimers, // Save completed rest timers
+                    notesRotationIndex
                 };
                 
                 RadiantStorage.workout.save531Profile(profile);
@@ -454,7 +464,131 @@
                         tab.innerHTML = `Week ${week}<br>(${label})`;
                     }
                 }
+                updateAllWeekCheckmarks();
             }
+
+            const WORKOUT_NOTES_ITEMS = [
+                'TM = Training Max',
+                'AMRAP = As Many Reps As Possible (with good form)',
+                '5s Pro: all working sets are 5 reps — stop with 1–2 reps in reserve (no AMRAP)',
+                'Rest 2-3 minutes between main lift sets',
+                'Rest 60-90 seconds between accessory sets',
+                'Accessory work at 70-80% RPE — leave 2-3 reps in reserve',
+                'Accessory work should be done at 70-80% RPE (Rate of Perceived Exertion)',
+                'Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight',
+                'Increase weight only when you can complete all reps with good form',
+                'On hard days, use the low end of assistance rep ranges (25 push, 25 pull, 0–15 core)',
+                'Deload: no separate warm-up — work sets at 40/50/60% TM are your session (empty bar × 5–10 optional)',
+                'Missed a day? Pick up where you left off',
+                'Missed a week? Resume, repeat that week, or deload first',
+                'Couldn\'t get all 5 on a main set? Stop — don\'t grind. If it keeps happening, lower that lift\'s TM ~10% in Program Setup',
+                'BBB 5×10 too hard? Stay at 50% TM or cut sets until quality returns',
+                'Struggling to hit prescribed AMRAP reps? Lower that lift\'s TM ~10% in Program Setup'
+            ];
+
+            function getCurrentNotesIndex() {
+                if (WORKOUT_NOTES_ITEMS.length === 0) return 0;
+                return notesRotationIndex % WORKOUT_NOTES_ITEMS.length;
+            }
+
+            function getNotesHeaderText() {
+                if (WORKOUT_NOTES_ITEMS.length === 0) return 'Notes';
+                return WORKOUT_NOTES_ITEMS[getCurrentNotesIndex()];
+            }
+
+            function applyNotesHeaderText(label, text, animate) {
+                if (!animate || label.textContent === text) {
+                    label.textContent = text;
+                    return;
+                }
+                label.classList.add('notes-label-fading');
+                setTimeout(() => {
+                    label.textContent = text;
+                    label.classList.remove('notes-label-fading');
+                }, NOTES_FADE_MS);
+            }
+
+            function updateNotesHeaders(animate = true) {
+                const headerText = getNotesHeaderText();
+                document.querySelectorAll('.notes-rotating-label').forEach(label => {
+                    applyNotesHeaderText(label, headerText, animate);
+                });
+            }
+
+            function isAnyNotesExpanded() {
+                return !!document.querySelector('.notes-collapsible .collapsible-header:not(.collapsed)');
+            }
+
+            function syncNotesHighlight(wrapper) {
+                if (!wrapper) return;
+                const activeIndex = getCurrentNotesIndex();
+                wrapper.querySelectorAll('.notes-list-item').forEach(item => {
+                    item.classList.toggle(
+                        'notes-item-active',
+                        parseInt(item.dataset.noteIndex, 10) === activeIndex
+                    );
+                });
+            }
+
+            function clearNotesHighlight(wrapper) {
+                if (!wrapper) return;
+                wrapper.querySelectorAll('.notes-list-item').forEach(item => {
+                    item.classList.remove('notes-item-active');
+                });
+            }
+
+            function pauseNotesRotation() {
+                if (notesRotationTimer) {
+                    clearInterval(notesRotationTimer);
+                    notesRotationTimer = null;
+                }
+                notesRotationPaused = true;
+            }
+
+            function resumeNotesRotation() {
+                if (!notesRotationPaused) return;
+                notesRotationPaused = false;
+                if (notesRotationTimer) {
+                    clearInterval(notesRotationTimer);
+                    notesRotationTimer = null;
+                }
+                notesRotationTimer = setInterval(() => {
+                    notesRotationIndex++;
+                    updateNotesHeaders(true);
+                    saveProfile();
+                }, 5000);
+            }
+
+            function startNotesRotation() {
+                if (notesRotationTimer) {
+                    clearInterval(notesRotationTimer);
+                    notesRotationTimer = null;
+                }
+                updateNotesHeaders(false);
+                if (isAnyNotesExpanded()) {
+                    notesRotationPaused = true;
+                    return;
+                }
+                notesRotationPaused = false;
+                notesRotationTimer = setInterval(() => {
+                    notesRotationIndex++;
+                    updateNotesHeaders(true);
+                    saveProfile();
+                }, 5000);
+            }
+
+            window.onNotesCollapsibleToggle = (header, expanded) => {
+                const wrapper = header.closest('.notes-collapsible');
+                if (expanded) {
+                    pauseNotesRotation();
+                    syncNotesHighlight(wrapper);
+                } else {
+                    clearNotesHighlight(wrapper);
+                    if (!isAnyNotesExpanded()) {
+                        resumeNotesRotation();
+                    }
+                }
+            };
 
             function usesForeverBbbMainWork() {
                 return isForeverBbbLeaderPhase();
@@ -1818,6 +1952,10 @@
                 const resultsContainer = document.getElementById('workout-results');
                 
                 if (!workoutPlan.weeks || Object.keys(workoutPlan.weeks).length === 0) {
+                    if (notesRotationTimer) {
+                        clearInterval(notesRotationTimer);
+                        notesRotationTimer = null;
+                    }
                     resultsContainer.innerHTML = '<p>Enter your 1-rep max values in Program Setup and click Save to create your personalized 5/3/1 program.</p>';
                     return;
                 }
@@ -1826,11 +1964,9 @@
                 
                 // Create HTML for each week
                 for (let week = 1; week <= 4; week++) {
-                    const weekName = getWeekLabel(week);
                     const weekDays = workoutPlan.weeks[week];
                     
                     html += `<div class="week-content ${week === 1 ? 'active' : ''}" data-week="${week}">`;
-                    html += `<h3>Week ${week} (${weekName})</h3>`;
                     
                     if (!weekDays || weekDays.length === 0) {
                         html += '<p>Please enter at least one 1RM value to generate workout days.</p>';
@@ -1842,49 +1978,26 @@
                             html += `<div class="day-tab ${dayIndex === 0 ? 'active' : ''} ${isChecked ? 'checked' : ''}" data-week="${week}" data-day="${dayIndex}">Day ${day.day}<span class="checkmark">✓</span></div>`;
                         });
                         html += '</div>';
-                        html += '<p class="day-checkmark-hint">💡 tap active day again or right-click day buttons to mark as complete</p>';
+                        html += '<p class="day-checkmark-hint">💡 tap active day again to mark as complete</p>';
                         
                         // Add day content container
                         html += '<div class="day-contents">';
                         workoutPlan.weeks[week].forEach((day, dayIndex) => {
                             const isLastDayOfCycle = (week === 4 && dayIndex === workoutPlan.weeks[week].length - 1);
-                            const isForeverBbbLeader = isForeverBbbLeaderPhase();
-                            const notesItems = isForeverBbbLeader
-                                ? [
-                                    'TM = Training Max',
-                                    '5s Pro: all working sets are 5 reps — stop with 1–2 reps in reserve (no AMRAP)',
-                                    'Rest 2-3 minutes between main lift sets',
-                                    'Rest 60-90 seconds between accessory sets',
-                                    'Accessory work at 70-80% RPE — leave 2-3 reps in reserve',
-                                    'On hard days, use the low end of assistance rep ranges (25 push, 25 pull, 0–15 core)'
-                                ]
-                                : [
-                                    'TM = Training Max',
-                                    'AMRAP = As Many Reps As Possible (with good form)',
-                                    'Rest 2-3 minutes between main lift sets',
-                                    'Rest 60-90 seconds between accessory sets',
-                                    'Accessory work should be done at 70-80% RPE (Rate of Perceived Exertion)',
-                                    'Leave 2-3 reps in reserve on accessory sets - focus on quality over max weight',
-                                    'Increase weight only when you can complete all reps with good form'
-                                ];
-                            if (week === 4) {
-                                notesItems.push('Deload: no separate warm-up — work sets at 40/50/60% TM are your session (empty bar × 5–10 optional)');
-                            }
-                            
                             html += `
                             <div class="day-content ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">
                                 <div class="day-card">
                                     <div class="day-header">Day ${day.day}: ${day.name}</div>
                                     <button type="button" class="begin-workout-btn" data-week="${week}" data-day="${dayIndex}">Begin Workout</button>
 
-                                    <div class="collapsible-wrapper">
+                                    <div class="collapsible-wrapper notes-collapsible">
                                         <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
-                                            <strong>Notes</strong>
+                                            <strong class="notes-rotating-label">${getNotesHeaderText()}</strong>
                                             <span class="collapsible-toggle">▼</span>
                                         </div>
                                         <div class="collapsible-content collapsed">
                                             <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
-                                                ${notesItems.map(item => `<li>${item}</li>`).join('')}
+                                                ${WORKOUT_NOTES_ITEMS.map((item, index) => `<li class="notes-list-item" data-note-index="${index}">${item}</li>`).join('')}
                                             </ul>
                                         </div>
                                     </div>
@@ -2107,8 +2220,6 @@
                 applyCompletedTimers();
                 syncDayCheckmarksFromCompletedTimers();
 
-                // Update week checkmarks after rendering
-                updateAllWeekCheckmarks();
                 updateWeekTabLabels();
                 
                 // Add event listeners for level up button
@@ -2125,6 +2236,8 @@
                     if (workoutModeBar) workoutModeBar.style.display = 'flex';
                     updateWorkoutModeTitle();
                 }
+
+                startNotesRotation();
             }
             
             // Function to show specific week content
