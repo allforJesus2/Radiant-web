@@ -1,101 +1,41 @@
-/* Root variables for theming */
-:root {
-    --primary-color: #4CAF50;
-    --secondary-color: #333;
-    --background-color: #222;
-    --text-color: #eee;
-    --entry-width: 20px; /* Define a consistent width for input entries */
-}
+@import './workout-shell.css';
 
-/* Workout Pages Unified Stylesheet */
+/* Workout Pages — page-specific styles (notebook theme) */
 
-/* Base styles */
-body {
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 20px;
-    background-color: #1a1a1a;
-    color: white;
-}
-
-/* Navigation Bar */
-.nav-bar {
-    display: flex;
-    justify-content: space-around;
-    padding: 10px;
-    background-color: #333;
-    margin-bottom: 20px;
-    border-radius: 4px;
-}
-
-.nav-bar a {
-    color: white;
-    text-decoration: none;
-    padding: 8px 16px;
-    border-radius: 4px;
-}
-
-.nav-bar a:hover {
-    background-color: #555;
-}
-
-/* Container */
-.container {
-    max-width: 800px;
-    margin: 0 auto;
-    padding: 20px;
-}
-
-/* Buttons */
 .btn {
-    padding: 10px 15px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+    width: auto;
     margin-top: 10px;
 }
 
-.btn:hover {
-    background-color: #45a049;
-}
-
 .back-button {
+    width: auto;
     margin-bottom: 20px;
-    padding: 10px;
-    background-color: #555;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+    background-color: var(--paper-shadow);
+    color: var(--ink);
+    border: 2px solid var(--border-color);
+    box-shadow: 2px 2px 0 var(--border-color);
 }
 
 .back-button:hover {
-    background-color: #666;
+    background-color: var(--highlight);
 }
 
 /* Form Elements */
 #workout-input {
     margin-bottom: 20px;
     padding: 15px;
-    border: 1px solid #555;
-    background-color: #333;
-    border-radius: 4px;
+    border: 1px dashed var(--border-color);
+    background-color: var(--paper-shadow);
+    border-radius: var(--radius);
 }
 
 #workout-input div {
     margin-bottom: 10px;
 }
 
-#workout-input input, 
+#workout-input input,
 #workout-input select {
     margin: 5px;
-    padding: 8px;
-    border: 1px solid #555;
-    border-radius: 4px;
-    background-color: #333;
-    color: white;
 }
 
 #restTime {
@@ -108,44 +48,34 @@ body {
 
 #rpe-value {
     font-weight: bold;
-    color: #4CAF50;
+    color: var(--pencil);
 }
 
-/* Workout Input Form (for workout_routine.html) */
 #workout-input.flex {
     display: flex;
     margin-bottom: 20px;
+    gap: 10px;
+    align-items: stretch;
 }
 
 #workout-input.flex input {
     flex-grow: 1;
-    padding: 10px;
-    margin-right: 10px;
-    border-radius: 4px;
-    border: 1px solid #555;
-    background-color: #333;
-    color: white;
+    margin: 0;
 }
 
 #workout-input.flex button {
-    padding: 10px 15px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
-
-#workout-input.flex button:hover {
-    background-color: #45a049;
+    width: auto;
+    flex-shrink: 0;
+    margin: 0;
 }
 
 /* Schedule Toggle */
 .schedule-toggle {
     display: flex;
     margin-bottom: 30px;
-    background-color: #222;
-    border-radius: 8px;
+    background-color: var(--paper-shadow);
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
     overflow: hidden;
 }
 
@@ -153,34 +83,38 @@ body {
     flex: 1;
     padding: 15px;
     border: none;
+    border-radius: 0;
     background-color: transparent;
-    color: #aaa;
-    cursor: pointer;
+    color: var(--ink-light);
     font-size: 1.1em;
     font-weight: 600;
-    transition: all 0.3s ease;
+    box-shadow: none;
+    transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .schedule-toggle button.active {
-    background-color: #4CAF50;
+    background-color: var(--pencil);
     color: white;
+    box-shadow: none;
 }
 
 .schedule-toggle button:hover:not(.active) {
-    background-color: #333;
+    background-color: var(--button);
+    transform: none;
+    box-shadow: none;
 }
 
 /* Cycle Settings */
 .cycle-settings {
-    background-color: #222;
+    background-color: var(--success-soft);
     padding: 20px;
-    border-radius: 8px;
+    border-radius: var(--radius);
     margin-bottom: 20px;
-    border-left: 4px solid #4CAF50;
+    border-left: 4px solid var(--pencil);
 }
 
 .cycle-settings h3 {
-    color: #4CAF50;
+    color: var(--pencil-dark);
     margin-top: 0;
     margin-bottom: 15px;
 }
@@ -197,43 +131,91 @@ body {
 }
 
 .cycle-settings input[type="number"] {
-    padding: 8px;
-    border-radius: 4px;
-    border: 1px solid #555;
-    background-color: #333;
-    color: white;
     max-width: 100px;
 }
 
-.day-name-inputs {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 10px;
-    margin-top: 10px;
+/* Week structure settings */
+.week-structure-settings {
+    background-color: var(--paper-shadow);
+    padding: 20px;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    border-left: 4px solid var(--pencil-dark);
 }
 
-.day-name-input {
+.week-structure-settings h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.week-structure-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.week-structure-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0;
+    font-weight: 600;
+    flex: 1;
+    min-width: 200px;
+}
+
+.week-structure-save-btn {
+    width: auto;
+    margin-top: 0;
+    flex-shrink: 0;
+}
+
+.week-structure-options {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px 15px;
+    align-items: center;
+}
+
+.week-label-inputs {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.week-label-input {
     display: flex;
     flex-direction: column;
     gap: 5px;
 }
 
+.week-config-actions {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.week-config-actions button {
+    width: auto;
+    margin-top: 0;
+}
+
 .day-name-input label {
     font-size: 0.9em;
-    color: #aaa;
+    color: var(--ink-light);
 }
 
 .day-name-input input {
-    padding: 8px;
-    border-radius: 4px;
-    border: 1px solid #555;
-    background-color: #333;
-    color: white;
-    width: var(--entry-width); /* Apply consistent width */
+    width: 100%;
 }
 
-/* Schedule Sections */
 .schedule-section {
     display: none;
 }
@@ -244,49 +226,53 @@ body {
 
 /* Info Boxes */
 .info-box {
-    background-color: #2c2c2c;
+    background-color: var(--paper-shadow);
     padding: 15px;
-    border-radius: 8px;
-    border-left: 4px solid #2196F3;
+    border-radius: var(--radius);
+    border-left: 4px solid var(--pencil);
     margin-bottom: 20px;
 }
 
 .info-box h4 {
-    color: #2196F3;
+    color: var(--pencil-dark);
     margin-top: 0;
 }
 
 .info-section {
     margin-bottom: 20px;
     padding: 15px;
-    border: 1px solid #555;
-    background-color: #333;
-    border-radius: 4px;
+    border: 1px dashed var(--border-color);
+    background-color: var(--paper-shadow);
+    border-radius: var(--radius);
 }
 
 .toggle-info {
     background: none;
     border: none;
     cursor: pointer;
-    color: #4CAF50;
+    color: var(--pencil-dark);
     font-weight: bold;
+    width: auto;
+    box-shadow: none;
+    padding: 0;
 }
 
 .toggle-info:hover {
     text-decoration: underline;
+    transform: none;
+    box-shadow: none;
 }
 
 .info-content.collapsed {
     display: none;
 }
 
-/* Advanced Settings */
 .advanced-section {
     margin-top: 10px;
     padding: 15px;
-    border: 1px solid #555;
-    background-color: #333;
-    border-radius: 4px;
+    border: 1px dashed var(--border-color);
+    background-color: var(--paper-shadow);
+    border-radius: var(--radius);
 }
 
 .advanced-section.collapsed .advanced-content {
@@ -296,9 +282,9 @@ body {
 .advanced-group {
     margin-bottom: 15px;
     padding: 10px;
-    border: 1px solid #555;
-    background-color: #2c2c2c;
-    border-radius: 4px;
+    border: 1px dashed var(--border-color);
+    background-color: var(--paper);
+    border-radius: var(--radius);
 }
 
 .advanced-group-content {
@@ -313,55 +299,42 @@ body {
     gap: 5px;
 }
 
-/* Button Containers */
 .button-container {
     display: flex;
     gap: 10px;
     margin-top: 10px;
+    flex-wrap: wrap;
 }
 
 .button-container button {
+    width: auto;
     padding: 10px 15px;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
     font-weight: bold;
 }
 
-.add-button {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.add-button:hover {
-    background-color: #45a049;
+.add-button,
+.add-copy-button {
+    background-color: var(--pencil);
+    border-color: var(--pencil-dark);
+    box-shadow: 2px 2px 0 var(--pencil-dark);
 }
 
 .update-button {
-    background-color: #2196F3;
-    color: white;
-}
-
-.update-button:hover {
-    background-color: #1976D2;
-}
-
-.add-copy-button {
-    background-color: #4CAF50;
-    color: white;
-}
-
-.add-copy-button:hover {
-    background-color: #45a049;
+    background-color: var(--pencil-dark);
+    border-color: var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
 }
 
 .cancel-button {
-    background-color: #f44336;
-    color: white;
+    background-color: var(--accent-soft);
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: 2px 2px 0 var(--accent);
 }
 
 .cancel-button:hover {
-    background-color: #d32f2f;
+    background-color: var(--accent);
+    color: white;
 }
 
 /* Lists */
@@ -373,21 +346,22 @@ body {
 #exercise-list li {
     padding: 15px;
     margin: 5px 0;
-    border: 1px solid #555;
-    background-color: #333;
-    border-radius: 4px;
+    border: 1px dashed var(--border-color);
+    background-color: var(--paper-shadow);
+    border-radius: var(--radius);
     display: flex;
     justify-content: space-between;
     align-items: center;
 }
 
 #exercise-list li:hover {
-    background-color: #444;
+    background-color: var(--highlight);
 }
 
 #exercise-list li.selected {
-    background-color: #2c2c2c;
-    border-color: #2196F3;
+    background-color: var(--success-soft);
+    border-color: var(--pencil);
+    border-style: solid;
 }
 
 .exercise-info {
@@ -401,20 +375,8 @@ body {
 }
 
 .exercise-details {
-    color: #999;
+    color: var(--ink-light);
     font-size: 0.9em;
-}
-
-.button-container button {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 1.2em;
-    padding: 5px;
-}
-
-.delete-button:hover {
-    color: #f44336;
 }
 
 #routine-list div {
@@ -423,13 +385,14 @@ body {
     align-items: center;
     padding: 15px;
     margin: 5px 0;
-    background-color: #333;
-    border-radius: 4px;
+    background-color: var(--paper-shadow);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius);
     cursor: pointer;
 }
 
 #routine-list div:hover {
-    background-color: #444;
+    background-color: var(--highlight);
 }
 
 #routine-list button {
@@ -437,148 +400,85 @@ body {
     border: none;
     font-size: 1.2em;
     cursor: pointer;
+    width: auto;
+    box-shadow: none;
+    padding: 5px;
 }
 
-/* Predefined Button */
+#routine-list button:hover {
+    transform: none;
+    box-shadow: none;
+}
+
 .predefined-button {
-    padding: 10px 15px;
-    background-color: #2196F3;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+    width: auto;
     margin-top: 10px;
     margin-bottom: 20px;
-}
-
-.predefined-button:hover {
-    background-color: #0b7dda;
+    background-color: var(--pencil-dark);
+    border-color: var(--ink);
+    box-shadow: 2px 2px 0 var(--ink);
 }
 
 /* Workout Display */
-#scrollableWindow {
+#scrollableWindow.workout-results {
     max-height: 70vh;
     overflow-y: auto;
-    margin-bottom: 20px;
-    padding: 10px;
-    background-color: #222;
-    border-radius: 4px;
 }
 
-.list-item {
-    padding: 15px;
-    margin: 5px 0;
-    background-color: #333;
-    border-radius: 4px;
-}
-
-.list-item input[type="checkbox"] {
-    margin-right: 10px;
-    transform: scale(1.5);
-}
-
-.small-text {
-    font-size: 0.8em;
-    color: #aaa;
-    margin-left: 25px;
-}
-
-/* Header Elements */
 .header-container {
     display: flex;
     align-items: center;
+    gap: 0.5rem;
+}
+
+.header-container .page-subtitle {
+    flex: 1;
+    margin-bottom: 1rem;
+}
+
+.workout-page-panel a {
+    color: var(--pencil-dark);
 }
 
 .edit-button {
-    margin-left: 10px;
     background: none;
     border: none;
     font-size: 1.2em;
     cursor: pointer;
-    vertical-align: middle;
+    width: auto;
+    box-shadow: none;
+    padding: 0;
 }
 
 .edit-button:hover {
     transform: scale(1.2);
+    box-shadow: none;
 }
 
-/* Cycle Info */
-.cycle-info {
-    background-color: #2c2c2c;
-    padding: 15px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    border-left: 4px solid #4CAF50;
-}
-
-.cycle-info h3 {
-    color: #4CAF50;
-    margin-top: 0;
-    margin-bottom: 10px;
-}
-
-.cycle-stats {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
-    margin-top: 10px;
-}
-
-.stat-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 10px;
-    background-color: #333;
-    border-radius: 4px;
-}
-
-.stat-value {
-    font-size: 1.8em;
-    font-weight: bold;
-    color: #4CAF50;
-}
-
-.stat-label {
-    font-size: 0.9em;
-    color: #aaa;
-    margin-top: 5px;
-}
-
-/* Special Buttons */
 .complete-workout-btn {
-    background-color: #2196F3;
+    background-color: var(--pencil);
+    border-color: var(--pencil-dark);
     margin-top: 10px;
-    width: 100%;
-}
-
-.complete-workout-btn:hover {
-    background-color: #1976D2;
 }
 
 .progress-btn {
-    background-color: #FFD700;
-    color: #000;
+    background-color: var(--highlight);
+    color: var(--ink);
+    border-color: var(--ink);
     font-weight: bold;
     margin-top: 10px;
-    width: 100%;
+    box-shadow: 2px 2px 0 var(--ink);
 }
 
-.progress-btn:hover {
-    background-color: #FFC107;
-}
-
-/* Exercise Details */
 .exercise-details-expanded {
     font-size: 0.85em;
-    color: #999;
+    color: var(--ink-light);
     margin-top: 5px;
     padding: 5px 25px;
-    background-color: #222;
-    border-radius: 4px;
+    background-color: var(--paper-shadow);
+    border-radius: var(--radius);
 }
 
-/* Badges */
 .badge {
     display: inline-block;
     padding: 2px 8px;
@@ -588,35 +488,33 @@ body {
 }
 
 .badge-progression {
-    background-color: #4CAF50;
-    color: white;
+    background-color: var(--success-soft);
+    color: var(--success);
+    border: 1px solid var(--success);
 }
 
 .badge-amrap {
-    background-color: #ff9800;
-    color: white;
+    background-color: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid var(--accent);
 }
 
 .cycle-day-badge {
     display: inline-block;
-    background-color: #4CAF50;
-    color: white;
+    background-color: var(--success-soft);
+    color: var(--success);
+    border: 1px solid var(--success);
     padding: 2px 8px;
     border-radius: 12px;
     font-size: 0.85em;
     margin-left: 5px;
 }
 
-/* Color Classes */
-#currentDay {
-    color: #4CAF50;
-}
-
+#currentDay,
 #routineName {
-    color: #4CAF50;
+    color: var(--pencil-dark);
 }
 
-/* Form Grid Layout */
 #workoutForm {
     display: grid;
     grid-template-columns: 100px 1fr;
@@ -631,8 +529,19 @@ body {
 
 #workoutForm select {
     padding: 8px;
-    border-radius: 4px;
-    background-color: #333;
-    color: white;
-    border: 1px solid #555;
+}
+
+.delete-button {
+    width: auto;
+    background: none;
+    border: none;
+    box-shadow: none;
+    font-size: 1.2em;
+    padding: 5px;
+}
+
+.delete-button:hover {
+    color: var(--accent);
+    transform: none;
+    box-shadow: none;
 }

@@ -25,6 +25,7 @@ const MENU_GROUPS = [
         label: 'Training',
         items: [
             { text: '🏋️‍♀️ 5/3/1 Workout', href: 'workout/531.html' },
+            { text: '📋 Custom Workout', href: 'workout/custom-workout/workout.html' },
         ],
     },
     {

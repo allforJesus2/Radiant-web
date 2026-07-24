@@ -6,7 +6,7 @@
 // bump this during local development. The default deployed strategy is
 // network-first; cache-first only kicks in when the user enables "offline
 // only" in settings.
-const CACHE_VERSION = 'v3971f75';
+const CACHE_VERSION = 'v4e11135';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
 
 // On localhost the SW acts as a transparent pass-through — no caching, no
@@ -43,6 +43,7 @@ const FILES_TO_CACHE = [
   'css/onboarding/profile.css',
   'css/notes/notes.css',
   'css/charts/charts.css',
+  'css/workout/workout-shell.css',
   'css/workout/workout.css',
   'css/workout/531-workout.css',
   'css/workout/gzcl.css',
@@ -78,7 +79,14 @@ const FILES_TO_CACHE = [
   'js/workout/workout-utils.js',
   'js/workout/531-workout.js',
   'js/workout/gzcl.js',
+  'js/workout/custom-workout-nav.js',
+  'js/workout/workout-item-render.js',
+  'js/workout/rest-timer.js',
   'js/workout/edit-workout-routine.js',
+  'workout/custom-workout/workout.html',
+  'workout/custom-workout/workout-routine.html',
+  'workout/custom-workout/edit-workout-routine.html',
+  'workout/custom-workout/set-workout-day.html',
   'workout/workout.html',
   'workout/workout-routine.html',
   'workout/edit-workout-routine.html',

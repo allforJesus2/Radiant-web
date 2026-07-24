@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Today's Workout</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="../../css/workout/workout.css">
+    <script src="../../js/core/storage.js"></script>
+    <script src="../../js/workout/workout-utils.js"></script>
+    <script src="../../js/workout/workout-item-render.js"></script>
+    <script src="../../js/workout/rest-timer.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header id="dateHeader">
+            <h1>Today's Workout</h1>
+        </header>
+        <div class="blur-overlay" id="blurOverlay"></div>
+        <div id="customWorkoutNav"></div>
+        <div class="workout-page-panel">
+            <div id="rest-timer-display" class="rest-timer-display"></div>
+            <div class="header-container">
+                <h2 class="page-subtitle">Workout for <span id="currentDay"></span>: <span id="routineName"></span></h2>
+                <button id="editRoutineBtn" class="edit-button" title="Edit this workout">✏️</button>
+            </div>
+
+            <div id="weekTabs" class="week-tabs" hidden></div>
+            <div id="dayTabs" class="day-tabs" hidden></div>
+            <p id="viewingHint" class="viewing-hint" hidden></p>
+
+            <div id="scrollableWindow" class="workout-results"></div>
+
+            <button id="completeWorkoutBtn" class="btn complete-workout-btn">✓ Complete Workout</button>
+            <button id="progressCycleBtn" class="btn progress-btn" style="display: none;">🚀 Complete Cycle & Progress Weights</button>
+        </div>
+    </div>
+
+    <script>
+document.addEventListener('DOMContentLoaded', function() {
+    const WEEKDAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const WEEKDAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    const scrollableWindow = document.getElementById('scrollableWindow');
+    const weekTabsEl = document.getElementById('weekTabs');
+    const dayTabsEl = document.getElementById('dayTabs');
+    const viewingHintEl = document.getElementById('viewingHint');
+    const editRoutineBtn = document.getElementById('editRoutineBtn');
+    const completeWorkoutBtn = document.getElementById('completeWorkoutBtn');
+    const progressCycleBtn = document.getElementById('progressCycleBtn');
+    const currentDayElement = document.getElementById('currentDay');
+    const routineNameElement = document.getElementById('routineName');
+
+    let selectedWeek = null;
+    let selectedDay = null;
+    let timerCompletions = {};
+
+    function getToday() {
+        return WEEKDAYS[new Date().getDay()];
+    }
+
+    function normalizeDayKey(day) {
+        return String(day);
+    }
+
+    function getWeekStructure() {
+        return WorkoutUtils.getWeekStructure();
+    }
+
+    function getCurrentWeek() {
+        return getWeekStructure().currentWeek;
+    }
+
+    function getCurrentDayKey(schedule) {
+        if (schedule.type === 'weekly') {
+            return getToday();
+        }
+        return normalizeDayKey(WorkoutUtils.getCurrentCycleDay());
+    }
+
+    function getCycleDayDisplayLabel(dayNumber, weekNum) {
+        return WorkoutUtils.getCycleDayDisplayLabel(dayNumber, weekNum != null ? weekNum : selectedWeek);
+    }
+
+    function getSelectedDayLabel(schedule, settings) {
+        if (schedule.type === 'weekly') {
+            return selectedDay;
+        }
+        return WorkoutUtils.getCycleDayName(parseInt(selectedDay, 10));
+    }
+
+    function getSelectedWeekLabel() {
+        return WorkoutUtils.getWeekLabel(selectedWeek);
+    }
+
+    function getTimerStorageKey(dayKey) {
+        const ws = getWeekStructure();
+        if (ws.enabled) {
+            return 'customWorkoutTimers:w' + selectedWeek + ':' + dayKey;
+        }
+        return 'customWorkoutTimers:' + dayKey;
+    }
+
+    function loadTimerCompletions(dayKey) {
+        const all = RadiantStorage.workout.getCheckboxStates();
+        const key = getTimerStorageKey(dayKey);
+        timerCompletions = all[key] && typeof all[key] === 'object' ? { ...all[key] } : {};
+    }
+
+    function saveTimerCompletions(dayKey) {
+        const all = RadiantStorage.workout.getCheckboxStates();
+        all[getTimerStorageKey(dayKey)] = timerCompletions;
+        RadiantStorage.workout.saveCheckboxStates(all);
+    }
+
+    function onTimerComplete(timerId, count) {
+        timerCompletions[timerId] = count;
+        saveTimerCompletions(normalizeDayKey(selectedDay));
+    }
+
+    function renderWeekTabs(settings) {
+        weekTabsEl.innerHTML = '';
+        const ws = getWeekStructure();
+
+        if (!ws.enabled) {
+            weekTabsEl.hidden = true;
+            return;
+        }
+
+        weekTabsEl.hidden = false;
+
+        for (let w = 1; w <= ws.weeksPerCycle; w++) {
+            const tab = document.createElement('button');
+            tab.type = 'button';
+            tab.className = 'week-tab' + (selectedWeek === w ? ' active' : '');
+            tab.dataset.week = String(w);
+            tab.textContent = WorkoutUtils.getWeekLabel(w);
+            tab.addEventListener('click', function() {
+                selectedWeek = w;
+                displayWorkoutSchedule();
+            });
+            weekTabsEl.appendChild(tab);
+        }
+    }
+
+    function renderDayTabs(schedule, settings) {
+        dayTabsEl.innerHTML = '';
+        dayTabsEl.hidden = false;
+
+        if (schedule.type === 'cycle') {
+            const length = settings.cycleLength || 4;
+            for (let i = 1; i <= length; i++) {
+                const routineName = WorkoutUtils.getRoutineNameForCycleDay(i, selectedWeek);
+                const subtitle = routineName || 'Rest Day';
+                const tab = document.createElement('button');
+                tab.type = 'button';
+                tab.className = 'day-tab' + (normalizeDayKey(selectedDay) === normalizeDayKey(i) ? ' active' : '');
+                tab.dataset.day = String(i);
+                tab.innerHTML = 'Day ' + i + '<br>' + subtitle;
+                tab.addEventListener('click', function() {
+                    selectedDay = String(i);
+                    displayWorkoutSchedule();
+                });
+                dayTabsEl.appendChild(tab);
+            }
+        } else {
+            WEEKDAYS.forEach(function(dayName, index) {
+                const tab = document.createElement('button');
+                tab.type = 'button';
+                tab.className = 'day-tab' + (selectedDay === dayName ? ' active' : '');
+                tab.dataset.day = dayName;
+                tab.textContent = WEEKDAY_ABBR[index];
+                tab.addEventListener('click', function() {
+                    selectedDay = dayName;
+                    displayWorkoutSchedule();
+                });
+                dayTabsEl.appendChild(tab);
+            });
+        }
+    }
+
+    function updateActionButtons(schedule, settings) {
+        const currentDay = getCurrentDayKey(schedule);
+        const currentWeek = getCurrentWeek();
+        const ws = getWeekStructure();
+        const onCurrentDay = normalizeDayKey(selectedDay) === normalizeDayKey(currentDay);
+        const onCurrentWeek = !ws.enabled || selectedWeek === currentWeek;
+        const onCurrentWorkout = onCurrentDay && onCurrentWeek;
+
+        completeWorkoutBtn.style.display = onCurrentWorkout ? '' : 'none';
+        completeWorkoutBtn.disabled = !onCurrentWorkout;
+
+        if (!onCurrentWorkout) {
+            viewingHintEl.hidden = false;
+            const currentDayLabel = schedule.type === 'weekly'
+                ? currentDay
+                : getCycleDayDisplayLabel(parseInt(currentDay, 10), currentWeek);
+            let viewingLabel = schedule.type === 'weekly'
+                ? getSelectedDayLabel(schedule, settings)
+                : getCycleDayDisplayLabel(parseInt(selectedDay, 10), selectedWeek);
+            let currentLabel = currentDayLabel;
+
+            if (ws.enabled) {
+                viewingLabel = getSelectedWeekLabel() + ' · ' + viewingLabel;
+                currentLabel = WorkoutUtils.getWeekLabel(currentWeek) + ' · ' + currentLabel;
+            }
+
+            viewingHintEl.textContent = 'Viewing ' + viewingLabel + ' — complete today\'s workout on ' + currentLabel + '.';
+        } else {
+            viewingHintEl.hidden = true;
+        }
+
+        progressCycleBtn.style.display = 'none';
+        if (onCurrentWorkout && schedule.type === 'cycle') {
+            const cycleDay = parseInt(currentDay, 10);
+            const isLastDay = cycleDay === (settings.cycleLength || 4);
+            const isLastWeek = !ws.enabled || currentWeek === ws.weeksPerCycle;
+            if (isLastDay && isLastWeek) {
+                progressCycleBtn.style.display = 'block';
+            }
+        }
+    }
+
+    function getRoutineForSelectedDay() {
+        const weekSchedule = WorkoutUtils.getWeekSchedule(selectedWeek);
+        const schedule = WorkoutUtils.getSchedule();
+
+        if (schedule.type === 'weekly') {
+            return weekSchedule.weekly && weekSchedule.weekly[selectedDay];
+        }
+        return weekSchedule.cycleDays && weekSchedule.cycleDays[parseInt(selectedDay, 10)];
+    }
+
+    function countTimerButtons() {
+        return document.querySelectorAll('#scrollableWindow .rest-timer-btn').length;
+    }
+
+    function countCompletedTimers() {
+        return document.querySelectorAll('#scrollableWindow .rest-timer-btn.complete').length;
+    }
+
+    function displayWorkoutSchedule() {
+        const settings = WorkoutUtils.getSettings();
+        const schedule = WorkoutUtils.getSchedule();
+        const routines = WorkoutUtils.getRoutines();
+        const ws = getWeekStructure();
+
+        if (selectedWeek == null) {
+            selectedWeek = ws.enabled ? ws.currentWeek : 1;
+        }
+
+        if (selectedDay == null) {
+            selectedDay = getCurrentDayKey(schedule);
+        }
+
+        renderWeekTabs(settings);
+        renderDayTabs(schedule, settings);
+        updateActionButtons(schedule, settings);
+
+        currentDayElement.textContent = getSelectedDayLabel(schedule, settings);
+
+        const dayKey = normalizeDayKey(selectedDay);
+        const storedDay = RadiantStorage.workout.getStoredDay();
+        const currentDayKey = normalizeDayKey(getCurrentDayKey(schedule));
+        if (storedDay !== currentDayKey) {
+            RadiantStorage.workout.setStoredDay(currentDayKey);
+        }
+
+        loadTimerCompletions(dayKey);
+
+        const routineName = getRoutineForSelectedDay();
+        scrollableWindow.innerHTML = '';
+
+        if (routineName && routines[routineName]) {
+            routineNameElement.textContent = routineName;
+            const routine = routines[routineName];
+            const exercises = routine.exercises || [];
+
+            if (exercises.length === 0) {
+                scrollableWindow.innerHTML = '<p>No exercises in this routine. <a href="edit-workout-routine.html?selectedRoutine=' + encodeURIComponent(routineName) + '">Add exercises</a></p>';
+                return;
+            }
+
+            let html = '';
+            exercises.forEach(function(exercise, index) {
+                html += renderCustomExercise(exercise, index, dayKey);
+            });
+            scrollableWindow.innerHTML = html;
+            RestTimer.restoreButtonStates(timerCompletions);
+        } else {
+            routineNameElement.textContent = 'Rest Day';
+            scrollableWindow.innerHTML = '<p>No workout scheduled for this day. <a href="set-workout-day.html">Set up your schedule</a></p>';
+        }
+    }
+
+    editRoutineBtn.addEventListener('click', function() {
+        const routineName = getRoutineForSelectedDay();
+        if (routineName) {
+            window.location.href = 'edit-workout-routine.html?selectedRoutine=' + encodeURIComponent(routineName);
+        } else {
+            alert('No workout routine scheduled for this day.');
+        }
+    });
+
+    completeWorkoutBtn.addEventListener('click', function() {
+        const total = countTimerButtons();
+        const completed = countCompletedTimers();
+
+        if (total === 0) {
+            if (!confirm('No exercises scheduled. Mark this rest day as complete anyway?')) {
+                return;
+            }
+        } else if (completed < total) {
+            if (!confirm('You\'ve completed ' + completed + ' out of ' + total + ' sets. Mark workout as complete anyway?')) {
+                return;
+            }
+        }
+
+        const schedule = WorkoutUtils.getSchedule();
+        const settings = WorkoutUtils.getSettings();
+        const ws = getWeekStructure();
+
+        if (schedule.type === 'cycle') {
+            const cycleDay = WorkoutUtils.getCurrentCycleDay();
+            WorkoutUtils.completeWorkoutDay(cycleDay);
+            alert('Workout completed! 💪');
+
+            if (cycleDay === settings.cycleLength) {
+                if (ws.enabled && ws.currentWeek < ws.weeksPerCycle) {
+                    WorkoutUtils.advanceTrainingWeek();
+                    location.reload();
+                    return;
+                }
+
+                if (confirm('🎉 Cycle complete! Would you like to progress to the next cycle and increase weights?')) {
+                    progressToNextCycle();
+                    return;
+                }
+            }
+            location.reload();
+        } else {
+            alert('Workout completed! 💪');
+            const dayKey = normalizeDayKey(getCurrentDayKey(schedule));
+            timerCompletions = {};
+            saveTimerCompletions(dayKey);
+            location.reload();
+        }
+    });
+
+    progressCycleBtn.addEventListener('click', function() {
+        if (confirm('Complete this cycle and progress all exercises with progression enabled?')) {
+            progressToNextCycle();
+        }
+    });
+
+    function progressToNextCycle() {
+        WorkoutUtils.progressToNextCycle();
+        alert('🚀 Progressed to next cycle! Weights have been increased for exercises with progression enabled.');
+        location.reload();
+    }
+
+    RestTimer.init({
+        displayId: 'rest-timer-display',
+        onComplete: onTimerComplete,
+        defaultRestSeconds: 90
+    });
+
+    displayWorkoutSchedule();
+});
+    </script>
+    <script src="../../js/workout/custom-workout-nav.js"></script>
+    <script src="../../js/core/menu.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        renderCustomWorkoutNav('today');
+        setupHeader(null, { showCenter: false, basePath: '../../' });
+    });
+    </script>
+</body>
+</html>

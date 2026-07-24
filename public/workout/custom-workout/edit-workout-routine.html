@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Workout Routine</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="../../css/workout/edit-workout-routine.css">
+    <script src="../../js/core/storage.js"></script>
+    <script src="../../js/workout/workout-utils.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header id="dateHeader">
+            <h1>Edit Workout Routine</h1>
+        </header>
+        <div class="blur-overlay" id="blurOverlay"></div>
+        <div id="customWorkoutNav"></div>
+        <div class="workout-page-panel">
+            <h2 class="page-subtitle" id="routine-name"></h2>
+
+            <div class="workout-explanation">
+                <div class="explanation-header" onclick="toggleInfo(this)">
+                    <h3>Workout Guidelines <span id="toggleIcon">▼</span></h3>
+                </div>
+                <div class="explanation-content" id="explanationContent">
+                    <p><strong>Muscle Growth:</strong> 3-4 sets of 8-12 reps per exercise. Work each muscle group 2-3 times per week.</p>
+                    <p><strong>Weight Loss:</strong> 2-4 sets of 10-15 reps per exercise. Combine with cardio for best results.</p>
+                </div>
+            </div>
+
+            <div id="workout-input">
+                <div>
+                    <span>🔤</span>
+                    <input type="text" id="exercise-name" list="exercise-suggestions" placeholder="Enter exercise name">
+                    <datalist id="exercise-suggestions">
+                        <option value="Bench Press">
+                        <option value="Squat">
+                        <option value="Deadlift">
+                        <option value="Overhead Press">
+                        <option value="Barbell Row">
+                        <option value="Pull-ups">
+                        <option value="Push-ups">
+                        <option value="Dumbbell Curl">
+                        <option value="Tricep Extension">
+                        <option value="Lateral Raise">
+                        <option value="Face Pull">
+                        <option value="Leg Press">
+                        <option value="Calf Raise">
+                        <option value="Lunges">
+                        <option value="Running">
+                        <option value="Cycling">
+                        <option value="Swimming">
+                        <option value="Jump Rope">
+                        <option value="Burpees">
+                        <option value="Plank">
+                        <option value="Crunches">
+                        <option value="Russian Twist">
+                        <option value="Leg Raises">
+                        <option value="Mountain Climbers">
+                    </datalist>
+                </div>
+                <div>
+                    <span>🔢</span>
+                    <input type="number" id="sets" placeholder="Sets" value="3" min="1">
+                    <span>🔁</span>
+                    <input type="number" id="reps" placeholder="Reps">
+                </div>
+                <div>
+                    <span>💪</span>
+                    <input type="number" id="weight" placeholder="Weight">
+                    <select id="weight-unit">
+                        <option value="lbs">lbs</option>
+                        <option value="kg">kg</option>
+                    </select>
+                </div>
+                <div>
+                    <span>⏱️</span>
+                    <input type="number" id="time" placeholder="Time">
+                    <select id="time-unit">
+                        <option value="sec">sec</option>
+                        <option value="min">min</option>
+                    </select>
+                </div>
+
+                <div class="workout-input-actions">
+                    <button id="add-button" onclick="addExercise()">ADD EXERCISE</button>
+                    <button id="update-button" style="display: none;">UPDATE</button>
+                    <button id="add-copy-button" style="display: none;">ADD COPY</button>
+                    <button id="cancel-button" style="display: none;">CANCEL</button>
+                </div>
+            </div>
+
+            <div id="advanced-section">
+                <h4 onclick="toggleAdvanced()">Advanced Settings <span id="advanced-toggle-icon">▼</span></h4>
+                <div>
+                    <div>
+                        <label for="oneRepMax">1RM:</label>
+                        <input type="number" id="oneRepMax" placeholder="optional">
+                    </div>
+                    <div>
+                        <label for="trainingMaxPercent">TM %:</label>
+                        <input type="number" id="trainingMaxPercent" placeholder="90" value="90">
+                    </div>
+                    <div>
+                        <input type="checkbox" id="progressionEnabled">
+                        <label for="progressionEnabled">Enable Progression</label>
+                    </div>
+                    <div>
+                        <label for="progressionIncrement">Increment:</label>
+                        <input type="number" id="progressionIncrement" placeholder="lbs" value="5">
+                    </div>
+                    <div>
+                        <label for="category">Category:</label>
+                        <select id="category">
+                            <option value="compound">Compound</option>
+                            <option value="accessory">Accessory</option>
+                            <option value="cardio">Cardio</option>
+                            <option value="core">Core</option>
+                        </select>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="amrap">
+                        <label for="amrap">AMRAP Set</label>
+                    </div>
+                    <div>
+                        <label for="rpe">Rate of Perceived Exertion: <span id="rpe-value">5</span></label>
+                        <input type="range" id="rpe" min="1" max="10" value="5" step="1">
+                    </div>
+                    <div>
+                        <label for="restTime">Rest Time:</label>
+                        <input type="number" id="restTime" placeholder="seconds" value="90">
+                    </div>
+                </div>
+            </div>
+
+            <ul id="exercise-list">
+                <!-- Exercises will be listed here -->
+            </ul>
+        </div>
+    </div>
+    <script src="../../js/workout/edit-workout-routine.js"></script>
+    <script src="../../js/workout/custom-workout-nav.js"></script>
+    <script src="../../js/core/menu.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        renderCustomWorkoutNav('routines');
+        setupHeader(null, { showCenter: false, basePath: '../../' });
+    });
+    </script>
+</body>
+</html>

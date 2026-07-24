@@ -13,7 +13,8 @@ const WorkoutUtils = {
         weekStructure: {
             enabled: false,
             weeksPerCycle: 4,
-            currentWeek: 1
+            currentWeek: 1,
+            weekLabels: []
         },
         defaultProgressionUpper: 5, // lbs
         defaultProgressionLower: 10 // lbs
@@ -155,6 +156,115 @@ const WorkoutUtils = {
     },
 
     /**
+     * Get normalized week structure settings
+     */
+    getWeekStructure() {
+        const settings = this.getSettings() || this.DEFAULT_SETTINGS;
+        const ws = settings.weekStructure || this.DEFAULT_SETTINGS.weekStructure;
+        return {
+            enabled: !!ws.enabled,
+            weeksPerCycle: ws.weeksPerCycle || 4,
+            currentWeek: ws.currentWeek || 1,
+            weekLabels: Array.isArray(ws.weekLabels) ? ws.weekLabels : []
+        };
+    },
+
+    /**
+     * Whether multi-week blocks are enabled
+     */
+    isWeekStructureEnabled() {
+        return this.getWeekStructure().enabled;
+    },
+
+    /**
+     * Label for a training week tab
+     */
+    getWeekLabel(weekNum) {
+        const ws = this.getWeekStructure();
+        const label = ws.weekLabels[weekNum - 1];
+        return label && String(label).trim() ? String(label).trim() : `Week ${weekNum}`;
+    },
+
+    /**
+     * Get day assignments for a specific training week
+     */
+    getWeekSchedule(weekNum) {
+        const schedule = this.getSchedule();
+        const ws = this.getWeekStructure();
+
+        if (!ws.enabled) {
+            return {
+                cycleDays: schedule.cycleDays || {},
+                weekly: schedule.weekly || {}
+            };
+        }
+
+        const week = schedule.weeks && schedule.weeks[weekNum];
+        if (week) {
+            return {
+                cycleDays: week.cycleDays || {},
+                weekly: week.weekly || {}
+            };
+        }
+
+        return {
+            cycleDays: schedule.cycleDays || {},
+            weekly: schedule.weekly || {}
+        };
+    },
+
+    /**
+     * Create or resize schedule.weeks from the flat schedule
+     */
+    ensureWeekSchedule(weeksPerCycle) {
+        const schedule = this.getSchedule();
+        if (!schedule.weeks) {
+            schedule.weeks = {};
+        }
+
+        const flatCycleDays = JSON.parse(JSON.stringify(schedule.cycleDays || {}));
+        const flatWeekly = JSON.parse(JSON.stringify(schedule.weekly || {}));
+
+        for (let w = 1; w <= weeksPerCycle; w++) {
+            if (!schedule.weeks[w]) {
+                schedule.weeks[w] = {
+                    cycleDays: JSON.parse(JSON.stringify(flatCycleDays)),
+                    weekly: JSON.parse(JSON.stringify(flatWeekly))
+                };
+            }
+        }
+
+        Object.keys(schedule.weeks).forEach(function (key) {
+            if (parseInt(key, 10) > weeksPerCycle) {
+                delete schedule.weeks[key];
+            }
+        });
+
+        this.saveSchedule(schedule);
+        return schedule;
+    },
+
+    /**
+     * Advance to the next training week (cycle mode)
+     */
+    advanceTrainingWeek() {
+        const settings = this.getSettings() || this.DEFAULT_SETTINGS;
+        if (!settings.weekStructure) {
+            settings.weekStructure = { ...this.DEFAULT_SETTINGS.weekStructure };
+        }
+
+        const weeksPerCycle = settings.weekStructure.weeksPerCycle || 4;
+        if (settings.weekStructure.currentWeek >= weeksPerCycle) {
+            return false;
+        }
+
+        settings.weekStructure.currentWeek += 1;
+        this.saveSettings(settings);
+        RadiantStorage.workout.setLastCompletedCycleDay('0');
+        return true;
+    },
+
+    /**
      * Get exercise library (1RM database)
      */
     getExerciseLibrary() {
@@ -276,6 +386,11 @@ const WorkoutUtils = {
     progressToNextCycle() {
         const settings = this.getSettings() || this.DEFAULT_SETTINGS;
         settings.currentCycle += 1;
+
+        if (settings.weekStructure) {
+            settings.weekStructure.currentWeek = 1;
+        }
+
         this.saveSettings(settings);
         
         // Apply progression to all exercises with progression enabled
@@ -344,11 +459,31 @@ const WorkoutUtils = {
     },
 
     /**
-     * Format cycle day name
+     * Format cycle day label (Day 1, Day 2, …)
      */
     getCycleDayName(dayNumber) {
-        const settings = this.getSettings() || this.DEFAULT_SETTINGS;
-        return settings.cycleDayNames[dayNumber - 1] || `Day ${dayNumber}`;
+        return `Day ${dayNumber}`;
+    },
+
+    /**
+     * Get assigned routine name for a cycle day (week-aware when weekNum provided)
+     */
+    getRoutineNameForCycleDay(dayNumber, weekNum) {
+        const schedule = this.getSchedule();
+        const ws = this.getWeekStructure();
+        const week = weekNum != null ? weekNum : (ws.enabled ? ws.currentWeek : null);
+        const weekSchedule = week != null && ws.enabled
+            ? this.getWeekSchedule(week)
+            : { cycleDays: schedule.cycleDays || {} };
+        return weekSchedule.cycleDays[dayNumber] || null;
+    },
+
+    /**
+     * Label for cycle day including routine: "Day 1 · Push Day" or "Day 1 · Rest Day"
+     */
+    getCycleDayDisplayLabel(dayNumber, weekNum) {
+        const routineName = this.getRoutineNameForCycleDay(dayNumber, weekNum);
+        return `${this.getCycleDayName(dayNumber)} · ${routineName || 'Rest Day'}`;
     },
 
     /**
@@ -357,12 +492,16 @@ const WorkoutUtils = {
     getTodaysRoutine() {
         const schedule = this.getSchedule();
         const currentDay = this.getCurrentCycleDay();
+        const ws = this.getWeekStructure();
+        const weekSchedule = ws.enabled
+            ? this.getWeekSchedule(ws.currentWeek)
+            : { cycleDays: schedule.cycleDays || {}, weekly: schedule.weekly || {} };
         
         if (schedule.type === 'weekly') {
-            const routineName = schedule.weekly[currentDay];
+            const routineName = weekSchedule.weekly[currentDay];
             return routineName ? this.getRoutine(routineName) : null;
         } else {
-            const routineName = schedule.cycleDays[currentDay];
+            const routineName = weekSchedule.cycleDays[currentDay];
             return routineName ? this.getRoutine(routineName) : null;
         }
     },

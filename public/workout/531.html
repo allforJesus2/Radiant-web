@@ -21,6 +21,65 @@
         </div>
         <div class="main-content">
             <div class="input-section active">
+                <div id="level-up-review" class="level-up-review" hidden>
+                    <h3 class="level-up-review-heading">Review progression for next cycle</h3>
+                    <p id="level-up-review-context" class="level-up-review-context"></p>
+                    <div class="level-up-row" data-lift="squat">
+                        <div class="level-up-col level-up-col-old">
+                            <span class="level-up-col-label">Squat 1RM</span>
+                            <span class="level-up-old-value">—</span>
+                        </div>
+                        <div class="level-up-col level-up-col-delta">
+                            <span class="level-up-delta">—</span>
+                        </div>
+                        <div class="level-up-col level-up-col-new">
+                            <label class="level-up-col-label">New 1RM</label>
+                            <input type="number" class="level-up-new-input" min="0" step="5" placeholder="lbs">
+                        </div>
+                    </div>
+                    <div class="level-up-row" data-lift="bench">
+                        <div class="level-up-col level-up-col-old">
+                            <span class="level-up-col-label">Bench 1RM</span>
+                            <span class="level-up-old-value">—</span>
+                        </div>
+                        <div class="level-up-col level-up-col-delta">
+                            <span class="level-up-delta">—</span>
+                        </div>
+                        <div class="level-up-col level-up-col-new">
+                            <label class="level-up-col-label">New 1RM</label>
+                            <input type="number" class="level-up-new-input" min="0" step="5" placeholder="lbs">
+                        </div>
+                    </div>
+                    <div class="level-up-row" data-lift="deadlift">
+                        <div class="level-up-col level-up-col-old">
+                            <span class="level-up-col-label">Deadlift 1RM</span>
+                            <span class="level-up-old-value">—</span>
+                        </div>
+                        <div class="level-up-col level-up-col-delta">
+                            <span class="level-up-delta">—</span>
+                        </div>
+                        <div class="level-up-col level-up-col-new">
+                            <label class="level-up-col-label">New 1RM</label>
+                            <input type="number" class="level-up-new-input" min="0" step="5" placeholder="lbs">
+                        </div>
+                    </div>
+                    <div class="level-up-row" data-lift="ohp">
+                        <div class="level-up-col level-up-col-old">
+                            <span class="level-up-col-label">OHP 1RM</span>
+                            <span class="level-up-old-value">—</span>
+                        </div>
+                        <div class="level-up-col level-up-col-delta">
+                            <span class="level-up-delta">—</span>
+                        </div>
+                        <div class="level-up-col level-up-col-new">
+                            <label class="level-up-col-label">New 1RM</label>
+                            <input type="number" class="level-up-new-input" min="0" step="5" placeholder="lbs">
+                        </div>
+                    </div>
+                    <button type="button" id="cancel-level-up" class="level-up-cancel-btn" hidden>Cancel</button>
+                </div>
+
+                <div id="normal-1rm-inputs" class="level-up-setup-hidden">
                 <div class="input-group">
                     <label for="squat-1rm">Squat 1 Rep Max (lbs)</label>
                     <input type="number" id="squat-1rm" min="0" step="5" placeholder="e.g. 315">
@@ -40,37 +99,17 @@
                     <label for="ohp-1rm">Overhead Press 1 Rep Max (lbs)</label>
                     <input type="number" id="ohp-1rm" min="0" step="5" placeholder="e.g. 135">
                 </div>
-
-                <div class="input-group">
-                    <div class="collapsible-wrapper">
-                        <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
-                            <strong>Progression Guide</strong>
-                            <span class="collapsible-toggle">▼</span>
-                        </div>
-                        <div class="collapsible-content collapsed">
-                            <ul id="progression-guide-list" style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
-                                <li>After each 4-week cycle:</li>
-                                <li>> Increase upper body lifts (Bench, OHP) by 5 lbs</li>
-                                <li>> Increase lower body lifts (Squat, Deadlift) by 10 lbs</li>
-                                <li id="progression-amrap-tip">Use AMRAP sets to gauge progress</li>
-                                <li>Adjust slower if AMRAP sets are challenging</li>
-                            </ul>
-                        </div>
-                    </div>
                 </div>
 
-                <button id="save-button">Save 1 Rep Maxes</button>
-                
-                <div class="input-group">
+                <div class="input-group level-up-setup-hidden">
                     <label>Training Max Percentage</label>
                     <div class="toggle-container">
                         <div class="toggle-option active" data-value="90">90%</div>
                         <div class="toggle-option" data-value="85">85%</div>
                     </div>
-                    <p class="percentage-info">Wendler recommends 85-90% of 1RM as your Training Max</p>
                 </div>
                 
-                <div class="input-group">
+                <div class="input-group level-up-setup-hidden">
                     <label for="accessory-template">Accessory Template</label>
                     <button id="quiz-button" style="background-color: var(--accent); padding: 10px 15px; width: 100%; margin-bottom: 10px;">Help Me Choose</button>
                     <select id="accessory-template">
@@ -81,27 +120,10 @@
                         <option value="beginners">5/3/1 for Beginners (FSL + specific accessories)</option>
                     </select>
                 </div>
-                <div id="bbb-accessory-inputs" style="display:none">
-                    <p style="font-size:0.85rem; color:#666; margin: 0.5rem 0 0.25rem;">
-                        <strong>5×10 supplemental:</strong> 50% or 60% TM — start at 50%, move to 60% when 5×10 feels manageable.
-                    </p>
+                <div id="bbb-accessory-inputs" class="level-up-setup-hidden" style="display:none">
                     <div id="bbb-weight-preview" style="font-size:0.85rem; color:#666; margin-bottom:0.5rem;"></div>
-                    <p id="bbb-template-helper" style="font-size:0.85rem; color:#666; margin-bottom:0.5rem;"></p>
-                    <div class="collapsible-wrapper">
-                        <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
-                            <strong>AMRAP vs 5s Pro?</strong>
-                            <span class="collapsible-toggle">▼</span>
-                        </div>
-                        <div class="collapsible-content collapsed">
-                            <p style="font-size:0.85rem; color:#666; margin:0.5rem 0;">
-                                AMRAP is not required for muscle growth on BBB — the 5×10 block (~50 reps at 50–60% TM) is the size stimulus.
-                                Forever BBB uses 5s Pro (no AMRAP) so you finish those sets with quality. Save AMRAP for a later Anchor cycle (e.g. FSL).
-                            </p>
-                        </div>
-                    </div>
                 </div>
-                <div id="accessory-explanation" class="explanation-box"></div>
-                
+
                 <!-- Quiz Modal -->
                 <div id="quiz-modal" class="quiz-modal" style="display: none;">
                     <div class="quiz-content">
@@ -130,8 +152,11 @@
                         </div>
                     </div>
                 </div>
-                
-                <div class="input-group">
+
+                <button type="button" id="setup-notes-button" class="setup-notes-btn level-up-setup-hidden">Notes & Tips</button>
+                <button id="save-button">Save 1 Rep Maxes</button>
+
+                <div class="input-group level-up-setup-hidden">
                     <div class="rest-timer-settings">
                         <h3>Rest Timer Settings</h3>
                         <div class="input-group">
@@ -172,7 +197,28 @@
             </div>
         </div>
     </div>
-    
+
+    <div id="setup-notes-modal" class="setup-notes-modal" hidden>
+        <div class="setup-notes-content">
+            <div class="setup-notes-header">
+                <h3>Notes & Tips</h3>
+                <button type="button" id="close-setup-notes" class="close-setup-notes">&times;</button>
+            </div>
+            <div id="setup-notes-body" class="setup-notes-body"></div>
+        </div>
+    </div>
+    <div id="first-plan-modal" class="first-plan-modal" hidden>
+        <div class="first-plan-content">
+            <div class="first-plan-header">
+                <h3>Congratulations!</h3>
+            </div>
+            <div class="first-plan-body">
+                <p>Your personalized 5/3/1 workout plan is ready. You're on Week 1, Day 1 — let's get to work.</p>
+                <button type="button" id="close-first-plan" class="first-plan-btn">Let's Go</button>
+            </div>
+        </div>
+    </div>
+
     <script src="../js/core/storage.js"></script>
     <script src="../js/workout/workout-utils.js"></script>
     <script src="../js/workout/531-workout.js"></script>

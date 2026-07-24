@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Set Workout Schedule</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="../../css/workout/workout.css">
+    <script src="../../js/core/storage.js"></script>
+    <script src="../../js/workout/workout-utils.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header id="dateHeader">
+            <h1>Workout Schedule</h1>
+        </header>
+        <div class="blur-overlay" id="blurOverlay"></div>
+        <div id="customWorkoutNav"></div>
+        <div class="workout-page-panel">
+
+        <!-- Week Structure -->
+        <div class="week-structure-settings">
+            <h3>📆 Week Structure</h3>
+            <div class="week-structure-header">
+                <label class="week-structure-toggle">
+                    <input type="checkbox" id="weekStructureEnabled">
+                    Enable multi-week blocks (e.g. work weeks + rest week)
+                </label>
+                <button type="button" class="btn week-structure-save-btn" onclick="saveWorkoutSchedule()">Save Schedule</button>
+            </div>
+            <div id="weekStructureOptions" class="week-structure-options" hidden>
+                <label for="weeksPerCycle">Weeks per block:</label>
+                <input type="number" id="weeksPerCycle" min="2" max="6" value="4">
+
+                <label for="currentWeek">Current training week:</label>
+                <input type="number" id="currentWeek" min="1" value="1">
+
+                <div class="week-label-inputs" id="weekLabelInputs"></div>
+
+                <div id="weekConfigTabs" class="week-tabs"></div>
+
+                <div class="week-config-actions">
+                    <button type="button" class="btn" id="copyWeek1Btn">Copy Week 1 to all weeks</button>
+                    <button type="button" class="btn" id="clearWeekBtn">Clear this week</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Schedule Type Toggle -->
+        <div class="schedule-toggle">
+            <button id="cycle-toggle" class="active" onclick="switchScheduleType('cycle')">
+                🔄 Cycle Schedule (Day 1, Day 2, etc.)
+            </button>
+            <button id="weekly-toggle" onclick="switchScheduleType('weekly')">
+                📅 Weekly Schedule (Mon, Tue, etc.)
+            </button>
+        </div>
+
+        <!-- Cycle-Based Schedule Section -->
+        <div id="cycle-schedule-section" class="schedule-section active">
+            <div class="info-box">
+                <h4>About Cycle Schedules</h4>
+                <p>Cycle schedules are flexible and not tied to specific days of the week. Perfect for:</p>
+                <ul>
+                    <li>Variable workout schedules</li>
+                    <li>Progressive training programs</li>
+                    <li>3-day, 4-day, 5-day, or custom workout splits</li>
+                </ul>
+            </div>
+
+            <!-- Cycle Settings -->
+            <div class="cycle-settings">
+                <h3>⚙️ Cycle Configuration</h3>
+                <div class="cycle-settings-grid">
+                    <label for="cycleLength">Cycle Length:</label>
+                    <input type="number" id="cycleLength" min="1" max="7" value="4">
+                    
+                    <label for="currentCycle">Current Cycle #:</label>
+                    <input type="number" id="currentCycle" min="1" value="1">
+                </div>
+            </div>
+
+            <!-- Cycle Day Assignments -->
+            <form id="cycleForm">
+                <!-- Dynamic cycle day selects will be generated here -->
+            </form>
+        </div>
+
+        <!-- Weekly Schedule Section -->
+        <div id="weekly-schedule-section" class="schedule-section">
+            <div class="info-box">
+                <h4>About Weekly Schedules</h4>
+                <p>Weekly schedules assign routines to specific days of the week. Perfect for:</p>
+                <ul>
+                    <li>Consistent weekly schedules</li>
+                    <li>Traditional workout splits (e.g., Monday = Chest Day)</li>
+                    <li>Working around specific weekly commitments</li>
+                </ul>
+            </div>
+
+            <form id="workoutForm">
+                <label for="Monday">Monday:</label>
+                <select id="Monday"></select>
+
+                <label for="Tuesday">Tuesday:</label>
+                <select id="Tuesday"></select>
+
+                <label for="Wednesday">Wednesday:</label>
+                <select id="Wednesday"></select>
+
+                <label for="Thursday">Thursday:</label>
+                <select id="Thursday"></select>
+
+                <label for="Friday">Friday:</label>
+                <select id="Friday"></select>
+
+                <label for="Saturday">Saturday:</label>
+                <select id="Saturday"></select>
+
+                <label for="Sunday">Sunday:</label>
+                <select id="Sunday"></select>
+            </form>
+        </div>
+
+        <button class="btn" onclick="saveWorkoutSchedule()">Save Schedule</button>
+        </div>
+    </div>
+
+    <script>
+        let currentScheduleType = 'cycle';
+        let selectedConfigWeek = 1;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSettings();
+            populateRoutines();
+            setupCycleLengthListener();
+            setupWeekStructureListeners();
+        });
+
+        function isWeekStructureEnabled() {
+            return document.getElementById('weekStructureEnabled').checked;
+        }
+
+        function getWeeksPerCycle() {
+            return parseInt(document.getElementById('weeksPerCycle').value, 10) || 4;
+        }
+
+        function getConfigWeekSchedule() {
+            const schedule = WorkoutUtils.getSchedule();
+            if (isWeekStructureEnabled() && schedule.weeks && schedule.weeks[selectedConfigWeek]) {
+                return schedule.weeks[selectedConfigWeek];
+            }
+            return {
+                cycleDays: schedule.cycleDays || {},
+                weekly: schedule.weekly || {}
+            };
+        }
+
+        function saveFormToCurrentWeek() {
+            if (!isWeekStructureEnabled()) {
+                return;
+            }
+
+            const schedule = WorkoutUtils.getSchedule();
+            if (!schedule.weeks) {
+                schedule.weeks = {};
+            }
+            if (!schedule.weeks[selectedConfigWeek]) {
+                schedule.weeks[selectedConfigWeek] = { cycleDays: {}, weekly: {} };
+            }
+
+            if (currentScheduleType === 'cycle') {
+                const cycleDays = {};
+                const length = parseInt(document.getElementById('cycleLength').value, 10) || 4;
+                for (let i = 1; i <= length; i++) {
+                    const select = document.getElementById('cycleDay-' + i);
+                    if (select && select.value) {
+                        cycleDays[i] = select.value;
+                    }
+                }
+                schedule.weeks[selectedConfigWeek].cycleDays = cycleDays;
+            } else {
+                const weekly = {};
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                days.forEach(function(day) {
+                    const select = document.getElementById(day);
+                    if (select && select.value) {
+                        weekly[day] = select.value;
+                    }
+                });
+                schedule.weeks[selectedConfigWeek].weekly = weekly;
+            }
+
+            WorkoutUtils.saveSchedule(schedule);
+        }
+
+        function loadSettings() {
+            const settings = WorkoutUtils.getSettings();
+            const schedule = WorkoutUtils.getSchedule();
+            const ws = WorkoutUtils.getWeekStructure();
+
+            currentScheduleType = schedule.type || 'cycle';
+            switchScheduleType(currentScheduleType, false);
+
+            document.getElementById('cycleLength').value = settings.cycleLength || 4;
+            document.getElementById('currentCycle').value = settings.currentCycle || 1;
+
+            document.getElementById('weekStructureEnabled').checked = ws.enabled;
+            document.getElementById('weeksPerCycle').value = ws.weeksPerCycle;
+            document.getElementById('currentWeek').value = ws.currentWeek;
+            selectedConfigWeek = ws.currentWeek || 1;
+
+            if (ws.enabled) {
+                WorkoutUtils.ensureWeekSchedule(ws.weeksPerCycle);
+            }
+
+            updateWeekStructureUI();
+            generateCycleDaySelects(settings.cycleLength || 4);
+            populateRoutines();
+        }
+
+        function setupWeekStructureListeners() {
+            document.getElementById('weekStructureEnabled').addEventListener('change', function() {
+                updateWeekStructureUI();
+                if (isWeekStructureEnabled()) {
+                    WorkoutUtils.ensureWeekSchedule(getWeeksPerCycle());
+                    reloadAssignmentForm();
+                }
+            });
+
+            document.getElementById('weeksPerCycle').addEventListener('change', function() {
+                const weeksPerCycle = getWeeksPerCycle();
+                document.getElementById('currentWeek').max = weeksPerCycle;
+                if (parseInt(document.getElementById('currentWeek').value, 10) > weeksPerCycle) {
+                    document.getElementById('currentWeek').value = weeksPerCycle;
+                }
+                if (selectedConfigWeek > weeksPerCycle) {
+                    selectedConfigWeek = weeksPerCycle;
+                }
+                if (isWeekStructureEnabled()) {
+                    WorkoutUtils.ensureWeekSchedule(weeksPerCycle);
+                }
+                generateWeekLabelInputs(weeksPerCycle);
+                renderWeekConfigTabs();
+            });
+
+            document.getElementById('copyWeek1Btn').addEventListener('click', copyWeek1ToAll);
+            document.getElementById('clearWeekBtn').addEventListener('click', clearCurrentWeek);
+        }
+
+        function updateWeekStructureUI() {
+            const enabled = isWeekStructureEnabled();
+            document.getElementById('weekStructureOptions').hidden = !enabled;
+            if (enabled) {
+                const weeksPerCycle = getWeeksPerCycle();
+                document.getElementById('currentWeek').max = weeksPerCycle;
+                generateWeekLabelInputs(weeksPerCycle);
+                renderWeekConfigTabs();
+            }
+        }
+
+        function generateWeekLabelInputs(weeksPerCycle) {
+            const container = document.getElementById('weekLabelInputs');
+            const settings = WorkoutUtils.getSettings();
+            const labels = settings.weekStructure?.weekLabels || [];
+            container.innerHTML = '';
+
+            for (let w = 1; w <= weeksPerCycle; w++) {
+                const div = document.createElement('div');
+                div.className = 'week-label-input';
+
+                const label = document.createElement('label');
+                label.textContent = 'Week ' + w + ' label:';
+                label.htmlFor = 'weekLabel-' + w;
+
+                const input = document.createElement('input');
+                input.type = 'text';
+                input.id = 'weekLabel-' + w;
+                input.placeholder = 'Week ' + w;
+                input.value = labels[w - 1] || '';
+
+                div.appendChild(label);
+                div.appendChild(input);
+                container.appendChild(div);
+            }
+        }
+
+        function renderWeekConfigTabs() {
+            const container = document.getElementById('weekConfigTabs');
+            container.innerHTML = '';
+            if (!isWeekStructureEnabled()) {
+                return;
+            }
+
+            const weeksPerCycle = getWeeksPerCycle();
+            const settings = WorkoutUtils.getSettings();
+            const labels = settings.weekStructure?.weekLabels || [];
+
+            for (let w = 1; w <= weeksPerCycle; w++) {
+                const tab = document.createElement('button');
+                tab.type = 'button';
+                tab.className = 'week-tab' + (selectedConfigWeek === w ? ' active' : '');
+                tab.dataset.week = String(w);
+                const label = labels[w - 1] && String(labels[w - 1]).trim()
+                    ? String(labels[w - 1]).trim()
+                    : 'Week ' + w;
+                tab.textContent = label;
+                tab.addEventListener('click', function() {
+                    if (selectedConfigWeek === w) return;
+                    saveFormToCurrentWeek();
+                    selectedConfigWeek = w;
+                    renderWeekConfigTabs();
+                    reloadAssignmentForm();
+                });
+                container.appendChild(tab);
+            }
+        }
+
+        function reloadAssignmentForm() {
+            const settings = WorkoutUtils.getSettings();
+            if (currentScheduleType === 'cycle') {
+                generateCycleDaySelects(settings.cycleLength || 4);
+            } else {
+                populateRoutines();
+            }
+        }
+
+        function copyWeek1ToAll() {
+            if (!isWeekStructureEnabled()) return;
+
+            saveFormToCurrentWeek();
+            const schedule = WorkoutUtils.getSchedule();
+            WorkoutUtils.ensureWeekSchedule(getWeeksPerCycle());
+
+            const source = schedule.weeks[1];
+            if (!source) {
+                alert('Week 1 has no schedule to copy.');
+                return;
+            }
+
+            const weeksPerCycle = getWeeksPerCycle();
+            for (let w = 2; w <= weeksPerCycle; w++) {
+                schedule.weeks[w] = {
+                    cycleDays: JSON.parse(JSON.stringify(source.cycleDays || {})),
+                    weekly: JSON.parse(JSON.stringify(source.weekly || {}))
+                };
+            }
+
+            WorkoutUtils.saveSchedule(schedule);
+            reloadAssignmentForm();
+            alert('Copied Week 1 schedule to all other weeks.');
+        }
+
+        function clearCurrentWeek() {
+            if (!confirm('Clear all day assignments for this week? (Rest week shortcut)')) {
+                return;
+            }
+
+            if (currentScheduleType === 'cycle') {
+                const length = parseInt(document.getElementById('cycleLength').value, 10) || 4;
+                for (let i = 1; i <= length; i++) {
+                    const select = document.getElementById('cycleDay-' + i);
+                    if (select) select.value = '';
+                }
+            } else {
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                days.forEach(function(day) {
+                    const select = document.getElementById(day);
+                    if (select) select.value = '';
+                });
+            }
+
+            saveFormToCurrentWeek();
+        }
+
+        function setupCycleLengthListener() {
+            document.getElementById('cycleLength').addEventListener('change', function() {
+                const newLength = parseInt(this.value, 10);
+                generateCycleDaySelects(newLength);
+            });
+        }
+
+        function generateCycleDaySelects(length) {
+            const form = document.getElementById('cycleForm');
+            form.innerHTML = '';
+
+            const weekSchedule = getConfigWeekSchedule();
+
+            for (let i = 1; i <= length; i++) {
+                const label = document.createElement('label');
+                label.htmlFor = 'cycleDay-' + i;
+                label.textContent = 'Day ' + i + ':';
+
+                const select = document.createElement('select');
+                select.id = 'cycleDay-' + i;
+                populateSelect(select);
+
+                if (weekSchedule.cycleDays && weekSchedule.cycleDays[i]) {
+                    select.value = weekSchedule.cycleDays[i];
+                }
+
+                form.appendChild(label);
+                form.appendChild(select);
+            }
+        }
+
+        function populateRoutines() {
+            const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+            const weekSchedule = getConfigWeekSchedule();
+
+            days.forEach(function(day) {
+                const select = document.getElementById(day);
+                if (select) {
+                    populateSelect(select);
+                    if (weekSchedule.weekly && weekSchedule.weekly[day]) {
+                        select.value = weekSchedule.weekly[day];
+                    } else {
+                        select.value = '';
+                    }
+                }
+            });
+        }
+
+        function populateSelect(select) {
+            const routines = WorkoutUtils.getRoutines();
+            select.innerHTML = '<option value="">Rest Day / No Workout</option>';
+
+            for (const routineName in routines) {
+                const option = document.createElement('option');
+                option.value = routineName;
+                option.textContent = routineName;
+                select.appendChild(option);
+            }
+        }
+
+        function switchScheduleType(type, save) {
+            if (save !== false && isWeekStructureEnabled()) {
+                saveFormToCurrentWeek();
+            }
+
+            currentScheduleType = type;
+
+            document.getElementById('cycle-toggle').classList.toggle('active', type === 'cycle');
+            document.getElementById('weekly-toggle').classList.toggle('active', type === 'weekly');
+
+            document.getElementById('cycle-schedule-section').classList.toggle('active', type === 'cycle');
+            document.getElementById('weekly-schedule-section').classList.toggle('active', type === 'weekly');
+
+            if (save !== false) {
+                const schedule = WorkoutUtils.getSchedule();
+                schedule.type = type;
+                WorkoutUtils.saveSchedule(schedule);
+            }
+
+            reloadAssignmentForm();
+        }
+
+        function saveWorkoutSchedule() {
+            const settings = WorkoutUtils.getSettings();
+            const schedule = WorkoutUtils.getSchedule();
+            const weeksEnabled = isWeekStructureEnabled();
+            const weeksPerCycle = getWeeksPerCycle();
+            let currentWeek = parseInt(document.getElementById('currentWeek').value, 10) || 1;
+
+            if (currentWeek < 1) currentWeek = 1;
+            if (currentWeek > weeksPerCycle) currentWeek = weeksPerCycle;
+
+            if (weeksEnabled) {
+                saveFormToCurrentWeek();
+            }
+
+            schedule.type = currentScheduleType;
+
+            if (currentScheduleType === 'cycle') {
+                const cycleLength = parseInt(document.getElementById('cycleLength').value, 10);
+                const currentCycle = parseInt(document.getElementById('currentCycle').value, 10);
+
+                settings.cycleLength = cycleLength;
+                settings.currentCycle = currentCycle;
+
+                const cycleDays = {};
+                for (let i = 1; i <= cycleLength; i++) {
+                    const select = document.getElementById('cycleDay-' + i);
+                    if (select && select.value) {
+                        cycleDays[i] = select.value;
+                    }
+                }
+
+                if (weeksEnabled) {
+                    if (!schedule.weeks) schedule.weeks = {};
+                    if (!schedule.weeks[selectedConfigWeek]) {
+                        schedule.weeks[selectedConfigWeek] = { cycleDays: {}, weekly: {} };
+                    }
+                    schedule.weeks[selectedConfigWeek].cycleDays = cycleDays;
+                    WorkoutUtils.ensureWeekSchedule(weeksPerCycle);
+                    schedule.cycleDays = JSON.parse(JSON.stringify(schedule.weeks[1]?.cycleDays || cycleDays));
+                } else {
+                    schedule.cycleDays = cycleDays;
+                }
+            } else {
+                const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                const weekly = {};
+
+                days.forEach(function(day) {
+                    const select = document.getElementById(day);
+                    if (select && select.value) {
+                        weekly[day] = select.value;
+                    }
+                });
+
+                if (weeksEnabled) {
+                    if (!schedule.weeks) schedule.weeks = {};
+                    if (!schedule.weeks[selectedConfigWeek]) {
+                        schedule.weeks[selectedConfigWeek] = { cycleDays: {}, weekly: {} };
+                    }
+                    schedule.weeks[selectedConfigWeek].weekly = weekly;
+                    WorkoutUtils.ensureWeekSchedule(weeksPerCycle);
+                    schedule.weekly = JSON.parse(JSON.stringify(schedule.weeks[1]?.weekly || weekly));
+                } else {
+                    schedule.weekly = weekly;
+                }
+            }
+
+            const weekLabels = [];
+            for (let w = 1; w <= weeksPerCycle; w++) {
+                const input = document.getElementById('weekLabel-' + w);
+                weekLabels.push(input ? input.value : '');
+            }
+
+            settings.weekStructure = {
+                enabled: weeksEnabled,
+                weeksPerCycle: weeksPerCycle,
+                currentWeek: currentWeek,
+                weekLabels: weekLabels
+            };
+
+            if (weeksEnabled) {
+                WorkoutUtils.ensureWeekSchedule(weeksPerCycle);
+            }
+
+            WorkoutUtils.saveSettings(settings);
+            WorkoutUtils.saveSchedule(schedule);
+
+            selectedConfigWeek = currentWeek;
+            renderWeekConfigTabs();
+
+            alert((currentScheduleType === 'cycle' ? 'Cycle' : 'Weekly') + ' schedule saved successfully!');
+        }
+    </script>
+    <script src="../../js/workout/custom-workout-nav.js"></script>
+    <script src="../../js/core/menu.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+        renderCustomWorkoutNav('schedule');
+        setupHeader(null, { showCenter: false, basePath: '../../' });
+    });
+    </script>
+</body>
+</html>
