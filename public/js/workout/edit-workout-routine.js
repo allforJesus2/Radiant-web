@@ -4,6 +4,36 @@
 
         document.getElementById('routine-name').textContent = decodeURIComponent(selectedRoutine);
 
+        const exerciseDialog = document.getElementById('exercise-dialog');
+        const exerciseDialogTitle = document.getElementById('exercise-dialog-title');
+
+        function openExerciseDialog(mode) {
+            if (mode === 'add') {
+                clearForm();
+                exerciseDialogTitle.textContent = 'Add Exercise';
+            } else {
+                exerciseDialogTitle.textContent = 'Edit Exercise';
+            }
+            exerciseDialog.hidden = false;
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeExerciseDialog() {
+            exerciseDialog.hidden = true;
+            document.body.style.overflow = '';
+            clearForm();
+        }
+
+        function syncWeightUnits(sourceId) {
+            const weightUnitEl = document.getElementById('weight-unit');
+            const incrementUnitEl = document.getElementById('progression-increment-unit');
+            if (sourceId === 'progression-increment-unit') {
+                weightUnitEl.value = incrementUnitEl.value;
+            } else {
+                incrementUnitEl.value = weightUnitEl.value;
+            }
+        }
+
         function toggleInfo(button) {
             const content = document.getElementById('explanationContent');
             const icon = document.getElementById('toggleIcon');
@@ -30,6 +60,25 @@
             }
         }
 
+        function moveExercise(fromIndex, direction) {
+            const routines = WorkoutUtils.getRoutines();
+            const routine = routines[selectedRoutine] || { exercises: [] };
+            const exercises = routine.exercises || [];
+            const toIndex = fromIndex + direction;
+
+            if (toIndex < 0 || toIndex >= exercises.length) {
+                return;
+            }
+
+            const moved = exercises.splice(fromIndex, 1)[0];
+            exercises.splice(toIndex, 0, moved);
+
+            routine.exercises = exercises;
+            routines[selectedRoutine] = routine;
+            WorkoutUtils.saveRoutines(routines);
+            displayExercises();
+        }
+
         function displayExercises() {
             const routines = WorkoutUtils.getRoutines();
             const routine = routines[selectedRoutine] || { exercises: [] };
@@ -43,10 +92,17 @@
                         category, progression, oneRepMax, amrap } = exercise;
                 const exerciseElement = document.createElement('li');
                 exerciseElement.dataset.index = index;
+
+                const orderElement = document.createElement('span');
+                orderElement.className = 'exercise-order-number';
+                orderElement.textContent = String(index + 1);
+                orderElement.setAttribute('aria-hidden', 'true');
                 
                 const exerciseInfo = document.createElement('div');
+                exerciseInfo.className = 'exercise-info';
                 
                 const nameElement = document.createElement('div');
+                nameElement.className = 'exercise-name';
                 let displayName = name;
                 if (category) {
                     const categoryBadge = category === 'compound' ? '🏋️' : 
@@ -58,6 +114,7 @@
                 nameElement.textContent = displayName;
                 
                 const detailsElement = document.createElement('div');
+                detailsElement.className = 'exercise-details';
                 const timeDisplay = timeUnit === 'min' ? `${time || '-'} min` : `${time || '-'} sec`;
                 const weightDisplay = weightUnit === 'kg' ? `${weight || '-'} kg` : `${weight || '-'} lbs`;
                 
@@ -73,15 +130,19 @@
                 
                 exerciseInfo.appendChild(nameElement);
                 exerciseInfo.appendChild(detailsElement);
+                exerciseElement.appendChild(orderElement);
                 exerciseElement.appendChild(exerciseInfo);
                 
                 const buttonContainer = document.createElement('div');
+                buttonContainer.className = 'exercise-item-actions';
                 
                 const deleteButton = document.createElement('button');
+                deleteButton.type = 'button';
+                deleteButton.className = 'exercise-delete-btn';
                 deleteButton.textContent = '❌';
                 deleteButton.title = 'Delete';
                 deleteButton.addEventListener('click', (e) => {
-                    e.stopPropagation();  // Prevent event from bubbling up
+                    e.stopPropagation();
                     const confirmDelete = confirm('Are you sure you want to delete this exercise?');
                     if (confirmDelete) {
                         const routines = WorkoutUtils.getRoutines();
@@ -96,9 +157,36 @@
                         clearForm();
                     }
                 });
-                
-                
+
+                const reorderContainer = document.createElement('div');
+                reorderContainer.className = 'exercise-reorder-buttons';
+
+                const upButton = document.createElement('button');
+                upButton.type = 'button';
+                upButton.className = 'exercise-reorder-btn';
+                upButton.textContent = '↑';
+                upButton.title = 'Move up';
+                upButton.disabled = index === 0;
+                upButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    moveExercise(index, -1);
+                });
+
+                const downButton = document.createElement('button');
+                downButton.type = 'button';
+                downButton.className = 'exercise-reorder-btn';
+                downButton.textContent = '↓';
+                downButton.title = 'Move down';
+                downButton.disabled = index === exercises.length - 1;
+                downButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    moveExercise(index, 1);
+                });
+
+                reorderContainer.appendChild(upButton);
+                reorderContainer.appendChild(downButton);
                 buttonContainer.appendChild(deleteButton);
+                buttonContainer.appendChild(reorderContainer);
                 exerciseElement.appendChild(buttonContainer);
                 
                 exerciseElement.addEventListener('click', () => {
@@ -135,6 +223,7 @@
             const amrap = document.getElementById('amrap').checked;
             const rpe = document.getElementById('rpe').value ? parseInt(document.getElementById('rpe').value) : null;
             const restTime = parseInt(document.getElementById('restTime').value) || 90;
+            const restTimeUnit = document.getElementById('rest-time-unit').value;
 
             // Calculate training max if 1RM is provided
             const trainingMax = oneRepMax ? WorkoutUtils.calculateTrainingMax(oneRepMax, trainingMaxPercent) : null;
@@ -169,7 +258,8 @@
                 category,
                 amrap,
                 rpe,
-                restTime
+                restTime,
+                restTimeUnit
             };
 
             exercises.push(newExercise);
@@ -183,41 +273,44 @@
             }
 
             displayExercises();
-            clearForm();
+            closeExerciseDialog();
         }
 
         function clearForm() {
+            resetFormButtons();
+
             // Basic fields
             document.getElementById('exercise-name').value = '';
             document.getElementById('sets').value = '3';
             document.getElementById('reps').value = '';
             document.getElementById('weight').value = '';
             document.getElementById('time').value = '';
+            document.getElementById('weight-unit').value = 'lbs';
+            document.getElementById('time-unit').value = 'sec';
             
             // Advanced fields
             document.getElementById('oneRepMax').value = '';
             document.getElementById('trainingMaxPercent').value = '90';
             document.getElementById('progressionEnabled').checked = false;
             document.getElementById('progressionIncrement').value = '5';
+            document.getElementById('progression-increment-unit').value = 'lbs';
             document.getElementById('category').value = 'accessory';
             document.getElementById('amrap').checked = false;
             document.getElementById('rpe').value = '';
             document.getElementById('restTime').value = '90';
-            
-            // Advanced section handling removed - no styling
-            
-            // Reset buttons to ADD mode
+            document.getElementById('rest-time-unit').value = 'sec';
+        }
+
+        function resetFormButtons() {
             const addButton = document.getElementById('add-button');
             const updateButton = document.getElementById('update-button');
             const addCopyButton = document.getElementById('add-copy-button');
             const cancelButton = document.getElementById('cancel-button');
-            
+
             addButton.style.display = 'block';
             updateButton.style.display = 'none';
             addCopyButton.style.display = 'none';
             cancelButton.style.display = 'none';
-
-            // Highlight removal removed - no styling
         }
 
         function editExercise(index) {
@@ -234,6 +327,7 @@
             document.getElementById('time').value = exercise.time || '';
             document.getElementById('weight-unit').value = exercise.weightUnit || 'lbs';
             document.getElementById('time-unit').value = exercise.timeUnit || 'sec';
+            document.getElementById('progression-increment-unit').value = exercise.weightUnit || 'lbs';
             
             // Fill advanced fields
             document.getElementById('oneRepMax').value = exercise.oneRepMax || '';
@@ -244,6 +338,7 @@
             document.getElementById('amrap').checked = exercise.amrap || false;
             document.getElementById('rpe').value = exercise.rpe || '';
             document.getElementById('restTime').value = exercise.restTime || 90;
+            document.getElementById('rest-time-unit').value = exercise.restTimeUnit || 'sec';
             
             // Advanced section display removed - no styling
             
@@ -268,10 +363,10 @@
             };
 
             cancelButton.onclick = function() {
-                clearForm();
+                closeExerciseDialog();
             };
-            
-            // Scroll functionality removed - no styling
+
+            openExerciseDialog('edit');
         }
         
         function updateExercise(index) {
@@ -297,6 +392,7 @@
             const amrap = document.getElementById('amrap').checked;
             const rpe = document.getElementById('rpe').value ? parseInt(document.getElementById('rpe').value) : null;
             const restTime = parseInt(document.getElementById('restTime').value) || 90;
+            const restTimeUnit = document.getElementById('rest-time-unit').value;
 
             const trainingMax = oneRepMax ? WorkoutUtils.calculateTrainingMax(oneRepMax, trainingMaxPercent) : null;
             
@@ -333,7 +429,8 @@
                 category,
                 amrap,
                 rpe,
-                restTime
+                restTime,
+                restTimeUnit
             };
             
             routine.exercises = exercises;
@@ -347,6 +444,7 @@
             
             clearForm();
             displayExercises();
+            closeExerciseDialog();
         }
 
         // Clear old format data and ensure clean new format
@@ -379,9 +477,32 @@
         window.onload = function() {
             clearOldFormatData();
             displayExercises();
-            // Initialize the cancel button to be hidden
+
+            document.getElementById('open-exercise-dialog-btn').addEventListener('click', function() {
+                openExerciseDialog('add');
+            });
+            document.getElementById('close-exercise-dialog').addEventListener('click', closeExerciseDialog);
+            document.getElementById('add-button').addEventListener('click', addExercise);
             document.getElementById('cancel-button').style.display = 'none';
-            
+            document.getElementById('weight-unit').addEventListener('change', function() {
+                syncWeightUnits('weight-unit');
+            });
+            document.getElementById('progression-increment-unit').addEventListener('change', function() {
+                syncWeightUnits('progression-increment-unit');
+            });
+
+            exerciseDialog.addEventListener('click', function(e) {
+                if (e.target === exerciseDialog) {
+                    closeExerciseDialog();
+                }
+            });
+
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && !exerciseDialog.hidden) {
+                    closeExerciseDialog();
+                }
+            });
+
             // Initialize advanced section as collapsed
             const advancedContent = document.getElementById('advanced-section').querySelector('div');
             advancedContent.classList.remove('expanded');

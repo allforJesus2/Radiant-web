@@ -18,8 +18,28 @@
         <div class="blur-overlay" id="blurOverlay"></div>
         <div id="customWorkoutNav"></div>
         <div class="workout-page-panel">
-            <h2 class="page-subtitle" id="routine-name"></h2>
+            <div class="routine-editor-header">
+                <h2 class="page-subtitle" id="routine-name"></h2>
+                <a href="workout-routine.html" class="predefined-button">Back to All Routines</a>
+            </div>
 
+            <ul id="exercise-list">
+                <!-- Exercises will be listed here -->
+            </ul>
+
+            <div class="add-exercise-trigger-row">
+                <button type="button" id="open-exercise-dialog-btn">ADD EXERCISE</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="exercise-dialog" class="exercise-dialog" hidden>
+        <div class="exercise-dialog-content" role="dialog" aria-modal="true" aria-labelledby="exercise-dialog-title">
+            <div class="exercise-dialog-header">
+                <h3 id="exercise-dialog-title">Add Exercise</h3>
+                <button type="button" id="close-exercise-dialog" class="exercise-dialog-close" aria-label="Close">&times;</button>
+            </div>
+            <div class="exercise-dialog-body">
             <div class="workout-explanation">
                 <div class="explanation-header" onclick="toggleInfo(this)">
                     <h3>Workout Guidelines <span id="toggleIcon">▼</span></h3>
@@ -31,8 +51,8 @@
             </div>
 
             <div id="workout-input">
-                <div>
-                    <span>🔤</span>
+                <div class="workout-input-row workout-input-row--name">
+                    <span class="input-emoji" aria-hidden="true">🔤</span>
                     <input type="text" id="exercise-name" list="exercise-suggestions" placeholder="Enter exercise name">
                     <datalist id="exercise-suggestions">
                         <option value="Bench Press">
@@ -61,57 +81,62 @@
                         <option value="Mountain Climbers">
                     </datalist>
                 </div>
-                <div>
-                    <span>🔢</span>
+                <div class="workout-input-row workout-input-row--sets-reps">
+                    <span class="input-emoji" aria-hidden="true">🔢</span>
                     <input type="number" id="sets" placeholder="Sets" value="3" min="1">
-                    <span>🔁</span>
+                    <span class="input-emoji" aria-hidden="true">🔁</span>
                     <input type="number" id="reps" placeholder="Reps">
                 </div>
-                <div>
-                    <span>💪</span>
+                <div class="workout-input-row workout-input-row--weight">
+                    <span class="input-emoji" aria-hidden="true">💪</span>
                     <input type="number" id="weight" placeholder="Weight">
                     <select id="weight-unit">
                         <option value="lbs">lbs</option>
                         <option value="kg">kg</option>
                     </select>
                 </div>
-                <div>
-                    <span>⏱️</span>
+                <div class="workout-input-row workout-input-row--time">
+                    <span class="input-emoji" aria-hidden="true">⏱️</span>
                     <input type="number" id="time" placeholder="Time">
                     <select id="time-unit">
                         <option value="sec">sec</option>
                         <option value="min">min</option>
                     </select>
                 </div>
-
-                <div class="workout-input-actions">
-                    <button id="add-button" onclick="addExercise()">ADD EXERCISE</button>
-                    <button id="update-button" style="display: none;">UPDATE</button>
-                    <button id="add-copy-button" style="display: none;">ADD COPY</button>
-                    <button id="cancel-button" style="display: none;">CANCEL</button>
+                <div class="workout-input-row workout-input-row--rest">
+                    <span class="input-emoji" aria-hidden="true">⏸️</span>
+                    <input type="number" id="restTime" placeholder="Rest time" value="90" min="0">
+                    <select id="rest-time-unit" aria-label="Rest time unit">
+                        <option value="sec">sec</option>
+                        <option value="min">min</option>
+                    </select>
                 </div>
             </div>
 
             <div id="advanced-section">
                 <h4 onclick="toggleAdvanced()">Advanced Settings <span id="advanced-toggle-icon">▼</span></h4>
-                <div>
-                    <div>
-                        <label for="oneRepMax">1RM:</label>
+                <div class="advanced-fields">
+                    <div class="advanced-field-row">
+                        <label for="oneRepMax">1 Rep Max:</label>
                         <input type="number" id="oneRepMax" placeholder="optional">
                     </div>
-                    <div>
-                        <label for="trainingMaxPercent">TM %:</label>
+                    <div class="advanced-field-row">
+                        <label for="trainingMaxPercent">Training Max %:</label>
                         <input type="number" id="trainingMaxPercent" placeholder="90" value="90">
                     </div>
-                    <div>
+                    <div class="advanced-field-row advanced-field-row--checkbox">
                         <input type="checkbox" id="progressionEnabled">
                         <label for="progressionEnabled">Enable Progression</label>
                     </div>
-                    <div>
-                        <label for="progressionIncrement">Increment:</label>
-                        <input type="number" id="progressionIncrement" placeholder="lbs" value="5">
+                    <div class="advanced-field-row advanced-field-row--increment">
+                        <label for="progressionIncrement">Increase per cycle:</label>
+                        <input type="number" id="progressionIncrement" placeholder="e.g. 5" value="5">
+                        <select id="progression-increment-unit" aria-label="Increase unit">
+                            <option value="lbs">lbs</option>
+                            <option value="kg">kg</option>
+                        </select>
                     </div>
-                    <div>
+                    <div class="advanced-field-row">
                         <label for="category">Category:</label>
                         <select id="category">
                             <option value="compound">Compound</option>
@@ -120,24 +145,24 @@
                             <option value="core">Core</option>
                         </select>
                     </div>
-                    <div>
+                    <div class="advanced-field-row advanced-field-row--checkbox">
                         <input type="checkbox" id="amrap">
-                        <label for="amrap">AMRAP Set</label>
+                        <label for="amrap">As Many Reps As Possible (AMRAP) Set</label>
                     </div>
-                    <div>
-                        <label for="rpe">Rate of Perceived Exertion: <span id="rpe-value">5</span></label>
+                    <div class="advanced-field-row advanced-field-row--rpe">
+                        <label for="rpe">Rate of Perceived Effort (RPE): <span id="rpe-value">5</span></label>
                         <input type="range" id="rpe" min="1" max="10" value="5" step="1">
-                    </div>
-                    <div>
-                        <label for="restTime">Rest Time:</label>
-                        <input type="number" id="restTime" placeholder="seconds" value="90">
                     </div>
                 </div>
             </div>
 
-            <ul id="exercise-list">
-                <!-- Exercises will be listed here -->
-            </ul>
+            <div class="workout-input-actions">
+                <button type="button" id="add-button">ADD EXERCISE</button>
+                <button type="button" id="update-button" style="display: none;">UPDATE</button>
+                <button type="button" id="add-copy-button" style="display: none;">ADD COPY</button>
+                <button type="button" id="cancel-button" style="display: none;">CANCEL</button>
+            </div>
+            </div>
         </div>
     </div>
     <script src="../../js/workout/edit-workout-routine.js"></script>

@@ -83,6 +83,7 @@ const FILES_TO_CACHE = [
   'js/workout/workout-item-render.js',
   'js/workout/rest-timer.js',
   'js/workout/edit-workout-routine.js',
+  'js/workout/workout-routine.js',
   'workout/custom-workout/workout.html',
   'workout/custom-workout/workout-routine.html',
   'workout/custom-workout/edit-workout-routine.html',

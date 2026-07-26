@@ -1,6 +1,18 @@
 /**
  * Shared workout item HTML rendering (531-style markup).
  */
+function restTimeToSeconds(restTime, restTimeUnit) {
+    const value = parseInt(restTime, 10) || 0;
+    return restTimeUnit === 'min' ? value * 60 : value;
+}
+
+function formatRestLabel(restTime, restTimeUnit) {
+    if (restTimeUnit === 'min') {
+        return `${restTime} min rest`;
+    }
+    return `${restTime} sec rest`;
+}
+
 function renderWorkoutItem(timerType, timerId, label, detail, options) {
     options = options || {};
     const classes = ['workout-item'];
@@ -56,7 +68,9 @@ function renderCustomExercise(exercise, exerciseIndex, dayKey) {
     const reps = exercise.reps || '-';
     const weightUnit = exercise.weightUnit || 'lbs';
     const weight = exercise.weight;
-    const restSeconds = exercise.restTime || 90;
+    const restTimeUnit = exercise.restTimeUnit || 'sec';
+    const restSeconds = restTimeToSeconds(exercise.restTime || 90, restTimeUnit);
+    const restLabel = formatRestLabel(exercise.restTime || 90, restTimeUnit);
     const time = exercise.time;
     const timeUnit = exercise.timeUnit || 'sec';
     const isTimeBased = time && !weight && !reps;
@@ -87,7 +101,7 @@ function renderCustomExercise(exercise, exerciseIndex, dayKey) {
                 setDetail: {
                     reps: reps,
                     weight: weightLabel,
-                    meta: `${restSeconds}s rest`,
+                    meta: restLabel,
                     amrap: exercise.amrap,
                     restSeconds: restSeconds
                 }

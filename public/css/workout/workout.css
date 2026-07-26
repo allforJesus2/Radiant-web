@@ -70,9 +70,90 @@
 }
 
 /* Schedule Toggle */
+.schedule-configuration {
+    margin-bottom: 1.5rem;
+}
+
+.schedule-configuration-content.expanded {
+    padding: 16px 20px 20px;
+}
+
+.schedule-configuration .explanation-content.expanded {
+    max-height: none;
+    overflow: visible;
+    padding: 16px 20px 20px;
+}
+
+.schedule-configuration-content .week-structure-settings {
+    background: transparent;
+    padding: 0;
+    margin-bottom: 1rem;
+    border: none;
+    border-radius: 0;
+}
+
+.schedule-configuration-content .week-structure-header {
+    margin-bottom: 0;
+}
+
+.schedule-configuration-content .schedule-toggle {
+    margin-bottom: 1rem;
+}
+
+.schedule-configuration-content .schedule-section {
+    display: none;
+}
+
+.schedule-configuration-content .schedule-section.active {
+    display: block;
+}
+
+.schedule-about {
+    margin-bottom: 1rem;
+    padding: 12px 14px;
+    background-color: var(--paper);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius);
+}
+
+.schedule-about h4 {
+    margin: 0 0 0.5rem;
+    color: var(--pencil-dark);
+    font-size: 1.2rem;
+}
+
+.schedule-about p {
+    margin: 0 0 0.5rem;
+    line-height: 1.5;
+    color: var(--ink);
+}
+
+.schedule-about ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--ink);
+}
+
+.schedule-about li {
+    margin-bottom: 0.25rem;
+    line-height: 1.4;
+}
+
+.schedule-configuration-content .cycle-settings {
+    margin-bottom: 0;
+    padding: 12px 14px;
+}
+
+.schedule-configuration-content .cycle-settings h4 {
+    margin-top: 0;
+    margin-bottom: 12px;
+    color: var(--pencil-dark);
+    font-size: 1.2rem;
+}
+
 .schedule-toggle {
     display: flex;
-    margin-bottom: 30px;
+    margin-bottom: 0;
     background-color: var(--paper-shadow);
     border: 2px solid var(--border-color);
     border-radius: var(--radius);
@@ -136,16 +217,7 @@
 
 /* Week structure settings */
 .week-structure-settings {
-    background-color: var(--paper-shadow);
-    padding: 20px;
-    border-radius: var(--radius);
-    margin-bottom: 20px;
-    border-left: 4px solid var(--pencil-dark);
-}
-
-.week-structure-settings h3 {
-    margin-top: 0;
-    margin-bottom: 15px;
+    margin-bottom: 0;
 }
 
 .week-structure-header {
@@ -182,20 +254,51 @@
 
 .week-label-inputs {
     grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-    gap: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
     margin-top: 5px;
 }
 
-.week-label-input {
+.week-label-row {
     display: flex;
-    flex-direction: column;
-    gap: 5px;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+.week-label-row label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    margin-bottom: 0;
+}
+
+.week-label-row input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.week-config-panel {
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+}
+
+#weekConfigTabs[hidden],
+#weekConfigActions[hidden],
+#weekStructureOptions[hidden] {
+    display: none !important;
+}
+
+.week-tab-panel {
+    background-color: var(--paper-shadow);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: 8px;
 }
 
 .week-config-actions {
-    grid-column: 1 / -1;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -224,18 +327,108 @@
     display: block;
 }
 
-/* Info Boxes */
-.info-box {
+.workout-explanation {
+    margin: 0 0 1.5rem;
     background-color: var(--paper-shadow);
-    padding: 15px;
+    border: 1px dashed var(--border-color);
     border-radius: var(--radius);
-    border-left: 4px solid var(--pencil);
-    margin-bottom: 20px;
+    text-align: left;
+    overflow: hidden;
 }
 
-.info-box h4 {
+.explanation-header {
+    padding: 15px 20px;
+    cursor: pointer;
+    background-color: var(--button);
+    transition: background-color 0.2s ease;
+}
+
+.explanation-header:hover {
+    background-color: var(--highlight);
+}
+
+.explanation-header h3 {
+    margin: 0;
     color: var(--pencil-dark);
-    margin-top: 0;
+    font-size: 1.35rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toggle-icon {
+    font-size: 0.8em;
+    transition: transform 0.3s ease;
+}
+
+.explanation-content {
+    padding: 0 20px;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.explanation-content.expanded {
+    padding: 20px;
+    max-height: 300px;
+}
+
+.explanation-content p {
+    margin: 0 0 15px 0;
+    line-height: 1.6;
+    color: var(--ink);
+}
+
+.explanation-content ul {
+    margin: 0;
+    padding-left: 1.25rem;
+    color: var(--ink);
+}
+
+.explanation-content li {
+    margin-bottom: 0.35rem;
+    line-height: 1.5;
+}
+
+.explanation-content p:last-child,
+.explanation-content li:last-child {
+    margin-bottom: 0;
+}
+
+#cycleForm,
+#workoutForm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+}
+
+#cycleForm[hidden],
+#workoutForm[hidden] {
+    display: none;
+}
+
+.schedule-day-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap;
+    min-width: 0;
+}
+
+.schedule-day-row label {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    margin-bottom: 0;
+    min-width: 5.5rem;
+    text-align: left;
+    padding: 0;
+}
+
+.schedule-day-row select {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px;
 }
 
 .info-section {
@@ -412,11 +605,20 @@
 
 .predefined-button {
     width: auto;
-    margin-top: 10px;
-    margin-bottom: 20px;
     background-color: var(--pencil-dark);
     border-color: var(--ink);
     box-shadow: 2px 2px 0 var(--ink);
+}
+
+.routine-templates-footer {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    margin-top: 10px;
+}
+
+.routine-templates-footer .profile-message {
+    text-align: right;
 }
 
 /* Workout Display */
@@ -513,22 +715,6 @@
 #currentDay,
 #routineName {
     color: var(--pencil-dark);
-}
-
-#workoutForm {
-    display: grid;
-    grid-template-columns: 100px 1fr;
-    gap: 10px;
-    margin-bottom: 20px;
-}
-
-#workoutForm label {
-    text-align: right;
-    padding: 8px 0;
-}
-
-#workoutForm select {
-    padding: 8px;
 }
 
 .delete-button {
