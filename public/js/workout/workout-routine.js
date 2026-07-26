@@ -26,19 +26,22 @@ function addPredefinedRoutines() {
 
     // Get user profile data
     const profileData = RadiantStorage.profile.get();
-    if (!profileData || !profileData.weight || !profileData.gender || !profileData.bodyFatPercent) {
-        alert('Please complete your profile with weight, gender, and body fat percentage before adding predefined routines.');
-        window.location.href = '../../profile.html';
-        return;
-    }
+    const hasCompleteProfile = profileData
+        && profileData.weight
+        && profileData.gender
+        && profileData.bodyFatPercent;
 
     // Get user's preferred weight unit
-    const userWeightUnit = profileData.weightUnit || 'lbs';
+    const userWeightUnit = (profileData && profileData.weightUnit) || 'lbs';
 
     const routines = WorkoutUtils.getRoutines();
 
     // Calculate appropriate weights based on user profile
     const calculateWeight = (baseWeight, exerciseType) => {
+        if (!hasCompleteProfile) {
+            return baseWeight;
+        }
+
         // Convert weight to pounds if stored in kg
         let userWeightLbs = userWeightUnit === 'kg'
             ? profileData.weight * 2.20462  // Convert kg to lbs
@@ -161,7 +164,7 @@ function addPredefinedRoutines() {
 
     WorkoutUtils.saveRoutines(routines);
     displayRoutines();
-    alert('Predefined workout routines have been added with weights calculated based on your profile!');
+    alert('Predefined workout routines have been added.');
 }
 
 // Function to display workout routines
@@ -226,29 +229,8 @@ function deleteRoutine(routineName) {
     }
 }
 
-// Function to check if user has a complete profile
-function checkUserProfile() {
-    const profileData = RadiantStorage.profile.get();
-    const addPredefinedBtn = document.getElementById('addPredefinedBtn');
-
-    if (!profileData || !profileData.weight || !profileData.gender || !profileData.bodyFatPercent) {
-        // Add a message above the button
-        const messageDiv = document.createElement('div');
-        messageDiv.id = 'profile-message';
-        messageDiv.className = 'profile-message';
-        messageDiv.innerHTML = 'Complete your <a href="../../profile.html">profile</a> to get personalized workout weights.';
-
-        // Insert the message before the button
-        addPredefinedBtn.parentNode.insertBefore(messageDiv, addPredefinedBtn);
-
-        // Add a tooltip to the button
-        addPredefinedBtn.title = 'Complete your profile first to get personalized weights';
-    }
-}
-
 // Display routines on page load
 window.onload = function() {
     displayRoutines();
     document.getElementById('addPredefinedBtn').addEventListener('click', addPredefinedRoutines);
-    checkUserProfile();
 };

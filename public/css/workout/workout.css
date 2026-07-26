@@ -78,6 +78,13 @@
     padding: 16px 20px 20px;
 }
 
+.schedule-input-hint {
+    margin: 0 0 1rem;
+    font-size: 1.1em;
+    color: var(--ink-light);
+    font-style: italic;
+}
+
 .schedule-configuration .explanation-content.expanded {
     max-height: none;
     overflow: visible;
