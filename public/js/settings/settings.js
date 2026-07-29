@@ -113,7 +113,12 @@
             if (fdcBrandedBtn) fdcBrandedBtn.addEventListener('click', async function() {
                 if (
                     !confirm(
-                        'This downloads a large branded dataset for offline barcodes. Use Wi‑Fi when possible. Continue?'
+                        'Import offline branded barcodes?\n\n' +
+                            '• Downloads a very large dataset (roughly 200MB+); use Wi‑Fi.\n' +
+                            '• Import may take several minutes; keep this tab open.\n' +
+                            '• Food search may become slower after import (large local database).\n' +
+                            '• You can clear USDA data later to remove it.\n\n' +
+                            'Continue?'
                     )
                 ) {
                     return;
@@ -122,9 +127,16 @@
                 busy.style.display = 'block';
                 try {
                     await importBrandedFoods(function (d, t) {
-                        busy.textContent = 'Branded: ' + d + ' / ' + (t || '?');
+                        busy.textContent =
+                            'Branded import in progress — search may be slow until this finishes. ' +
+                            d +
+                            ' / ' +
+                            (t || '?');
                     });
-                    alert('Branded import finished.');
+                    alert(
+                        'Branded import finished. Offline barcode lookup is now available. ' +
+                            'Food search may feel slower than before because of the larger database.'
+                    );
                 } catch (e) {
                     alert('Branded import failed: ' + (e && e.message));
                 }

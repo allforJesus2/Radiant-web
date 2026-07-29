@@ -1,8 +1,40 @@
 #!/usr/bin/env node
 /**
- * USDA FDC preprocessor — SR Legacy + Foundation supplement + optional Branded.
- * Default: fdc_nutrient_defs.json + fdc_sr_legacy.ndjson + fdc_foundation_supplement.ndjson
- * With --branded: also fdc_branded_manifest.json + fdc_branded_chunk_NNN.ndjson
+ * USDA FoodData Central (FDC) preprocessor — build-time only.
+ *
+ * Reads large USDA CSV dumps from fdc-source/ (gitignored; download from
+ * https://fdc.nal.usda.gov/download-datasets/) and writes compact NDJSON/JSON
+ * into public/assets/processed/ for the browser to import via fdc-import.js.
+ *
+ * Default outputs (npm run preprocess):
+ *   fdc_nutrient_defs.json       — nutrient id → name/unit for detail UI
+ *   fdc_sr_legacy.ndjson         — ~7.8k SR Legacy foods (source: sr_legacy)
+ *   fdc_foundation_supplement.ndjson — Foundation foods not already in SR (NDB dedup)
+ *   fdc_core_manifest.json       — row counts + core_food_version for import gating
+ *
+ * Optional branded build (npm run preprocess:branded — NOT part of npm run deploy):
+ *   fdc_branded_manifest.json + fdc_branded_chunk_NNN.ndjson
+ *
+ * Branded is a separate, opt-in user import in Settings (fdc-import.js).
+ * Normal deploy only ships core foods (~8k rows). Branded is millions of rows
+ * (~hundreds of MB on disk); users download it only if they click
+ * "Import branded / offline barcodes". It is stored in IndexedDB, not the
+ * service worker cache (service-worker.js bypasses assets/processed/).
+ *
+ * Only run preprocess:branded if you intend to host the chunk files and want
+ * the Settings import button to succeed in production.
+ *
+ * Nutrient keys and portion heuristics are shared with the app:
+ *   public/js/food/usda-id-to-key.js, scripts/portion-select.js
+ *
+ * Acronyms (USDA):
+ *   FDC — FoodData Central (USDA's unified food/nutrient database)
+ *   NDB — Nutrient Database number; legacy 4–5 digit id from the old National
+ *         Nutrient Database. Still present on SR Legacy and Foundation rows so
+ *         the same staple (e.g. "apple, raw") can be matched across datasets.
+ *   FDP — Food Distribution Program; USDA commodity foods sometimes append
+ *         "(includes foods for USDA's food distribution program)" to the name.
+ *         We strip that suffix for cleaner search/display (see stripFdcUsdaFdpSuffix).
  */
 'use strict';
 
@@ -16,10 +48,13 @@ const FDC_SOURCE = path.join(ROOT, 'fdc-source');
 const OUT = path.join(ASSETS, 'processed');
 const SR_DIR = path.join(FDC_SOURCE, 'FoodData_Central_sr_legacy_food_csv_2018-04');
 const BR_DIR = path.join(FDC_SOURCE, 'FoodData_Central_branded_food_csv_2025-12-18');
+// Preferred Foundation folder name; resolveFoundationDir() falls back to any
+// FoodData_Central_foundation_food_csv_* under fdc-source/ (e.g. symlink).
 const FOUNDATION_DIR = path.join(
   FDC_SOURCE,
   'FoodData_Central_foundation_food_csv_2025-12-18'
 );
+/** Must stay in sync with CORE_FOOD_DATA_VERSION in public/js/food/fdc-import.js */
 const CORE_FOOD_DATA_VERSION = 2;
 const USDA_ID_TO_KEY = require(path.join(ROOT, 'public', 'js', 'food', 'usda-id-to-key.js'));
 const { pickBestPortion } = require('./portion-select');
@@ -27,9 +62,15 @@ const { pickBestPortion } = require('./portion-select');
 const WANT_IDS = new Set(Object.keys(USDA_ID_TO_KEY));
 const ID_TO_KEY = USDA_ID_TO_KEY;
 
+/**
+ * Branded output is split into multiple NDJSON files of this many foods each.
+ * 50_000 keeps each chunk ~tens of MB so the browser can fetch/import one file
+ * at a time without holding the full ~millions-row branded corpus in memory.
+ */
 const CHUNK_ROWS = 50000;
 const NUTRIENT_DEFS_VERSION = 1;
 
+/** Minimal RFC-style CSV parser (USDA files quote fields with embedded commas). */
 function parseCsvLine(line) {
   const out = [];
   let cur = '';
@@ -54,10 +95,11 @@ function ensureOutDir() {
   if (!fs.existsSync(OUT)) fs.mkdirSync(OUT, { recursive: true });
 }
 
-/** Match `database-utils.js` — SR Legacy FDP parenthetical on some descriptions. */
+/** FDP (Food Distribution Program) boilerplate USDA adds to some commodity names. */
 const USDA_FDP_NAME_SUFFIX =
   /\s*\(includes foods for usda['\u2019]s food distribution program\)\s*$/i;
 
+/** Remove FDP parenthetical; mirrors database-utils.js for consistent display names. */
 function stripFdcUsdaFdpSuffix(name) {
   if (name == null || name === '') return name;
   return String(name).replace(USDA_FDP_NAME_SUFFIX, '').trim();
@@ -105,6 +147,12 @@ function resolveFoundationDir() {
   return path.join(FDC_SOURCE, entries[entries.length - 1]);
 }
 
+/**
+ * Load all NDB (Nutrient Database) numbers from SR Legacy.
+ * NDB is the shared legacy key: if Foundation food X has the same NDB as an
+ * SR Legacy row, they are the same staple — we skip X in the foundation supplement
+ * so search does not list duplicates.
+ */
 async function loadSrLegacyNdbSet() {
   const ndbPath = path.join(SR_DIR, 'sr_legacy_food.csv');
   if (!fs.existsSync(ndbPath)) {
@@ -120,6 +168,10 @@ async function loadSrLegacyNdbSet() {
   return ndbs;
 }
 
+/**
+ * Shared SR Legacy / Foundation pipeline: CSV tables → one NDJSON line per food.
+ * Output shape matches fdcStore records (nutrients per 100g, serving_weight in grams).
+ */
 async function buildFoodNdjsonFromDir({
   dir,
   dataType,
@@ -177,9 +229,11 @@ async function buildFoodNdjsonFromDir({
   const nutrientByFdc = new Map();
   for (const id of foods.keys()) nutrientByFdc.set(id, {});
 
+  // food_nutrient.csv is the largest file — stream line-by-line, keep only WANT_IDS
   let nutLines = 0;
   for await (const line of streamCsvLines(nutPath)) {
     nutLines++;
+    // Progress heartbeat only (SR Legacy file is smaller than branded's).
     if (nutLines % 200000 === 0) console.log('  food_nutrient…', nutLines);
     const c = parseCsvLine(line);
     if (c.length < 4) continue;
@@ -230,6 +284,7 @@ async function buildFoodNdjsonFromDir({
   return count;
 }
 
+/** Stream CSV rows without loading whole files into memory (food_nutrient is GB-scale for branded). */
 async function* streamCsvLines(filePath) {
   const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
   const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
@@ -256,6 +311,10 @@ async function buildSrLegacy() {
   return count;
 }
 
+/**
+ * Additive Foundation Foods only: skip any Foundation row whose NDB already
+ * exists in SR Legacy so autocomplete does not show duplicate staples.
+ */
 async function buildFoundationSupplement(srNdbSet) {
   const foundationDir = resolveFoundationDir();
   if (!foundationDir) {
@@ -292,6 +351,7 @@ async function buildFoundationSupplement(srNdbSet) {
   return count;
 }
 
+/** Imported by fdc-import.js to decide when to run foundation supplement upgrade. */
 function writeCoreManifest(srLegacyCount, foundationSupplementCount) {
   ensureOutDir();
   const manifest = {
@@ -305,6 +365,12 @@ function writeCoreManifest(srLegacyCount, foundationSupplementCount) {
   console.log('Wrote', outPath);
 }
 
+/**
+ * Optional offline barcode corpus (~millions of UPC rows).
+ * Long-running: reads multi-GB branded CSVs from fdc-source/.
+ * Output is chunked (CHUNK_ROWS) for browser streaming import.
+ * Not included in default preprocess or deploy — users opt in via Settings.
+ */
 async function buildBranded() {
   const bfPath = path.join(BR_DIR, 'branded_food.csv');
   const foodPath = path.join(BR_DIR, 'food.csv');
@@ -348,6 +414,8 @@ async function buildBranded() {
   let nutLines = 0;
   for await (const line of streamCsvLines(nutPath)) {
     nutLines++;
+    // Branded food_nutrient.csv has tens of millions of rows — log every 3M lines
+    // so a long preprocess run shows steady progress (not a silent hang).
     if (nutLines % 3000000 === 0) console.log('  food_nutrient…', nutLines);
     const c = parseCsvLine(line);
     if (c.length < 4) continue;
@@ -398,6 +466,7 @@ async function buildBranded() {
     };
     chunkRows.push(JSON.stringify(row) + '\n');
     totalRows++;
+    // When a chunk reaches CHUNK_ROWS (50_000), write fdc_branded_chunk_NNN.ndjson.
     if (chunkRows.length >= CHUNK_ROWS) flushChunk();
   }
   flushChunk();
@@ -423,6 +492,10 @@ async function main() {
   writeCoreManifest(srLegacyCount, foundationSupplementCount);
 
   if (withBranded) {
+    console.log(
+      'NOTE: Branded output is optional. Users import it manually in Settings; ' +
+        'it is large and slows food search after import. Not cached by the service worker.'
+    );
     if (!fs.existsSync(BR_DIR)) throw new Error('Branded folder missing: ' + BR_DIR);
     await buildBranded();
   }
