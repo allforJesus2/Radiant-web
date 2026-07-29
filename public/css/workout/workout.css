@@ -85,6 +85,15 @@
     font-style: italic;
 }
 
+.schedule-empty-message {
+    margin: 0 0 1rem;
+    padding: 12px 14px;
+    background-color: var(--paper);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius);
+    color: var(--ink);
+}
+
 .schedule-configuration .explanation-content.expanded {
     max-height: none;
     overflow: visible;
