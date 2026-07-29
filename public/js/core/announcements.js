@@ -7,6 +7,19 @@
 var RadiantAnnouncements = (function () {
   var REGISTRY = [
     {
+      id: 'foundation-supplement-v2',
+      pages: ['index', 'nutrition'],
+      when: function () {
+        if (typeof RadiantStorage === 'undefined') return false;
+        return (
+          RadiantStorage.getRaw(RadiantStorage.KEYS.FOUNDATION_SUPPLEMENT_READY) === 'true'
+        );
+      },
+      message:
+        'The offline food database now includes additional USDA Foundation Foods not in SR Legacy. ' +
+        'Reload the nutrition page if search looks stale.',
+    },
+    {
       id: 'sr-legacy-portions-v1',
       pages: ['index'],
       when: function () {

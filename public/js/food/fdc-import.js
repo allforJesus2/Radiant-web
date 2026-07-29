@@ -1,42 +1,18 @@
 /**
- * SR Legacy auto-import + optional branded chunk import (Settings only).
+ * SR Legacy auto-import + Foundation supplement + optional branded chunk import.
  */
+const CORE_FOOD_DATA_VERSION = 2;
+
 function syncSrLegacyImportFlag() {
   if (typeof RadiantStorage !== 'undefined') {
     RadiantStorage.nutrition.markSrLegacyImported(null);
   }
 }
 
-async function importSrLegacy(onProgress, opts) {
-  const force = opts && opts.force;
-  await getDB();
-  await ensureNutrientDefsLoaded();
-
-  if (!force) {
-    const meta = await getFdcMeta();
-    const n = await countStore('fdcStore');
-    if (meta.importComplete && n > 500) {
-      syncSrLegacyImportFlag();
-      return;
-    }
-  } else {
-    const db = await getDB();
-    await new Promise((resolve, reject) => {
-      const tx = db.transaction(['fdcStore'], 'readwrite');
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-      tx.objectStore('fdcStore').clear();
-    });
-    nutritionCache.clear();
-    await mergeFdcMeta({
-      importComplete: false,
-      srLegacyCount: 0,
-    });
-  }
-
-  const res = await fetch('assets/processed/fdc_sr_legacy.ndjson');
+async function importNdjsonFile(url, onProgress) {
+  const res = await fetch(url);
   if (!res.ok) {
-    throw new Error('SR Legacy data not found (fdc_sr_legacy.ndjson).');
+    throw new Error('Food data not found (' + url + ').');
   }
   const text = await res.text();
   const lines = text.split(/\n/).filter((l) => l.trim());
@@ -65,6 +41,34 @@ async function importSrLegacy(onProgress, opts) {
   if (typeof onProgress === 'function') {
     onProgress(total, total);
   }
+  return total;
+}
+
+async function importSrLegacy(onProgress, opts) {
+  const force = opts && opts.force;
+  await getDB();
+  await ensureNutrientDefsLoaded();
+
+  if (!force) {
+    const meta = await getFdcMeta();
+    const n = await countStore('fdcStore');
+    if (meta.importComplete && n > 500) {
+      syncSrLegacyImportFlag();
+      return;
+    }
+  } else {
+    await deleteFoodsBySources(['sr_legacy']);
+    nutritionCache.clear();
+    await mergeFdcMeta({
+      importComplete: false,
+      srLegacyCount: 0,
+    });
+  }
+
+  const total = await importNdjsonFile(
+    'assets/processed/fdc_sr_legacy.ndjson',
+    onProgress
+  );
 
   await mergeFdcMeta({
     importComplete: true,
@@ -74,8 +78,41 @@ async function importSrLegacy(onProgress, opts) {
   if (typeof RadiantStorage !== 'undefined') {
     RadiantStorage.nutrition.markSrLegacyImported(RadiantStorage.SR_LEGACY_PORTION_VERSION);
   }
-  // Autocomplete cache: nutrition/create-recipe call initializeFoodList;
-  // settings SR re-import calls loadFoodNamesAndCache explicitly after import.
+}
+
+async function importFoundationSupplement(onProgress, opts) {
+  const force = opts && opts.force;
+  await getDB();
+  await ensureNutrientDefsLoaded();
+
+  const meta = await getFdcMeta();
+  const coreVersion = meta.core_food_version || 0;
+  if (!force && coreVersion >= CORE_FOOD_DATA_VERSION) {
+    return;
+  }
+
+  const manRes = await fetch('assets/processed/fdc_core_manifest.json');
+  if (!manRes.ok) {
+    console.warn('Foundation supplement manifest not found — skipping');
+    return;
+  }
+  const manifest = await manRes.json();
+
+  await deleteFoodsBySources(['foundation']);
+
+  const total = await importNdjsonFile(
+    'assets/processed/fdc_foundation_supplement.ndjson',
+    onProgress
+  );
+
+  await mergeFdcMeta({
+    core_food_version: manifest.version || CORE_FOOD_DATA_VERSION,
+    foundationSupplementCount: total,
+    timestamp: new Date().toISOString(),
+  });
+  if (typeof RadiantStorage !== 'undefined' && total > 0) {
+    RadiantStorage.setRaw(RadiantStorage.KEYS.FOUNDATION_SUPPLEMENT_READY, 'true');
+  }
 }
 
 /**
@@ -171,15 +208,26 @@ async function runFdcBootstrap(opts) {
     await getDB();
     const force = !!(opts && opts.force);
     const meta = await getFdcMeta();
+    const needsFoundation =
+      (meta.core_food_version || 0) < CORE_FOOD_DATA_VERSION;
 
-    // Fast path for normal page loads: if SR legacy is already imported,
-    // skip the expensive import checks/cache warmup and return immediately.
-    if (meta.importComplete && !force) {
+    if (meta.importComplete && !force && !needsFoundation) {
       syncSrLegacyImportFlag();
       return;
     }
 
-    await importSrLegacy(null, { force });
+    if (!meta.importComplete || force) {
+      await importSrLegacy(null, { force });
+    } else {
+      syncSrLegacyImportFlag();
+    }
+
+    if (needsFoundation || force) {
+      await importFoundationSupplement(null, { force: needsFoundation || force });
+      if (typeof loadFoodNamesAndCache === 'function') {
+        await loadFoodNamesAndCache();
+      }
+    }
   } catch (e) {
     console.warn('FDC bootstrap:', e);
   }

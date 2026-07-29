@@ -318,6 +318,42 @@ async function putFoodBatch(records) {
   }
 }
 
+/**
+ * Remove bulk-import rows by source without touching branded/scanned user saves.
+ * @param {string[]} sources
+ * @returns {Promise<number>}
+ */
+async function deleteFoodsBySources(sources) {
+  const want = new Set(sources || []);
+  if (!want.size) return 0;
+  const db = await getDB();
+  let removed = 0;
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(['fdcStore'], 'readwrite');
+    const store = tx.objectStore('fdcStore');
+    const req = store.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      const rec = cursor.value;
+      const src = rec && rec.source ? rec.source : 'sr_legacy';
+      if (want.has(src)) {
+        nutritionCache.delete(rec.fdc_id);
+        cursor.delete();
+        removed++;
+      }
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  if (_autocompleteEntries.length > 0) {
+    _autocompleteEntries = _autocompleteEntries.filter((e) => !want.has(e.source || 'sr_legacy'));
+  }
+  return removed;
+}
+
 async function mergeFdcMeta(partial) {
   const cur = await getFdcMeta();
   const next = Object.assign({}, cur, partial, { key: META_KEY });
@@ -349,8 +385,10 @@ function defaultMeta() {
     importComplete: false,
     brandedImportComplete: false,
     nutrient_defs_version: 0,
+    core_food_version: 0,
     timestamp: null,
     srLegacyCount: 0,
+    foundationSupplementCount: 0,
     brandedCount: 0,
   };
 }

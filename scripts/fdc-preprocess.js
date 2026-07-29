@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * USDA FDC preprocessor — SR Legacy + optional Branded (UPC-only).
- * Default: fdc_nutrient_defs.json + fdc_sr_legacy.ndjson
+ * USDA FDC preprocessor — SR Legacy + Foundation supplement + optional Branded.
+ * Default: fdc_nutrient_defs.json + fdc_sr_legacy.ndjson + fdc_foundation_supplement.ndjson
  * With --branded: also fdc_branded_manifest.json + fdc_branded_chunk_NNN.ndjson
  */
 'use strict';
@@ -16,6 +16,11 @@ const FDC_SOURCE = path.join(ROOT, 'fdc-source');
 const OUT = path.join(ASSETS, 'processed');
 const SR_DIR = path.join(FDC_SOURCE, 'FoodData_Central_sr_legacy_food_csv_2018-04');
 const BR_DIR = path.join(FDC_SOURCE, 'FoodData_Central_branded_food_csv_2025-12-18');
+const FOUNDATION_DIR = path.join(
+  FDC_SOURCE,
+  'FoodData_Central_foundation_food_csv_2025-12-18'
+);
+const CORE_FOOD_DATA_VERSION = 2;
 const USDA_ID_TO_KEY = require(path.join(ROOT, 'public', 'js', 'food', 'usda-id-to-key.js'));
 const { pickBestPortion } = require('./portion-select');
 
@@ -88,25 +93,44 @@ function writeNutrientDefs() {
   console.log('Wrote', outPath, definitions.length, 'nutrient definitions');
 }
 
-async function* streamCsvLines(filePath) {
-  const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
-  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
-  let first = true;
-  for await (const line of rl) {
-    if (first) {
-      first = false;
-      continue;
-    }
-    if (!line.trim()) continue;
-    yield line;
-  }
+function resolveFoundationDir() {
+  if (fs.existsSync(FOUNDATION_DIR)) return FOUNDATION_DIR;
+  const entries = fs.existsSync(FDC_SOURCE)
+    ? fs.readdirSync(FDC_SOURCE).filter((name) =>
+        /^FoodData_Central_foundation_food_csv_/i.test(name)
+      )
+    : [];
+  if (!entries.length) return null;
+  entries.sort();
+  return path.join(FDC_SOURCE, entries[entries.length - 1]);
 }
 
-async function buildSrLegacy() {
-  const catPath = path.join(SR_DIR, 'food_category.csv');
-  const foodPath = path.join(SR_DIR, 'food.csv');
-  const portionPath = path.join(SR_DIR, 'food_portion.csv');
-  const nutPath = path.join(SR_DIR, 'food_nutrient.csv');
+async function loadSrLegacyNdbSet() {
+  const ndbPath = path.join(SR_DIR, 'sr_legacy_food.csv');
+  if (!fs.existsSync(ndbPath)) {
+    throw new Error('sr_legacy_food.csv missing in SR Legacy folder');
+  }
+  const ndbs = new Set();
+  for await (const line of streamCsvLines(ndbPath)) {
+    const c = parseCsvLine(line);
+    if (c.length < 2) continue;
+    const ndb = String(c[1] || '').replace(/^"|"$/g, '').trim();
+    if (ndb) ndbs.add(ndb);
+  }
+  return ndbs;
+}
+
+async function buildFoodNdjsonFromDir({
+  dir,
+  dataType,
+  source,
+  outPath,
+  shouldIncludeFood,
+}) {
+  const catPath = path.join(dir, 'food_category.csv');
+  const foodPath = path.join(dir, 'food.csv');
+  const portionPath = path.join(dir, 'food_portion.csv');
+  const nutPath = path.join(dir, 'food_nutrient.csv');
 
   const categories = new Map();
   for await (const line of streamCsvLines(catPath)) {
@@ -118,13 +142,15 @@ async function buildSrLegacy() {
   for await (const line of streamCsvLines(foodPath)) {
     const c = parseCsvLine(line);
     if (c.length < 5) continue;
-    if (c[1] !== 'sr_legacy_food') continue;
+    if (c[1] !== dataType) continue;
     const fdcId = c[0];
-    foods.set(fdcId, {
+    const meta = {
       fdc_id: parseInt(fdcId, 10),
       name: c[2],
       food_category_id: c[3],
-    });
+    };
+    if (shouldIncludeFood && !(await shouldIncludeFood(meta, fdcId))) continue;
+    foods.set(fdcId, meta);
   }
 
   const portionCandidates = new Map();
@@ -136,7 +162,9 @@ async function buildSrLegacy() {
     const seq = parseInt(c[2] || '999999', 10) || 999999;
     const gw = parseFloat(c[7]);
     if (!gw || gw <= 0) continue;
-    const desc = (c[5] || '').replace(/^"|"$/g, '') + ((c[6] && c[6] !== '""') ? ' ' + c[6].replace(/^"|"$/g, '') : '');
+    const desc =
+      (c[5] || '').replace(/^"|"$/g, '') +
+      (c[6] && c[6] !== '""' ? ' ' + c[6].replace(/^"|"$/g, '') : '');
     const row = {
       seq,
       gram_weight: gw,
@@ -162,8 +190,7 @@ async function buildSrLegacy() {
     if (!key) continue;
     const amt = parseFloat(c[3]);
     if (Number.isNaN(amt)) continue;
-    const bag = nutrientByFdc.get(fdcId);
-    bag[key] = amt;
+    nutrientByFdc.get(fdcId)[key] = amt;
   }
 
   const portions = new Map();
@@ -173,7 +200,6 @@ async function buildSrLegacy() {
   }
 
   ensureOutDir();
-  const outPath = path.join(OUT, 'fdc_sr_legacy.ndjson');
   const ws = fs.createWriteStream(outPath, { encoding: 'utf8' });
   let count = 0;
   for (const [fdcIdStr, meta] of foods) {
@@ -190,7 +216,7 @@ async function buildSrLegacy() {
       serving_weight: por ? por.gram_weight : 100,
       serving_description: por ? por.portion_description : '100 g',
       gtin_upc: '',
-      source: 'sr_legacy',
+      source,
       nutrients,
     };
     ws.write(JSON.stringify(row) + '\n');
@@ -201,7 +227,82 @@ async function buildSrLegacy() {
     ws.on('finish', res);
     ws.on('error', rej);
   });
+  return count;
+}
+
+async function* streamCsvLines(filePath) {
+  const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
+  const rl = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  let first = true;
+  for await (const line of rl) {
+    if (first) {
+      first = false;
+      continue;
+    }
+    if (!line.trim()) continue;
+    yield line;
+  }
+}
+
+async function buildSrLegacy() {
+  const outPath = path.join(OUT, 'fdc_sr_legacy.ndjson');
+  const count = await buildFoodNdjsonFromDir({
+    dir: SR_DIR,
+    dataType: 'sr_legacy_food',
+    source: 'sr_legacy',
+    outPath,
+  });
   console.log('Wrote', outPath, count, 'foods');
+  return count;
+}
+
+async function buildFoundationSupplement(srNdbSet) {
+  const foundationDir = resolveFoundationDir();
+  if (!foundationDir) {
+    console.log('Foundation folder missing — skipping supplement');
+    return 0;
+  }
+
+  const ndbByFdc = new Map();
+  const ffPath = path.join(foundationDir, 'foundation_food.csv');
+  if (!fs.existsSync(ffPath)) {
+    throw new Error('foundation_food.csv missing in ' + foundationDir);
+  }
+  for await (const line of streamCsvLines(ffPath)) {
+    const c = parseCsvLine(line);
+    if (c.length < 2) continue;
+    const fdcId = c[0];
+    const ndb = String(c[1] || '').replace(/^"|"$/g, '').trim();
+    ndbByFdc.set(fdcId, ndb);
+  }
+
+  const outPath = path.join(OUT, 'fdc_foundation_supplement.ndjson');
+  const count = await buildFoodNdjsonFromDir({
+    dir: foundationDir,
+    dataType: 'foundation_food',
+    source: 'foundation',
+    outPath,
+    shouldIncludeFood: async (_meta, fdcId) => {
+      const ndb = ndbByFdc.get(fdcId) || '';
+      if (!ndb) return false;
+      return !srNdbSet.has(ndb);
+    },
+  });
+  console.log('Wrote', outPath, count, 'foods');
+  return count;
+}
+
+function writeCoreManifest(srLegacyCount, foundationSupplementCount) {
+  ensureOutDir();
+  const manifest = {
+    version: CORE_FOOD_DATA_VERSION,
+    sr_legacy: srLegacyCount,
+    foundation_supplement: foundationSupplementCount,
+    generated: new Date().toISOString(),
+  };
+  const outPath = path.join(OUT, 'fdc_core_manifest.json');
+  fs.writeFileSync(outPath, JSON.stringify(manifest, null, 0), 'utf8');
+  console.log('Wrote', outPath);
 }
 
 async function buildBranded() {
@@ -316,7 +417,10 @@ async function main() {
   if (!fs.existsSync(SR_DIR)) throw new Error('SR Legacy folder missing: ' + SR_DIR);
 
   writeNutrientDefs();
-  await buildSrLegacy();
+  const srLegacyCount = await buildSrLegacy();
+  const srNdbSet = await loadSrLegacyNdbSet();
+  const foundationSupplementCount = await buildFoundationSupplement(srNdbSet);
+  writeCoreManifest(srLegacyCount, foundationSupplementCount);
 
   if (withBranded) {
     if (!fs.existsSync(BR_DIR)) throw new Error('Branded folder missing: ' + BR_DIR);

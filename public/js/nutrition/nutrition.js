@@ -1709,6 +1709,7 @@ function updateEditTimeSyncBlockVisibility() {
 function formatNutritionDataSourceLabel(item, foodFromDb) {
     var code = item.nutrition_source || (foodFromDb && foodFromDb.source);
     if (code === 'sr_legacy') return 'USDA SR Legacy (offline)';
+    if (code === 'foundation') return 'USDA Foundation Foods (offline)';
     if (code === 'branded') return 'USDA branded (offline)';
     if (code === 'off_api') return 'Open Food Facts';
     if (code === 'usda_api') return 'USDA FDC (online)';

@@ -62,6 +62,10 @@
                         st.legacyCount +
                         '<br><strong>SR Legacy import:</strong> ' +
                         (st.importComplete ? 'complete' : 'pending') +
+                        '<br><strong>Foundation supplement:</strong> ' +
+                        (st.foundationSupplementCount != null ? st.foundationSupplementCount : 0) +
+                        ' foods' +
+                        ((st.core_food_version || 0) >= 2 ? ' (imported)' : ' (pending)') +
                         '<br><strong>Branded / offline barcode DB:</strong> ' +
                         (st.brandedImportComplete ? 'complete' : 'not imported');
                 } catch (e) {
@@ -73,7 +77,13 @@
             if (fdcRefreshBtn) fdcRefreshBtn.addEventListener('click', refreshFdcStatusUi);
             var fdcReimportBtn = document.getElementById('fdcReimportSr');
             if (fdcReimportBtn) fdcReimportBtn.addEventListener('click', async function() {
-                if (!confirm('Re-download SR Legacy from bundled files and rebuild the USDA food list?')) return;
+                if (
+                    !confirm(
+                        'Re-download SR Legacy and Foundation supplement from bundled files? Scanned and branded foods are kept.'
+                    )
+                ) {
+                    return;
+                }
                 const busy = document.getElementById('fdcBusy');
                 busy.style.display = 'block';
                 busy.textContent = 'Importing SR Legacy…';
@@ -84,10 +94,15 @@
                         },
                         { force: true }
                     );
+                    if (typeof importFoundationSupplement === 'function') {
+                        await importFoundationSupplement(function (done, tot) {
+                            busy.textContent = 'Foundation supplement: ' + done + ' / ' + tot;
+                        }, { force: true });
+                    }
                     if (typeof loadFoodNamesAndCache === 'function') {
                         await loadFoodNamesAndCache();
                     }
-                    alert('SR Legacy import finished.');
+                    alert('USDA core food import finished.');
                 } catch (e) {
                     alert('Import failed: ' + (e && e.message));
                 }

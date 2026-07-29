@@ -37,6 +37,7 @@ const RadiantStorage = {
         CUSTOM_RECIPES_BACKUP: 'customRecipesBackup',
         SR_LEGACY_PORTION_VERSION: 'srLegacyPortionVersion',
         SR_LEGACY_IMPORT_COMPLETE: 'srLegacyImportComplete',
+        FOUNDATION_SUPPLEMENT_READY: 'foundationSupplementReady',
         ANNOUNCEMENTS_DISMISSED: 'announcementsDismissed',
         DEBUG_LOG: 'radiant-debug-log',
     },

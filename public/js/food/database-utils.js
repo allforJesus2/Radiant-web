@@ -70,7 +70,7 @@ function getFoodEmoji(name) {
     if (foodEmojiToken(s, 'tuna'))                                    hits.push('🐟');
     if (foodEmojiToken(s, 'fish'))         hits.push('🐟');
     if (foodEmojiToken(s, 'egg'))                                     hits.push('🥚');
-
+    if (foodEmojiToken(s, 'meat'))                                  hits.push('🍖');
     // Dairy
     if (foodEmojiToken(s, 'cheese'))                                  hits.push('🧀');
     if (foodEmojiToken(s, 'butter'))                                  hits.push('🧈');
@@ -232,12 +232,6 @@ let dbPromise = null;
 let nutrientDefMemory = new Map();
 let _autocompleteEntries = [];
 let _fdcCount = 0;
-// In-memory name lookup indexes built by loadFoodNamesAndCache(), reused by
-// getFoodByName() to avoid re-scanning the whole fdcStore per lookup. Null
-// when not warmed (e.g. cursor mode for very large stores) — callers fall
-// back to the slower per-call IndexedDB cursor scan in that case.
-let _byRawLowerIndex = null;
-let _byCanonLowerIndex = null;
 
 const USDA_FDP_NAME_SUFFIX =
   /\s*\(includes foods for usda['\u2019]s food distribution program\)\s*$/i;
@@ -395,22 +389,10 @@ async function getFoodByName(name) {
       return pickPreferredFood(exact);
     }
   }
-  const wantCanon = normalizeFdcFoodName(raw).toLowerCase();
-  const rawLower = raw.toLowerCase();
-
-  // Fast path: reuse the in-memory name index built by loadFoodNamesAndCache()
-  // instead of re-scanning the entire fdcStore for every single lookup.
-  if (_byRawLowerIndex && _byCanonLowerIndex) {
-    const byRaw = _byRawLowerIndex.get(rawLower);
-    const byCanon = _byCanonLowerIndex.get(wantCanon);
-    if (byRaw && byCanon && byRaw !== byCanon) {
-      return pickPreferredFood([byRaw, byCanon]);
-    }
-    return byRaw || byCanon || null;
-  }
-
   const n = await countStore('fdcStore');
   if (n > ARRAY_MODE_MAX_FOODS) return null;
+  const wantCanon = normalizeFdcFoodName(raw).toLowerCase();
+  const rawLower = raw.toLowerCase();
   return new Promise((resolve, reject) => {
     const tx2 = db.transaction(['fdcStore'], 'readonly');
     const req = tx2.objectStore('fdcStore').openCursor();
@@ -518,53 +500,6 @@ async function putNutrientDefsBatch(defs) {
   }
 }
 
-const SCANNED_FOOD_SOURCES = new Set(['usda_api', 'off_api']);
-
-/**
- * Export user-saved barcode foods from fdcStore (not bulk USDA imports).
- * @returns {Promise<object[]>}
- */
-async function exportScannedFoods() {
-  const db = await getDB();
-  if (!db.objectStoreNames.contains('fdcStore')) return [];
-  const records = [];
-  await new Promise((resolve, reject) => {
-    const tx = db.transaction(['fdcStore'], 'readonly');
-    const store = tx.objectStore('fdcStore');
-    const req = store.openCursor();
-    req.onsuccess = (e) => {
-      const cursor = e.target.result;
-      if (!cursor) return;
-      const rec = cursor.value;
-      if (rec && SCANNED_FOOD_SOURCES.has(rec.source)) {
-        records.push(rec);
-      }
-      cursor.continue();
-    };
-    req.onerror = () => reject(req.error);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-  });
-  return records;
-}
-
-/**
- * Restore user-saved barcode foods into fdcStore (upsert by fdc_id).
- * @param {object[]} records
- * @returns {Promise<{ imported: number }>}
- */
-async function importScannedFoods(records) {
-  if (!Array.isArray(records) || records.length === 0) {
-    return { imported: 0 };
-  }
-  const valid = records.filter(
-    (r) => r && r.fdc_id != null && SCANNED_FOOD_SOURCES.has(r.source)
-  );
-  if (valid.length === 0) return { imported: 0 };
-  await putFoodBatch(valid);
-  return { imported: valid.length };
-}
-
 async function putFoodBatch(records) {
   const db = await getDB();
   const batch = 500;
@@ -604,6 +539,42 @@ async function putFoodBatch(records) {
   }
 }
 
+/**
+ * Remove bulk-import rows by source without touching branded/scanned user saves.
+ * @param {string[]} sources
+ * @returns {Promise<number>}
+ */
+async function deleteFoodsBySources(sources) {
+  const want = new Set(sources || []);
+  if (!want.size) return 0;
+  const db = await getDB();
+  let removed = 0;
+  await new Promise((resolve, reject) => {
+    const tx = db.transaction(['fdcStore'], 'readwrite');
+    const store = tx.objectStore('fdcStore');
+    const req = store.openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      const rec = cursor.value;
+      const src = rec && rec.source ? rec.source : 'sr_legacy';
+      if (want.has(src)) {
+        nutritionCache.delete(rec.fdc_id);
+        cursor.delete();
+        removed++;
+      }
+      cursor.continue();
+    };
+    req.onerror = () => reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+  if (_autocompleteEntries.length > 0) {
+    _autocompleteEntries = _autocompleteEntries.filter((e) => !want.has(e.source || 'sr_legacy'));
+  }
+  return removed;
+}
+
 async function mergeFdcMeta(partial) {
   const cur = await getFdcMeta();
   const next = Object.assign({}, cur, partial, { key: META_KEY });
@@ -635,8 +606,10 @@ function defaultMeta() {
     importComplete: false,
     brandedImportComplete: false,
     nutrient_defs_version: 0,
+    core_food_version: 0,
     timestamp: null,
     srLegacyCount: 0,
+    foundationSupplementCount: 0,
     brandedCount: 0,
   };
 }
@@ -699,8 +672,6 @@ async function loadFoodNamesAndCache() {
   if (useCursorMode) {
     nutritionCache.clear();
     _autocompleteEntries = [];
-    _byRawLowerIndex = null;
-    _byCanonLowerIndex = null;
     return {
       entries: [],
       fdcCount: _fdcCount,
@@ -710,7 +681,6 @@ async function loadFoodNamesAndCache() {
 
   nutritionCache.clear();
   const byName = new Map();
-  const byCanon = new Map();
   await new Promise((resolve, reject) => {
     const tx = db.transaction(['fdcStore'], 'readonly');
     const s = tx.objectStore('fdcStore');
@@ -721,16 +691,14 @@ async function loadFoodNamesAndCache() {
         const rec = c.value;
         nutritionCache.set(rec.fdc_id, extractMacrosPer100g(rec.nutrients));
         const ln = String(rec.name).toLowerCase();
-        const src = rec.source || 'sr_legacy';
-        const entry = { name: rec.name, fdc_id: rec.fdc_id, source: src };
         const prev = byName.get(ln);
+        const src = rec.source || 'sr_legacy';
         if (!prev || (src === 'branded' && prev.source !== 'branded')) {
-          byName.set(ln, entry);
-        }
-        const cn = normalizeFdcFoodName(rec.name).toLowerCase();
-        const prevCanon = byCanon.get(cn);
-        if (!prevCanon || (src === 'branded' && prevCanon.source !== 'branded')) {
-          byCanon.set(cn, entry);
+          byName.set(ln, {
+            name: rec.name,
+            fdc_id: rec.fdc_id,
+            source: src,
+          });
         }
         c.continue();
       } else resolve();
@@ -740,8 +708,6 @@ async function loadFoodNamesAndCache() {
 
   const fdcNamesLower = new Set(byName.keys());
   _autocompleteEntries = Array.from(byName.values());
-  _byRawLowerIndex = byName;
-  _byCanonLowerIndex = byCanon;
 
   if (db.objectStoreNames.contains('recipeStore')) {
     const tx = db.transaction(['recipeStore'], 'readonly');
@@ -1168,12 +1134,7 @@ async function searchFoodsByPrefix(userInput, limit = AUTOCOMPLETE_LIMIT) {
  */
 const FOOD_LOG_MIGRATION_VERSION = 1;
 
-/**
- * @param {object} foodLog
- * @param {(done:number, total:number) => void} [onProgress] Called as items
- *   needing a name lookup are processed, so callers can render a progress bar.
- */
-async function migrateFoodLogIfNeeded(foodLog, onProgress) {
+async function migrateFoodLogIfNeeded(foodLog) {
   const storedVer = RadiantStorage.nutrition.getFoodLogMigrationVersion();
   if (storedVer === String(FOOD_LOG_MIGRATION_VERSION)) {
     const log = foodLog && typeof foodLog === 'object' ? foodLog : {};
@@ -1181,22 +1142,9 @@ async function migrateFoodLogIfNeeded(foodLog, onProgress) {
   }
 
   const log = foodLog && typeof foodLog === 'object' ? foodLog : {};
-  const days = Object.keys(log);
-
-  let total = 0;
-  for (const day of days) {
-    const list = Array.isArray(log[day]) ? log[day] : [];
-    for (const item of list) {
-      const hasFdcId = item && 'fdc_id' in item && item.fdc_id !== undefined;
-      const needsLookup = item && (item.calories != null || item.protein != null);
-      if (!hasFdcId && needsLookup) total++;
-    }
-  }
-
   let changed = false;
-  let done = 0;
   const out = {};
-  for (const day of days) {
+  for (const day of Object.keys(log)) {
     const list = Array.isArray(log[day]) ? log[day] : [];
     const nextList = [];
     for (const item of list) {
@@ -1224,8 +1172,6 @@ async function migrateFoodLogIfNeeded(foodLog, onProgress) {
           row.fdc_id = null;
         }
         changed = true;
-        done++;
-        if (typeof onProgress === 'function') onProgress(done, total);
       }
       nextList.push(row);
     }
