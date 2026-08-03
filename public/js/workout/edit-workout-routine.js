@@ -1,11 +1,76 @@
         const queryString = window.location.search;
         const urlParams = new URLSearchParams(queryString);
-        const selectedRoutine = urlParams.get('selectedRoutine');
+        let currentRoutineName = decodeURIComponent(urlParams.get('selectedRoutine') || '');
 
-        document.getElementById('routine-name').textContent = decodeURIComponent(selectedRoutine);
+        const routineNameEl = document.getElementById('routine-name');
+        routineNameEl.textContent = currentRoutineName;
 
         const exerciseDialog = document.getElementById('exercise-dialog');
         const exerciseDialogTitle = document.getElementById('exercise-dialog-title');
+
+        function updateScheduleRoutineName(oldName, newName) {
+            const schedule = WorkoutUtils.getSchedule();
+            let changed = false;
+
+            function replaceInMap(map) {
+                if (!map) return;
+                Object.keys(map).forEach(function (key) {
+                    if (map[key] === oldName) {
+                        map[key] = newName;
+                        changed = true;
+                    }
+                });
+            }
+
+            replaceInMap(schedule.cycleDays);
+            replaceInMap(schedule.weekly);
+
+            if (schedule.weeks) {
+                Object.keys(schedule.weeks).forEach(function (weekKey) {
+                    const week = schedule.weeks[weekKey];
+                    replaceInMap(week.cycleDays);
+                    replaceInMap(week.weekly);
+                });
+            }
+
+            if (changed) {
+                WorkoutUtils.saveSchedule(schedule);
+            }
+        }
+
+        function renameRoutine() {
+            const newName = prompt('Rename routine:', currentRoutineName);
+            if (newName === null) return;
+
+            const trimmedName = newName.trim();
+            if (!trimmedName) {
+                alert('Please enter a routine name.');
+                return;
+            }
+            if (trimmedName === currentRoutineName) return;
+
+            const routines = WorkoutUtils.getRoutines();
+            if (routines[trimmedName]) {
+                alert('A routine with that name already exists.');
+                return;
+            }
+            if (!routines[currentRoutineName]) {
+                alert('Routine not found.');
+                return;
+            }
+
+            routines[trimmedName] = routines[currentRoutineName];
+            delete routines[currentRoutineName];
+            WorkoutUtils.saveRoutines(routines);
+            updateScheduleRoutineName(currentRoutineName, trimmedName);
+
+            currentRoutineName = trimmedName;
+            routineNameEl.textContent = trimmedName;
+
+            const url = new URL(window.location.href);
+            url.searchParams.set('selectedRoutine', trimmedName);
+            window.history.replaceState({}, '', url);
+        }
 
         function openExerciseDialog(mode) {
             if (mode === 'add') {
@@ -62,7 +127,7 @@
 
         function moveExercise(fromIndex, direction) {
             const routines = WorkoutUtils.getRoutines();
-            const routine = routines[selectedRoutine] || { exercises: [] };
+            const routine = routines[currentRoutineName] || { exercises: [] };
             const exercises = routine.exercises || [];
             const toIndex = fromIndex + direction;
 
@@ -74,14 +139,14 @@
             exercises.splice(toIndex, 0, moved);
 
             routine.exercises = exercises;
-            routines[selectedRoutine] = routine;
+            routines[currentRoutineName] = routine;
             WorkoutUtils.saveRoutines(routines);
             displayExercises();
         }
 
         function displayExercises() {
             const routines = WorkoutUtils.getRoutines();
-            const routine = routines[selectedRoutine] || { exercises: [] };
+            const routine = routines[currentRoutineName] || { exercises: [] };
             const exercises = routine.exercises || [];
             
             const exerciseList = document.getElementById('exercise-list');
@@ -89,14 +154,43 @@
 			
             exercises.forEach((exercise, index) => {
                 const { name, reps, sets = 3, weight, time, weightUnit = 'lbs', timeUnit = 'sec', 
-                        category, progression, oneRepMax, amrap } = exercise;
+                        progression, oneRepMax, amrap } = exercise;
                 const exerciseElement = document.createElement('li');
                 exerciseElement.dataset.index = index;
+
+                const orderColumn = document.createElement('div');
+                orderColumn.className = 'exercise-order-column';
+
+                const upButton = document.createElement('button');
+                upButton.type = 'button';
+                upButton.className = 'exercise-reorder-btn';
+                upButton.textContent = '↑';
+                upButton.title = 'Move up';
+                upButton.disabled = index === 0;
+                upButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    moveExercise(index, -1);
+                });
 
                 const orderElement = document.createElement('span');
                 orderElement.className = 'exercise-order-number';
                 orderElement.textContent = String(index + 1);
                 orderElement.setAttribute('aria-hidden', 'true');
+
+                const downButton = document.createElement('button');
+                downButton.type = 'button';
+                downButton.className = 'exercise-reorder-btn';
+                downButton.textContent = '↓';
+                downButton.title = 'Move down';
+                downButton.disabled = index === exercises.length - 1;
+                downButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    moveExercise(index, 1);
+                });
+
+                orderColumn.appendChild(upButton);
+                orderColumn.appendChild(orderElement);
+                orderColumn.appendChild(downButton);
                 
                 const exerciseInfo = document.createElement('div');
                 exerciseInfo.className = 'exercise-info';
@@ -104,12 +198,6 @@
                 const nameElement = document.createElement('div');
                 nameElement.className = 'exercise-name';
                 let displayName = name;
-                if (category) {
-                    const categoryBadge = category === 'compound' ? '🏋️' : 
-                                         category === 'core' ? '💪' : 
-                                         category === 'cardio' ? '🏃' : '💡';
-                    displayName = `${categoryBadge} ${name}`;
-                }
                 if (amrap) displayName += ' (AMRAP)';
                 nameElement.textContent = displayName;
                 
@@ -130,7 +218,7 @@
                 
                 exerciseInfo.appendChild(nameElement);
                 exerciseInfo.appendChild(detailsElement);
-                exerciseElement.appendChild(orderElement);
+                exerciseElement.appendChild(orderColumn);
                 exerciseElement.appendChild(exerciseInfo);
                 
                 const buttonContainer = document.createElement('div');
@@ -146,47 +234,19 @@
                     const confirmDelete = confirm('Are you sure you want to delete this exercise?');
                     if (confirmDelete) {
                         const routines = WorkoutUtils.getRoutines();
-                        const routine = routines[selectedRoutine] || { exercises: [] };
+                        const routine = routines[currentRoutineName] || { exercises: [] };
                         const exercises = routine.exercises || [];
                         
                         exercises.splice(index, 1);
                         routine.exercises = exercises;
-                        routines[selectedRoutine] = routine;
+                        routines[currentRoutineName] = routine;
                         WorkoutUtils.saveRoutines(routines);
                         displayExercises();
                         clearForm();
                     }
                 });
 
-                const reorderContainer = document.createElement('div');
-                reorderContainer.className = 'exercise-reorder-buttons';
-
-                const upButton = document.createElement('button');
-                upButton.type = 'button';
-                upButton.className = 'exercise-reorder-btn';
-                upButton.textContent = '↑';
-                upButton.title = 'Move up';
-                upButton.disabled = index === 0;
-                upButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    moveExercise(index, -1);
-                });
-
-                const downButton = document.createElement('button');
-                downButton.type = 'button';
-                downButton.className = 'exercise-reorder-btn';
-                downButton.textContent = '↓';
-                downButton.title = 'Move down';
-                downButton.disabled = index === exercises.length - 1;
-                downButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    moveExercise(index, 1);
-                });
-
-                reorderContainer.appendChild(upButton);
-                reorderContainer.appendChild(downButton);
                 buttonContainer.appendChild(deleteButton);
-                buttonContainer.appendChild(reorderContainer);
                 exerciseElement.appendChild(buttonContainer);
                 
                 exerciseElement.addEventListener('click', () => {
@@ -229,7 +289,7 @@
             const trainingMax = oneRepMax ? WorkoutUtils.calculateTrainingMax(oneRepMax, trainingMaxPercent) : null;
 
             const routines = WorkoutUtils.getRoutines();
-            const routine = routines[selectedRoutine] || { exercises: [] };
+            const routine = routines[currentRoutineName] || { exercises: [] };
             const exercises = routine.exercises || [];
 
             const newExercise = {
@@ -264,7 +324,7 @@
 
             exercises.push(newExercise);
             routine.exercises = exercises;
-            routines[selectedRoutine] = routine;
+            routines[currentRoutineName] = routine;
             WorkoutUtils.saveRoutines(routines);
 
             // Update exercise library if 1RM is provided
@@ -315,7 +375,7 @@
 
         function editExercise(index) {
             const routines = WorkoutUtils.getRoutines();
-            const routine = routines[selectedRoutine] || { exercises: [] };
+            const routine = routines[currentRoutineName] || { exercises: [] };
             const exercises = routine.exercises || [];
             const exercise = exercises[index];
             
@@ -397,7 +457,7 @@
             const trainingMax = oneRepMax ? WorkoutUtils.calculateTrainingMax(oneRepMax, trainingMaxPercent) : null;
             
             const routines = WorkoutUtils.getRoutines();
-            const routine = routines[selectedRoutine] || { exercises: [] };
+            const routine = routines[currentRoutineName] || { exercises: [] };
             const exercises = routine.exercises || [];
             
             // Keep the existing ID
@@ -434,7 +494,7 @@
             };
             
             routine.exercises = exercises;
-            routines[selectedRoutine] = routine;
+            routines[currentRoutineName] = routine;
             WorkoutUtils.saveRoutines(routines);
             
             // Update exercise library if 1RM is provided
@@ -481,6 +541,7 @@
             document.getElementById('open-exercise-dialog-btn').addEventListener('click', function() {
                 openExerciseDialog('add');
             });
+            document.getElementById('rename-routine-btn').addEventListener('click', renameRoutine);
             document.getElementById('close-exercise-dialog').addEventListener('click', closeExerciseDialog);
             document.getElementById('add-button').addEventListener('click', addExercise);
             document.getElementById('cancel-button').style.display = 'none';

@@ -19,9 +19,14 @@
         <div id="customWorkoutNav"></div>
         <div class="workout-page-panel">
             <div class="routine-editor-header">
-                <h2 class="page-subtitle" id="routine-name"></h2>
-                <a href="workout-routine.html" class="predefined-button">Back to All Routines</a>
+                <div class="routine-name-row">
+                    <button type="button" id="rename-routine-btn" class="routine-rename-btn" title="Rename routine" aria-label="Rename routine">✏️</button>
+                    <h2 class="page-subtitle" id="routine-name"></h2>
+                </div>
+                <a href="workout-routine.html" class="predefined-button">← Back to All Routines</a>
             </div>
+
+            <p class="tap-to-edit-note">Tap an exercise to edit</p>
 
             <ul id="exercise-list">
                 <!-- Exercises will be listed here -->
@@ -52,7 +57,10 @@
 
             <div id="workout-input">
                 <div class="workout-input-row workout-input-row--name">
-                    <span class="input-emoji" aria-hidden="true">🔤</span>
+                    <label class="input-label" for="exercise-name">
+                        <span class="input-emoji" aria-hidden="true">🔤</span>
+                        Name
+                    </label>
                     <input type="text" id="exercise-name" list="exercise-suggestions" placeholder="Enter exercise name">
                     <datalist id="exercise-suggestions">
                         <option value="Bench Press">
@@ -82,13 +90,22 @@
                     </datalist>
                 </div>
                 <div class="workout-input-row workout-input-row--sets-reps">
-                    <span class="input-emoji" aria-hidden="true">🔢</span>
+                    <label class="input-label" for="sets">
+                        <span class="input-emoji" aria-hidden="true">🔢</span>
+                        Sets
+                    </label>
                     <input type="number" id="sets" placeholder="Sets" value="3" min="1">
-                    <span class="input-emoji" aria-hidden="true">🔁</span>
+                    <label class="input-label" for="reps">
+                        <span class="input-emoji" aria-hidden="true">🔁</span>
+                        Reps
+                    </label>
                     <input type="number" id="reps" placeholder="Reps">
                 </div>
                 <div class="workout-input-row workout-input-row--weight">
-                    <span class="input-emoji" aria-hidden="true">💪</span>
+                    <label class="input-label" for="weight">
+                        <span class="input-emoji" aria-hidden="true">💪</span>
+                        Weight
+                    </label>
                     <input type="number" id="weight" placeholder="Weight">
                     <select id="weight-unit">
                         <option value="lbs">lbs</option>
@@ -96,7 +113,10 @@
                     </select>
                 </div>
                 <div class="workout-input-row workout-input-row--time">
-                    <span class="input-emoji" aria-hidden="true">⏱️</span>
+                    <label class="input-label" for="time">
+                        <span class="input-emoji" aria-hidden="true">⏱️</span>
+                        Time
+                    </label>
                     <input type="number" id="time" placeholder="Time">
                     <select id="time-unit">
                         <option value="sec">sec</option>
@@ -104,7 +124,10 @@
                     </select>
                 </div>
                 <div class="workout-input-row workout-input-row--rest">
-                    <span class="input-emoji" aria-hidden="true">⏸️</span>
+                    <label class="input-label" for="restTime">
+                        <span class="input-emoji" aria-hidden="true">⏸️</span>
+                        Rest
+                    </label>
                     <input type="number" id="restTime" placeholder="Rest time" value="90" min="0">
                     <select id="rest-time-unit" aria-label="Rest time unit">
                         <option value="sec">sec</option>
@@ -158,7 +181,7 @@
 
             <div class="workout-input-actions">
                 <button type="button" id="add-button">ADD EXERCISE</button>
-                <button type="button" id="update-button" style="display: none;">UPDATE</button>
+                <button type="button" id="update-button" style="display: none;">SAVE</button>
                 <button type="button" id="add-copy-button" style="display: none;">ADD COPY</button>
                 <button type="button" id="cancel-button" style="display: none;">CANCEL</button>
             </div>

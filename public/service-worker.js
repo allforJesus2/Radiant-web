@@ -6,7 +6,7 @@
 // bump this during local development. The default deployed strategy is
 // network-first; cache-first only kicks in when the user enables "offline
 // only" in settings.
-const CACHE_VERSION = 'v4e11135';
+const CACHE_VERSION = 'vbc02712';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
 
 // On localhost the SW acts as a transparent pass-through — no caching, no
