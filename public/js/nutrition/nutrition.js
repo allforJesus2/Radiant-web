@@ -2256,6 +2256,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 	if (foodInput) {
 		foodInput.addEventListener('focus', function() {
 			this.value = '';
+			updateScanButtonIcon(this);
 		});
 	}
 	var gramsInputEl = document.querySelector('.grams');
@@ -2300,9 +2301,24 @@ document.addEventListener('DOMContentLoaded', async function() {
 		startHintCycle();
 
 		var scanBtn = document.getElementById('scanBarcodeBtn');
-		if (scanBtn && typeof openBarcodeScanner === 'function') {
+		if (scanBtn) {
+			var updateScanButtonIcon = function(inputEl) {
+				var hasText = inputEl && String(inputEl.value || '').trim().length > 0;
+				scanBtn.textContent = hasText ? '🔍' : '📷';
+				scanBtn.title = hasText ? 'Search food name' : 'Scan barcode';
+			};
+			if (foodInput) {
+				foodInput.addEventListener('input', function() {
+					updateScanButtonIcon(this);
+				});
+			}
 			scanBtn.addEventListener('click', function() {
-				openBarcodeScanner(pushScannerFoodItem);
+				var query = foodInput ? String(foodInput.value || '').trim() : '';
+				if (query && typeof openFoodNameSearch === 'function') {
+					openFoodNameSearch(query, pushScannerFoodItem);
+				} else if (typeof openBarcodeScanner === 'function') {
+					openBarcodeScanner(pushScannerFoodItem);
+				}
 			});
 		}
 	} catch (err) {
