@@ -28,13 +28,164 @@
         .macro-label {
             display: flex;
             justify-content: space-between;
+            align-items: center;
             margin-bottom: 8px;
             font-weight: bold;
         }
 
+        .macro-label-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: normal;
+        }
+
+        .lock-btn {
+            background: none;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            color: #adb5bd;
+            cursor: pointer;
+            font-size: 0.82em;
+            line-height: 1;
+            padding: 3px 6px;
+            transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+        }
+
+        .lock-btn:hover {
+            background-color: rgba(255, 255, 255, 0.08);
+        }
+
+        .lock-btn[aria-pressed="true"] {
+            background-color: rgba(0, 123, 255, 0.22);
+            border-color: #007BFF;
+            color: #fff;
+        }
+
         input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
             width: 100%;
-            margin: 10px 0;
+            height: 8px;
+            border-radius: 4px;
+            margin: 14px 0 4px;
+            outline: none;
+            cursor: pointer;
+            background: linear-gradient(to right, #007BFF var(--fill-pct, 0%), #444 var(--fill-pct, 0%));
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid #007BFF;
+            cursor: grab;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+
+        input[type="range"]::-webkit-slider-thumb:active {
+            cursor: grabbing;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #fff;
+            border: 2px solid #007BFF;
+            cursor: grab;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        }
+
+        input[type="range"]::-moz-range-track {
+            background: transparent;
+        }
+
+        /* Weight-anchored protein slider with muscle-gain zone gradient.
+           Zone colors: gray (below), amber (Almost), orange (Very Likely),
+           green (Definitely), gray (above max). */
+        input[type="range"].protein-range {
+            --z1: 0%;
+            --z2: 0%;
+            --z3: 0%;
+            --z4: 0%;
+            background:
+                linear-gradient(to right,
+                    rgba(255, 255, 255, 0.22) 0%,
+                    rgba(255, 255, 255, 0.22) var(--fill-pct, 0%),
+                    transparent var(--fill-pct, 0%),
+                    transparent 100%),
+                linear-gradient(to right,
+                    #6c757d 0%, #6c757d var(--z1),
+                    #ffc107 var(--z1), #ffc107 var(--z2),
+                    #fd7e14 var(--z2), #fd7e14 var(--z3),
+                    #28a745 var(--z3), #28a745 var(--z4),
+                    #6c757d var(--z4), #6c757d 100%);
+        }
+
+        .zone-badge {
+            display: inline-block;
+            border-radius: 999px;
+            padding: 2px 10px;
+            font-size: 0.72em;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+
+        .zone-badge.is-hidden {
+            display: none;
+        }
+
+        .zone-badge--below {
+            background: rgba(108, 117, 125, 0.18);
+            color: #adb5bd;
+            border: 1px solid rgba(108, 117, 125, 0.6);
+        }
+
+        .zone-badge--almost {
+            background: rgba(255, 193, 7, 0.18);
+            color: #ffc107;
+            border: 1px solid rgba(255, 193, 7, 0.55);
+        }
+
+        .zone-badge--very-likely {
+            background: rgba(253, 126, 20, 0.18);
+            color: #fd7e14;
+            border: 1px solid rgba(253, 126, 20, 0.55);
+        }
+
+        .zone-badge--definitely {
+            background: rgba(40, 167, 69, 0.18);
+            color: #28a745;
+            border: 1px solid rgba(40, 167, 69, 0.55);
+        }
+
+        .zone-badge--above {
+            background: rgba(0, 123, 255, 0.18);
+            color: #4da3ff;
+            border: 1px solid rgba(0, 123, 255, 0.55);
+        }
+
+        .macro-hint {
+            margin: 16px 0 0;
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            line-height: 1.45;
+            background: rgba(0, 123, 255, 0.10);
+            border: 1px solid rgba(0, 123, 255, 0.35);
+            color: #9ecbff;
+        }
+
+        .macro-hint:empty {
+            display: none;
+        }
+
+        .is-hidden {
+            display: none !important;
         }
 
         .calories-display {
@@ -90,10 +241,10 @@
             <label for="macroPreset">Choose a preset:</label>
             <select id="macroPreset" class="btn">
                 <option value="custom" selected>Custom</option>
-                <option value="balanced">Balanced (40/30/30)</option>
-                <option value="low-carb">Low Carb (25/40/35)</option>
-                <option value="high-protein">High Protein (30/40/30)</option>
-                <option value="keto">Keto (5/25/70)</option>
+                <option value="balanced">Balanced (0.8 g/lb protein)</option>
+                <option value="low-carb">Low Carb (1.0 g/lb protein)</option>
+                <option value="high-protein">High Protein (1.0 g/lb protein)</option>
+                <option value="keto">Keto (1.0 g/lb protein)</option>
             </select>
         </div>
 
@@ -105,26 +256,38 @@
         <div class="macro-group">
             <div class="macro-label">
                 <span>Protein</span>
-                <span id="proteinValue">0g</span>
+                <span class="macro-label-right">
+                    <span id="proteinZone" class="zone-badge is-hidden">Below Target</span>
+                    <span id="proteinValue">0g</span>
+                    <button type="button" class="lock-btn" id="lockProtein" data-macro="protein" aria-pressed="false" aria-label="Lock protein macro" title="Lock this macro so others don't change it">🔓</button>
+                </span>
             </div>
-            <input type="range" min="0" max="100" value="0" id="proteinSlider">
+            <input type="range" min="0" max="100" value="0" step="1" id="proteinSlider" class="protein-range">
         </div>
 
         <div class="macro-group">
             <div class="macro-label">
                 <span>Carbs</span>
-                <span id="carbsValue">0g</span>
+                <span class="macro-label-right">
+                    <span id="carbsValue">0g</span>
+                    <button type="button" class="lock-btn" id="lockCarbs" data-macro="carbs" aria-pressed="false" aria-label="Lock carbs macro" title="Lock this macro so others don't change it">🔓</button>
+                </span>
             </div>
-            <input type="range" min="0" max="100" value="0" id="carbsSlider">
+            <input type="range" min="0" max="100" value="0" step="1" id="carbsSlider">
         </div>
 
         <div class="macro-group">
             <div class="macro-label">
                 <span>Fat</span>
-                <span id="fatValue">0g</span>
+                <span class="macro-label-right">
+                    <span id="fatValue">0g</span>
+                    <button type="button" class="lock-btn" id="lockFat" data-macro="fat" aria-pressed="false" aria-label="Lock fat macro" title="Lock this macro so others don't change it">🔓</button>
+                </span>
             </div>
-            <input type="range" min="0" max="100" value="0" id="fatSlider">
+            <input type="range" min="0" max="100" value="0" step="1" id="fatSlider">
         </div>
+
+        <div id="macroHint" class="macro-hint" role="status"></div>
 
         <div class="button-group">
             <button class="btn" id="saveMacrosBtn">Save Macros</button>
@@ -141,142 +304,210 @@
         const profileStatistics = RadiantStorage.profile.get();
         let dailyCalories = 2000; // Default value in case profileStatistics is not found
         let proteinMax, carbsMax, fatMax;
+        let weightLbs = null;
+
+        // Muscle-gain protein zones in g/lb bodyweight (reference chart).
+        const PROTEIN_ZONES = {
+            almostMin: 0.55, almostMax: 0.63,
+            likelyMin: 0.64, likelyMax: 0.72,
+            defMin: 0.73, defMax: 1.00,
+        };
+        const PROTEIN_MIN_PER_LB = 0.30;
+        const PROTEIN_MAX_PER_LB = 1.30;
+        const PROTEIN_DEFAULT_PER_LB = 0.80;
+
+        const profileProteinSlider = document.getElementById('proteinSlider');
+        const profileCarbsSlider = document.getElementById('carbsSlider');
+        const profileFatSlider = document.getElementById('fatSlider');
+
+        // Lock state per macro. When a macro is locked, dragging the other sliders
+        // will not reduce the locked one.
+        const locked = { protein: false, carbs: false, fat: false };
+        const LOCK_BTN_IDS = { protein: 'lockProtein', carbs: 'lockCarbs', fat: 'lockFat' };
+
+        Object.keys(LOCK_BTN_IDS).forEach(key => {
+            const btn = document.getElementById(LOCK_BTN_IDS[key]);
+            btn.addEventListener('click', () => {
+                locked[key] = !locked[key];
+                btn.setAttribute('aria-pressed', String(locked[key]));
+                btn.textContent = locked[key] ? '🔒' : '🔓';
+                btn.title = locked[key]
+                    ? 'Unlock this macro so it can be adjusted again'
+                    : 'Lock this macro so others don\u2019t change it';
+            });
+        });
+
+        function clampSliderToRange(slider, value) {
+            const min = parseFloat(slider.min) || 0;
+            const max = parseFloat(slider.max) || 0;
+            return Math.min(max, Math.max(min, value));
+        }
+
+        function sliderPct(slider) {
+            const min = parseFloat(slider.min) || 0;
+            const max = parseFloat(slider.max) || 0;
+            if (max <= min) return 0;
+            return ((parseFloat(slider.value) - min) / (max - min)) * 100;
+        }
+
+        function updateSliderFill(slider) {
+            slider.style.setProperty('--fill-pct', sliderPct(slider) + '%');
+        }
 
         const savedMacros = RadiantStorage.profile.getMacros();
 
         if (profileStatistics) {
             // Extract daily caloric expenditure
-            dailyCalories = profileStatistics["dailyCaloricExpenditure"]+ profileStatistics["BMR"];
+            const bmr = parseFloat(profileStatistics.BMR) || 0;
+            const expenditure = parseFloat(profileStatistics.dailyCaloricExpenditure) || 0;
+            if (bmr + expenditure > 0) {
+                dailyCalories = bmr + expenditure;
+            }
 
             // Update the daily calories display
-            document.getElementById('dailyCalories').textContent = dailyCalories;
+            document.getElementById('dailyCalories').textContent = Math.round(dailyCalories);
 
-            // Update the sliders' maximum values based on daily calories
-            proteinMax = dailyCalories;
+            const weightKg = parseFloat(profileStatistics.weight);
+            if (weightKg && weightKg > 0) {
+                weightLbs = weightKg * 2.20462;
+            }
+
+            if (weightLbs) {
+                // Anchor the protein slider to body weight (0.30–1.30 g/lb),
+                // keeping the 0.55–1.00 g/lb muscle-gain zone comfortably visible.
+                const proteinMin = PROTEIN_MIN_PER_LB * weightLbs * 4;
+                const proteinMaxRaw = PROTEIN_MAX_PER_LB * weightLbs * 4;
+                proteinMax = Math.min(proteinMaxRaw, dailyCalories);
+                // Guard against an inverted range (e.g. extremely low calorie targets).
+                proteinMax = Math.max(proteinMax, proteinMin);
+                profileProteinSlider.min = Math.round(proteinMin);
+                profileProteinSlider.max = Math.round(proteinMax);
+            } else {
+                proteinMax = dailyCalories;
+                profileProteinSlider.min = 0;
+                profileProteinSlider.max = dailyCalories;
+            }
+
             carbsMax = dailyCalories;
             fatMax = dailyCalories;
 
-            document.getElementById('proteinSlider').max = proteinMax;
-            document.getElementById('carbsSlider').max = carbsMax;
-            document.getElementById('fatSlider').max = fatMax;
+            profileCarbsSlider.max = carbsMax;
+            profileFatSlider.max = fatMax;
         } else {
             console.error('profileStatistics not found in local storage');
+            proteinMax = dailyCalories;
+            profileProteinSlider.max = proteinMax;
+            profileCarbsSlider.max = dailyCalories;
+            profileFatSlider.max = dailyCalories;
         }
 
         // Set slider values based on saved macros
         if (savedMacros) {
-            document.getElementById('proteinSlider').value = savedMacros.protein * 4;
-            document.getElementById('carbsSlider').value = savedMacros.carbs * 4;
-            document.getElementById('fatSlider').value = savedMacros.fat * 9;
-			
-		        // Update the span text to reflect the saved macros
+            profileProteinSlider.value = clampSliderToRange(profileProteinSlider, savedMacros.protein * 4);
+            profileCarbsSlider.value = clampSliderToRange(profileCarbsSlider, savedMacros.carbs * 4);
+            profileFatSlider.value = clampSliderToRange(profileFatSlider, savedMacros.fat * 9);
+
+            // Update the span text to reflect the saved macros
             document.getElementById('proteinValue').textContent = Math.round(savedMacros.protein) + "g";
             document.getElementById('carbsValue').textContent = Math.round(savedMacros.carbs) + "g";
             document.getElementById('fatValue').textContent = Math.round(savedMacros.fat) + "g";
-			
-		
+        } else if (weightLbs) {
+            // Smart first-run default: 0.8 g/lb protein, then split remaining calories evenly.
+            const defaultProteinCals = Math.min(PROTEIN_DEFAULT_PER_LB * weightLbs * 4, dailyCalories);
+            profileProteinSlider.value = defaultProteinCals;
+            const remaining = Math.max(0, dailyCalories - defaultProteinCals);
+            profileCarbsSlider.value = remaining / 2;
+            profileFatSlider.value = remaining / 2;
         }
 
-        document.getElementById('proteinSlider').addEventListener('input', () => updateMacros('protein'));
-        document.getElementById('carbsSlider').addEventListener('input', () => updateMacros('carbs'));
-        document.getElementById('fatSlider').addEventListener('input', () => updateMacros('fat'));
+        profileProteinSlider.addEventListener('input', () => updateMacros('protein'));
+        profileCarbsSlider.addEventListener('input', () => updateMacros('carbs'));
+        profileFatSlider.addEventListener('input', () => updateMacros('fat'));
         document.getElementById('macroPreset').addEventListener('change', applyPreset);
         
         // Initialize the display on page load
         updateMacros();
+        updateProteinRange();
 
 
         function applyPreset() {
             const preset = document.getElementById('macroPreset').value;
             if (preset === 'custom') return;
 
-            let proteinRatio, carbsRatio, fatRatio;
+            // Protein is anchored to body weight; carbs/fat split the remaining calories
+            // using each preset's characteristic carb:fat ratio.
+            const proteinPerLb = { balanced: 0.8, 'low-carb': 1.0, 'high-protein': 1.0, keto: 1.0 }[preset];
+            const carbShare = { balanced: 0.57, 'low-carb': 0.42, 'high-protein': 0.50, keto: 0.07 }[preset];
+            const fatShare = { balanced: 0.43, 'low-carb': 0.58, 'high-protein': 0.50, keto: 0.93 }[preset];
 
-            switch (preset) {
-                case 'balanced':
-                    proteinRatio = 0.30;
-                    carbsRatio = 0.40;
-                    fatRatio = 0.30;
-                    break;
-                case 'low-carb':
-                    proteinRatio = 0.40;
-                    carbsRatio = 0.25;
-                    fatRatio = 0.35;
-                    break;
-                case 'high-protein':
-                    proteinRatio = 0.40;
-                    carbsRatio = 0.30;
-                    fatRatio = 0.30;
-                    break;
-                case 'keto':
-                    proteinRatio = 0.25;
-                    carbsRatio = 0.05;
-                    fatRatio = 0.70;
-                    break;
+            let proteinCals;
+            if (weightLbs) {
+                proteinCals = Math.min(proteinPerLb * weightLbs * 4, dailyCalories);
+            } else {
+                // Fallback to calorie-percentage protein when no weight is known.
+                const fallbackRatio = { balanced: 0.30, 'low-carb': 0.40, 'high-protein': 0.40, keto: 0.25 }[preset];
+                proteinCals = dailyCalories * fallbackRatio;
             }
 
-            const proteinCals = dailyCalories * proteinRatio;
-            const carbsCals = dailyCalories * carbsRatio;
-            const fatCals = dailyCalories * fatRatio;
-
-            document.getElementById('proteinSlider').value = proteinCals;
-            document.getElementById('carbsSlider').value = carbsCals;
-            document.getElementById('fatSlider').value = fatCals;
+            const remaining = Math.max(0, dailyCalories - proteinCals);
+            profileProteinSlider.value = proteinCals;
+            profileCarbsSlider.value = remaining * carbShare;
+            profileFatSlider.value = remaining * fatShare;
 
             // Update display
             updateMacros();
         }
 
         function updateMacros(changedMacro) {
-            const proteinSlider = document.getElementById('proteinSlider');
-            const carbsSlider = document.getElementById('carbsSlider');
-            const fatSlider = document.getElementById('fatSlider');
             const totalCaloriesSpan = document.getElementById('totalCalories');
 
-            let proteinCals = parseFloat(proteinSlider.value);
-            let carbsCals = parseFloat(carbsSlider.value);
-            let fatCals = parseFloat(fatSlider.value);
+            let proteinCals = parseFloat(profileProteinSlider.value);
+            let carbsCals = parseFloat(profileCarbsSlider.value);
+            let fatCals = parseFloat(profileFatSlider.value);
 
             let totalCalories = proteinCals + carbsCals + fatCals;
 
-            if (totalCalories > dailyCalories) {
+            if (totalCalories > dailyCalories && changedMacro) {
                 const excess = totalCalories - dailyCalories;
 
-                if (changedMacro) {
-                    document.getElementById('macroPreset').value = 'custom';
-                }
-                
-                if (changedMacro === 'protein') {
-                    const otherCals = carbsCals + fatCals;
-                    if (otherCals > 0) {
-                        const carbsReduction = excess * (carbsCals / otherCals);
-                        const fatReduction = excess * (fatCals / otherCals);
-                        carbsSlider.value = Math.max(0, carbsCals - carbsReduction);
-                        fatSlider.value = Math.max(0, fatCals - fatReduction);
-                    }
-                } else if (changedMacro === 'carbs') {
-                    const otherCals = proteinCals + fatCals;
-                    if (otherCals > 0) {
-                        const proteinReduction = excess * (proteinCals / otherCals);
-                        const fatReduction = excess * (fatCals / otherCals);
-                        proteinSlider.value = Math.max(0, proteinCals - proteinReduction);
-                        fatSlider.value = Math.max(0, fatCals - fatReduction);
-                    }
-                } else if (changedMacro === 'fat') {
-                    const otherCals = proteinCals + carbsCals;
-                    if (otherCals > 0) {
-                        const proteinReduction = excess * (proteinCals / otherCals);
-                        const carbsReduction = excess * (carbsCals / otherCals);
-                        proteinSlider.value = Math.max(0, proteinCals - proteinReduction);
-                        carbsSlider.value = Math.max(0, carbsCals - carbsReduction);
-                    }
+                document.getElementById('macroPreset').value = 'custom';
+
+                const macrosMeta = {
+                    protein: { slider: profileProteinSlider, cals: proteinCals },
+                    carbs: { slider: profileCarbsSlider, cals: carbsCals },
+                    fat: { slider: profileFatSlider, cals: fatCals },
+                };
+
+                // Candidates that can absorb the excess: never the slider being dragged,
+                // and never a locked one.
+                const adjustable = Object.keys(macrosMeta)
+                    .filter(k => k !== changedMacro && !locked[k] && macrosMeta[k].cals > 0)
+                    .map(k => ({ slider: macrosMeta[k].slider, cals: macrosMeta[k].cals }));
+
+                const adjustableTotal = adjustable.reduce((s, a) => s + a.cals, 0);
+
+                if (adjustableTotal > 0) {
+                    adjustable.forEach(a => {
+                        const reduction = excess * (a.cals / adjustableTotal);
+                        const min = parseFloat(a.slider.min) || 0;
+                        a.slider.value = Math.max(min, a.cals - reduction);
+                    });
+                } else {
+                    // Everything else is locked or zero — cap the dragged macro to what remains.
+                    const otherTotal = Object.keys(macrosMeta)
+                        .filter(k => k !== changedMacro)
+                        .reduce((s, k) => s + macrosMeta[k].cals, 0);
+                    const slider = macrosMeta[changedMacro].slider;
+                    const min = parseFloat(slider.min) || 0;
+                    const cap = Math.max(min, dailyCalories - otherTotal);
+                    slider.value = Math.min(slider.value, cap);
                 }
             }
 
             // Recalculate values after adjustment
-            const finalProteinCals = parseFloat(proteinSlider.value);
-            const finalCarbsCals = parseFloat(carbsSlider.value);
-            const finalFatCals = parseFloat(fatSlider.value);
+            const finalProteinCals = parseFloat(profileProteinSlider.value);
+            const finalCarbsCals = parseFloat(profileCarbsSlider.value);
+            const finalFatCals = parseFloat(profileFatSlider.value);
 
             const proteinGrams = finalProteinCals / 4;
             const carbsGrams = finalCarbsCals / 4;
@@ -286,25 +517,82 @@
             document.getElementById('carbsValue').textContent = Math.round(carbsGrams) + "g";
             document.getElementById('fatValue').textContent = Math.round(fatGrams) + "g";
 
+            updateProteinZone(proteinGrams);
+            updateSliderFill(profileProteinSlider);
+            updateSliderFill(profileCarbsSlider);
+            updateSliderFill(profileFatSlider);
+            updateMacroHint(proteinGrams);
+
             const finalTotalCalories = finalProteinCals + finalCarbsCals + finalFatCals;
             totalCaloriesSpan.textContent = Math.round(finalTotalCalories) + " calories";
         }
 
+        // Positions the muscle-gain zone gradient stops on the protein slider
+        // so the colored bands align with the user's actual body weight.
+        function updateProteinRange() {
+            if (!weightLbs) return;
 
+            const pctFor = ratio => ((ratio - PROTEIN_MIN_PER_LB) / (PROTEIN_MAX_PER_LB - PROTEIN_MIN_PER_LB)) * 100;
 
+            // Zone boundary stops for the slider gradient.
+            profileProteinSlider.style.setProperty('--z1', pctFor(PROTEIN_ZONES.almostMin) + '%');
+            profileProteinSlider.style.setProperty('--z2', pctFor((PROTEIN_ZONES.almostMax + PROTEIN_ZONES.likelyMin) / 2) + '%');
+            profileProteinSlider.style.setProperty('--z3', pctFor((PROTEIN_ZONES.likelyMax + PROTEIN_ZONES.defMin) / 2) + '%');
+            profileProteinSlider.style.setProperty('--z4', pctFor(PROTEIN_ZONES.defMax) + '%');
+        }
 
+        // Live badge showing which muscle-gain zone the current protein lands in.
+        function updateProteinZone(proteinGrams) {
+            const badge = document.getElementById('proteinZone');
+            if (!badge) return;
+            if (!weightLbs) {
+                badge.classList.add('is-hidden');
+                return;
+            }
+            badge.classList.remove('is-hidden');
+
+            const ratio = proteinGrams / weightLbs;
+            let zone, cls;
+            if (ratio < PROTEIN_ZONES.almostMin) {
+                zone = 'Below Target'; cls = 'below';
+            } else if (ratio <= PROTEIN_ZONES.almostMax) {
+                zone = 'Almost Maximized'; cls = 'almost';
+            } else if (ratio <= PROTEIN_ZONES.likelyMax) {
+                zone = 'Very Likely Maximized'; cls = 'very-likely';
+            } else if (ratio <= PROTEIN_ZONES.defMax) {
+                zone = 'Definitely Maximized'; cls = 'definitely';
+            } else {
+                zone = 'Above Max'; cls = 'above';
+            }
+            badge.textContent = zone;
+            badge.className = 'zone-badge zone-badge--' + cls;
+        }
+
+        // Non-blocking, weight-specific guidance when protein is below the sweet spot.
+        function updateMacroHint(proteinGrams) {
+            const hint = document.getElementById('macroHint');
+            if (!hint) return;
+            if (!weightLbs || proteinGrams / weightLbs >= PROTEIN_ZONES.almostMin) {
+                hint.textContent = '';
+                return;
+            }
+            const currentGrams = Math.round(proteinGrams);
+            const threshold = Math.round(PROTEIN_ZONES.almostMin * weightLbs);
+            const addGrams = Math.max(0, threshold - currentGrams);
+            const targetMin = Math.round(PROTEIN_ZONES.defMin * weightLbs);
+            const targetMax = Math.round(PROTEIN_ZONES.defMax * weightLbs);
+            hint.innerHTML = `💪 Protein is below the muscle-gain sweet spot (0.55 g/lb = <strong>${threshold}g</strong>` +
+                (addGrams > 0 ? ` at ${Math.round(weightLbs)} lbs — add <strong>${addGrams}g</strong>` : '') +
+                `). Aim for <strong>${targetMin}–${targetMax}g</strong> to maximize gains.`;
+        }
 
         function saveMacros() {
-            const proteinSlider = document.getElementById('proteinSlider');
-            const carbsSlider = document.getElementById('carbsSlider');
-            const fatSlider = document.getElementById('fatSlider');
-
-			// Round the values to the nearest whole number
-			const macros = {
-				protein: Math.round(proteinSlider.value / 4),
-				carbs: Math.round(carbsSlider.value / 4),
-				fat: Math.round(fatSlider.value / 9)
-			};
+            // Round the values to the nearest whole number
+            const macros = {
+                protein: Math.round(parseFloat(profileProteinSlider.value) / 4),
+                carbs: Math.round(parseFloat(profileCarbsSlider.value) / 4),
+                fat: Math.round(parseFloat(profileFatSlider.value) / 9)
+            };
 
             RadiantStorage.profile.saveMacros(macros);
         }
