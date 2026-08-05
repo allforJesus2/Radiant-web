@@ -13,8 +13,7 @@
     if (zxingReaderPromise) return zxingReaderPromise;
     zxingReaderPromise = new Promise((resolve, reject) => {
       const s = document.createElement('script');
-      s.src =
-        'https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js';
+      s.src = '/vendor/zxing/index.min.js';
       s.async = true;
       s.onload = () => resolve(window.ZXing);
       s.onerror = () => reject(new Error('ZXing load failed'));

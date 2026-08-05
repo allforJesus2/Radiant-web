@@ -1,4 +1,3 @@
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@500;700&family=Patrick+Hand&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap');
 
 :root {
     --ink: #2c2416;
@@ -42,7 +41,7 @@ body {
     background-attachment: fixed;
     color: var(--ink);
     line-height: 1.55;
-    font-family: 'Source Serif 4', Georgia, serif;
+    font-family: Georgia, 'Times New Roman', serif;
     min-height: 100vh;
 }
 
@@ -70,7 +69,7 @@ body {
 }
 
 #dateHeader h1 {
-    font-family: 'Caveat', cursive;
+    font-family: 'Segoe Script', 'Brush Script MT', cursive;
     font-size: 2rem;
     font-weight: 700;
     margin: 0;
@@ -102,7 +101,7 @@ body {
     border: 2px solid var(--ink);
     padding: 0.45rem 0.85rem;
     border-radius: var(--radius);
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 1rem;
     cursor: pointer;
     white-space: nowrap;
@@ -145,7 +144,7 @@ body {
     border-bottom: none;
     border-radius: 8px 8px 0 0;
     text-align: center;
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 0.95rem;
     line-height: 1.25;
     transition: background 0.15s, color 0.15s;
@@ -182,7 +181,7 @@ body {
 
 .subtitle,
 .page-subtitle {
-    font-family: 'Caveat', cursive;
+    font-family: 'Segoe Script', 'Brush Script MT', cursive;
     font-size: 1.5rem;
     font-weight: 600;
     color: var(--pencil-dark);
@@ -192,7 +191,7 @@ body {
 }
 
 h2, h3, h4 {
-    font-family: 'Caveat', cursive;
+    font-family: 'Segoe Script', 'Brush Script MT', cursive;
     color: var(--ink);
 }
 
@@ -217,7 +216,7 @@ h4 {
 label {
     display: block;
     margin-bottom: 0.35rem;
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 1.05rem;
     color: var(--ink);
 }
@@ -231,7 +230,7 @@ select {
     border-bottom: 2px solid var(--ink);
     border-radius: 0;
     font-size: 1rem;
-    font-family: 'Source Serif 4', Georgia, serif;
+    font-family: Georgia, 'Times New Roman', serif;
     background: transparent;
     color: var(--ink);
 }
@@ -250,7 +249,7 @@ button {
     padding: 12px 20px;
     border-radius: var(--radius);
     cursor: pointer;
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 1.1rem;
     font-weight: 400;
     transition: transform 0.1s, box-shadow 0.1s;
@@ -294,7 +293,7 @@ button:hover {
     border-bottom: none;
     border-radius: 8px 8px 0 0;
     text-align: center;
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 0.95rem;
     line-height: 1.25;
     transition: background 0.15s, color 0.15s;
@@ -378,7 +377,7 @@ button.week-tab.active {
     border-bottom: none;
     border-radius: 8px 8px 0 0;
     text-align: center;
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 0.95rem;
     line-height: 1.25;
     transition: background 0.15s, color 0.15s;
@@ -494,7 +493,7 @@ button.day-tab.active {
 
 .workout-item-label {
     display: block;
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 1rem;
     color: var(--ink-light);
     line-height: 1.2;
@@ -534,7 +533,7 @@ button.day-tab.active {
 }
 
 .set-detail-set {
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 1rem;
     color: var(--ink-light);
     line-height: 1.3;
@@ -684,7 +683,7 @@ button.day-tab.active {
     border-radius: var(--radius);
     box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.2);
     z-index: 1000;
-    font-family: 'Caveat', cursive;
+    font-family: 'Segoe Script', 'Brush Script MT', cursive;
     font-size: 2rem;
     font-weight: 700;
     min-width: 110px;
@@ -700,7 +699,7 @@ button.day-tab.active {
 .rest-timer-display::before {
     content: 'Rest ';
     font-size: 1rem;
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     display: block;
     opacity: 0.75;
     font-weight: 400;

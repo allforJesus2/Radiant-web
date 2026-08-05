@@ -69,7 +69,7 @@ a.predefined-button {
     padding: 12px 20px;
     border-radius: var(--radius);
     cursor: pointer;
-    font-family: 'Patrick Hand', cursive;
+    font-family: 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 1.1rem;
     transition: transform 0.1s, box-shadow 0.1s, background-color 0.1s;
 }
