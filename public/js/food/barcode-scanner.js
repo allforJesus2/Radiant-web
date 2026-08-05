@@ -260,6 +260,205 @@
     };
   }
 
+  /**
+   * Online USDA word search (Branded only).
+   * @returns {Promise<Array<{name:string, fdc_id:number|null, sourceLabel:string, source:string, defaultGrams:number, per100:object, fdcRecord:object|null}>>}
+   */
+  async function searchUsdaFoods(query) {
+    const apiKey = getUsdaApiKey();
+    const url =
+      'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' + encodeURIComponent(apiKey);
+    const body = {
+      query: String(query),
+      dataType: ['Branded'],
+      pageSize: 25,
+      requireAllWords: false,
+    };
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error('USDA API request failed (' + r.status + ')');
+    const data = await r.json();
+    const foods = Array.isArray(data && data.foods) ? data.foods : [];
+    const results = [];
+    for (let i = 0; i < foods.length; i++) {
+      const food = foods[i] || {};
+      const nutrients = mapUsdaFoodNutrients(food.foodNutrients);
+      if (!nutrients.calories) continue;
+      const servingSize = numberOrNull(food.servingSize);
+      const servingUnit = String(food.servingSizeUnit || '').toLowerCase();
+      const defaultGrams =
+        servingSize != null && servingSize > 0 && servingUnit.startsWith('g')
+          ? servingSize
+          : 100;
+      const fdcId = food.fdcId ? Number(food.fdcId) : null;
+      const displayName = nameWithBrand(food.description || food.lowercaseDescription, food.brandOwner);
+      results.push({
+        name: displayName,
+        source: 'usda_api',
+        fdc_id: fdcId,
+        sourceLabel: 'USDA API',
+        defaultGrams,
+        per100: extractMacrosForScanner(nutrients),
+        fdcRecord: fdcId ? {
+          fdc_id: fdcId,
+          name: displayName,
+          name_lc: displayName.toLowerCase(),
+          gtin_upc: normalizeUpc(food.gtinUpc || ''),
+          brand_owner: food.brandOwner || '',
+          source: 'usda_api',
+          serving_weight: defaultGrams,
+          serving_description: food.householdServingFullText || '',
+          nutrients,
+        } : null,
+      });
+    }
+    return results;
+  }
+
+  /**
+   * Online Open Food Facts word search.
+   * @returns {Promise<Array<{name:string, fdc_id:number|null, sourceLabel:string, source:string, defaultGrams:number, per100:object, fdcRecord:object|null}>>}
+   */
+  async function searchOffFoods(query) {
+    // Use the OFF v2 JSON API (CORS-enabled) — the legacy cgi/search.pl endpoint
+    // does not send Access-Control-Allow-Origin headers from browser contexts.
+    // Note: OFF's api/v2/search can return unrelated products that ignore
+    // search_terms, so we additionally filter client-side against the query words.
+    // Drops canned/unrelated results so the fallback source (e.g. USDA) gets a
+    // chance to return real matches for off_then_usda / both routing.
+    const words = String(query)
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(Boolean);
+    const url =
+      'https://world.openfoodfacts.org/api/v2/search?search_terms=' +
+      encodeURIComponent(String(query)) +
+      '&page_size=25&fields=code,product_name,product_name_en,brands,serving_quantity,serving_size,nutriments';
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Open Food Facts request failed (' + r.status + ')');
+    const data = await r.json();
+    const products = Array.isArray(data && data.products) ? data.products : [];
+    const results = [];
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i] || {};
+      const n = p.nutriments || {};
+      if (!n['energy-kcal_100g']) continue;
+      // Lenient relevance check: keep a product only if any query word appears
+      // in its name or brand.
+      const nameLower = String(p.product_name_en || p.product_name || '').toLowerCase();
+      const brandRaw = String(p.brands || '');
+      if (words.length && !words.some(function (w) {
+        return nameLower.includes(w) || brandRaw.toLowerCase().includes(w);
+      })) {
+        continue;
+      }
+      const nutrients = mapOffNutrients(n);
+      const servingGrams = numberOrNull(p.serving_quantity) || 100;
+      const brand = brandRaw.split(',')[0].trim();
+      const displayName = nameWithBrand(p.product_name_en || p.product_name || 'Unknown product', brand);
+      const code = String(p.code || '').replace(/\D/g, '');
+      const syntheticId = code ? Number(code) : null;
+      results.push({
+        name: displayName,
+        source: 'off_api',
+        fdc_id: syntheticId,
+        sourceLabel: 'Open Food Facts',
+        defaultGrams: servingGrams,
+        per100: extractMacrosForScanner(nutrients),
+        fdcRecord: syntheticId ? {
+          fdc_id: syntheticId,
+          name: displayName,
+          name_lc: displayName.toLowerCase(),
+          gtin_upc: code,
+          brand_owner: brand,
+          source: 'off_api',
+          serving_weight: servingGrams,
+          serving_description: String(p.serving_size || ''),
+          nutrients,
+        } : null,
+      });
+    }
+    // Surface a console warning when OFF returned products but the client-side
+    // relevance filter dropped all of them (canned/unrelated results).
+    if (words.length && products.length && !results.length) {
+      var sampleNames = [];
+      for (var s = 0; s < Math.min(products.length, 10); s++) {
+        sampleNames.push(
+          String((products[s] && (products[s].product_name_en || products[s].product_name)) || '')
+        );
+      }
+      console.warn(
+        '[barcode scanner] Open Food Facts returned ' + products.length +
+        ' products for "' + query + '" but none matched the query words.' +
+        ' Sample names: [' + sampleNames.join(', ') + ']'
+      );
+    }
+    return results;
+  }
+
+  /**
+   * Word search routed by the user's barcode source preference.
+   * Mirrors the scanner's fallback semantics: 'both' = USDA first, then OFF;
+   * 'off_then_usda' (default) = OFF first, then USDA.
+   * Errors from a failing source are logged to the console (instead of being
+   * silently swallowed) so they are visible whenever a search is performed.
+   * The final failure is re-thrown so the caller can show a UI notification.
+   * @param {string} query
+   * @returns {Promise<Array>}
+   */
+  async function searchFoodsOnline(query) {
+    const src = getBarcodeSourceSetting();
+    if (src === 'usda') {
+      try {
+        return await searchUsdaFoods(query);
+      } catch (e) {
+        console.error('[barcode scanner] USDA search failed:', e);
+        throw e;
+      }
+    }
+    if (src === 'off') {
+      try {
+        return await searchOffFoods(query);
+      } catch (e) {
+        console.error('[barcode scanner] Open Food Facts search failed:', e);
+        throw e;
+      }
+    }
+    if (src === 'both') {
+      // USDA first, then Open Food Facts fallback (matches the barcode scanner's 'both' behavior)
+      try {
+        const usda = await searchUsdaFoods(query);
+        if (usda.length) return usda;
+        console.warn('[barcode scanner] USDA returned no results for "' + query + '", falling back to Open Food Facts.');
+      } catch (e) {
+        console.error('[barcode scanner] USDA search failed, falling back to Open Food Facts:', e);
+      }
+      try {
+        return await searchOffFoods(query);
+      } catch (e) {
+        console.error('[barcode scanner] Open Food Facts search failed:', e);
+        throw e;
+      }
+    }
+    // 'off_then_usda' (default) and any unknown value — OFF first, USDA fallback
+    try {
+      const off = await searchOffFoods(query);
+      if (off.length) return off;
+      console.warn('[barcode scanner] Open Food Facts returned no results for "' + query + '", falling back to USDA.');
+    } catch (e) {
+      console.error('[barcode scanner] Open Food Facts search failed, falling back to USDA:', e);
+    }
+    try {
+      return await searchUsdaFoods(query);
+    } catch (e) {
+      console.error('[barcode scanner] USDA search failed:', e);
+      throw e;
+    }
+  }
+
   function getBarcodeSourceSetting() {
     return RadiantStorage.settings.getBarcodeSource();
   }
@@ -277,7 +476,7 @@
 
   function ensureModal() {
     let el = document.getElementById('barcode-scanner-root');
-    if (el && (!el.querySelector('#barcode-manual') || !el.querySelector('#barcode-save-label'))) {
+    if (el && (!el.querySelector('#barcode-manual') || !el.querySelector('#barcode-save-label') || !el.querySelector('#food-search-panel'))) {
       el.remove();
       el = null;
     }
@@ -309,16 +508,119 @@
           <input type="number" id="barcode-confirm-grams" class="btn" inputmode="numeric" style="width:100%;box-sizing:border-box;padding:8px;">
           <label id="barcode-save-label" style="display:none;margin-top:12px;align-items:flex-start;gap:8px;cursor:pointer;font-size:0.9em;line-height:1.35;">
             <input type="checkbox" id="barcode-save-to-db" checked style="margin-top:3px;flex-shrink:0;">
-            <span>Save scanned item to local food database (enables name search and full nutrients)</span>
+            <span>Save item to local food database (enables name search and full nutrients)</span>
           </label>
           <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px;">
             <button type="button" class="btn" id="barcode-confirm-back">Back</button>
             <button type="button" class="btn" id="barcode-confirm-add">Add</button>
           </div>
         </div>
+      </div>
+      <div id="food-search-panel" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:9999;align-items:center;justify-content:center;padding:16px;box-sizing:border-box;">
+        <div style="background:var(--button,#333);color:var(--text-color,#fff);padding:16px;border-radius:8px;max-width:480px;width:100%;box-sizing:border-box;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <h3 style="margin:0;font-size:1em;">Search results</h3>
+            <button type="button" class="btn" id="food-search-close">Close</button>
+          </div>
+          <p id="food-search-status" style="margin:0 0 8px;font-size:0.9em;opacity:.85;">Searching…</p>
+          <div id="food-search-results" style="max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
+        </div>
       </div>`;
     document.body.appendChild(el);
     return el;
+  }
+
+  let activeStream = null;
+  let activeRafId = null;
+
+  function stopActiveScannerStream() {
+    if (activeRafId) {
+      cancelAnimationFrame(activeRafId);
+      activeRafId = null;
+    }
+    if (activeStream) {
+      activeStream.getTracks().forEach(function (t) { t.stop(); });
+      activeStream = null;
+    }
+  }
+
+  function hideAllScannerPanels(root) {
+    if (!root) return;
+    const backdrop = root.querySelector('.barcode-backdrop');
+    const searchPanel = root.querySelector('#food-search-panel');
+    if (backdrop) backdrop.style.display = 'none';
+    if (searchPanel) searchPanel.style.display = 'none';
+  }
+
+  function showConfirmDialog(root, onConfirm, payload, onBack) {
+    hideAllScannerPanels(root);
+    const confirmEl = root.querySelector('#barcode-confirm');
+    const gramsInput = root.querySelector('#barcode-confirm-grams');
+    const title = root.querySelector('#barcode-confirm-title');
+    const meta = root.querySelector('#barcode-confirm-meta');
+    const saveLabel = root.querySelector('#barcode-save-label');
+    const saveCheckbox = root.querySelector('#barcode-save-to-db');
+    title.textContent = payload.name;
+    const srcLabel = payload.sourceLabel || (payload.fdc_id ? 'USDA FDC #' + payload.fdc_id : 'Online lookup');
+    meta.textContent = srcLabel + ' · ' + payload.calories + ' kcal / ' + (gramsInput.value || payload.defaultGrams) + 'g';
+    gramsInput.value = payload.defaultGrams || 100;
+
+    // Show the save checkbox only for online-lookup items (local DB items are already stored)
+    if (saveLabel) {
+      saveLabel.style.display = payload.fdcRecord ? 'flex' : 'none';
+      if (saveCheckbox) saveCheckbox.checked = true;
+    }
+
+    confirmEl.style.display = 'flex';
+
+    const addBtn = root.querySelector('#barcode-confirm-add');
+    const backBtn = root.querySelector('#barcode-confirm-back');
+
+    function updateMeta() {
+      const g = parseFloat(gramsInput.value) || 100;
+      const sc = payload.rescale(g);
+      const label = payload.sourceLabel || (payload.fdc_id ? 'USDA FDC #' + payload.fdc_id : 'Online lookup');
+      meta.textContent = label + ' · ' + sc.calories + ' kcal, P ' + sc.protein + 'g, C ' + sc.carbs + 'g, F ' + sc.fat + 'g (' + g + 'g)';
+    }
+    gramsInput.oninput = updateMeta;
+    updateMeta();
+
+    const cleanup = () => {
+      addBtn.onclick = null;
+      backBtn.onclick = null;
+      gramsInput.oninput = null;
+      if (saveLabel) saveLabel.style.display = 'none';
+      confirmEl.style.display = 'none';
+    };
+
+    backBtn.onclick = () => {
+      cleanup();
+      if (typeof onBack === 'function') onBack();
+    };
+
+    addBtn.onclick = () => {
+      const g = parseFloat(gramsInput.value) || 100;
+      const sc = payload.rescale(g);
+      const shouldSave = saveCheckbox ? saveCheckbox.checked : false;
+      if (shouldSave && payload.fdcRecord && typeof putFoodBatch === 'function') {
+        putFoodBatch([payload.fdcRecord]).catch(() => {});
+      }
+      cleanup();
+      onConfirm({
+        name: payload.name,
+        grams: g,
+        fdc_id: shouldSave && payload.fdcRecord ? payload.fdc_id : null,
+        calories: sc.calories,
+        protein: sc.protein,
+        carbs: sc.carbs,
+        fat: sc.fat,
+        nutrition_source:
+          payload.nutrition_source ||
+          (payload.fdcRecord && payload.fdcRecord.source) ||
+          null,
+        fromOnlineLookup: !payload.fdc_id,
+      });
+    };
   }
 
   async function decodeWithZXing(video) {
@@ -343,89 +645,20 @@
     const hint = root.querySelector('#barcode-hint');
     const cancelBtn = root.querySelector('#barcode-cancel');
 
-    let stream = null;
-    let rafId = null;
     let closed = false;
 
     function closeScan() {
       closed = true;
-      if (rafId) cancelAnimationFrame(rafId);
-      if (stream) {
-        stream.getTracks().forEach((t) => t.stop());
-        stream = null;
-      }
+      stopActiveScannerStream();
       video.srcObject = null;
       backdrop.style.display = 'none';
     }
 
     function showConfirm(payload) {
       closeScan();
-      const gramsInput = root.querySelector('#barcode-confirm-grams');
-      const title = root.querySelector('#barcode-confirm-title');
-      const meta = root.querySelector('#barcode-confirm-meta');
-      const saveLabel = root.querySelector('#barcode-save-label');
-      const saveCheckbox = root.querySelector('#barcode-save-to-db');
-      title.textContent = payload.name;
-      const srcLabel = payload.sourceLabel || (payload.fdc_id ? 'USDA FDC #' + payload.fdc_id : 'Online lookup');
-      meta.textContent = `${srcLabel} · ${payload.calories} kcal / ${gramsInput.value || payload.defaultGrams}g`;
-      gramsInput.value = payload.defaultGrams || 100;
-
-      // Show the save checkbox only for online-lookup items (local DB items are already stored)
-      if (saveLabel) {
-        saveLabel.style.display = payload.fdcRecord ? 'flex' : 'none';
-        if (saveCheckbox) saveCheckbox.checked = true;
-      }
-
-      confirmEl.style.display = 'flex';
-
-      const addBtn = root.querySelector('#barcode-confirm-add');
-      const backBtn = root.querySelector('#barcode-confirm-back');
-
-      function updateMeta() {
-        const g = parseFloat(gramsInput.value) || 100;
-        const sc = payload.rescale(g);
-        const srcLabel = payload.sourceLabel || (payload.fdc_id ? 'USDA FDC #' + payload.fdc_id : 'Online lookup');
-        meta.textContent = `${srcLabel} · ${sc.calories} kcal, P ${sc.protein}g, C ${sc.carbs}g, F ${sc.fat}g (${g}g)`;
-      }
-      gramsInput.oninput = updateMeta;
-      updateMeta();
-
-      const cleanup = () => {
-        addBtn.onclick = null;
-        backBtn.onclick = null;
-        gramsInput.oninput = null;
-        if (saveLabel) saveLabel.style.display = 'none';
-        confirmEl.style.display = 'none';
-      };
-
-      backBtn.onclick = () => {
-        cleanup();
+      showConfirmDialog(root, onConfirm, payload, function () {
         window.openBarcodeScanner(onConfirm);
-      };
-
-      addBtn.onclick = () => {
-        const g = parseFloat(gramsInput.value) || 100;
-        const sc = payload.rescale(g);
-        const shouldSave = saveCheckbox ? saveCheckbox.checked : false;
-        if (shouldSave && payload.fdcRecord && typeof putFoodBatch === 'function') {
-          putFoodBatch([payload.fdcRecord]).catch(() => {});
-        }
-        cleanup();
-        onConfirm({
-          name: payload.name,
-          grams: g,
-          fdc_id: shouldSave && payload.fdcRecord ? payload.fdc_id : null,
-          calories: sc.calories,
-          protein: sc.protein,
-          carbs: sc.carbs,
-          fat: sc.fat,
-          nutrition_source:
-            payload.nutrition_source ||
-            (payload.fdcRecord && payload.fdcRecord.source) ||
-            null,
-          fromOnlineLookup: !payload.fdc_id,
-        });
-      };
+      });
     }
 
     backdrop.style.display = 'flex';
@@ -534,11 +767,11 @@
 
     (async () => {
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
+        activeStream = await navigator.mediaDevices.getUserMedia({
           video: { facingMode: 'environment' },
           audio: false,
         });
-        video.srcObject = stream;
+        video.srcObject = activeStream;
         await video.play();
       } catch (e) {
         hint.textContent =
@@ -562,9 +795,9 @@
               return;
             }
           } catch (_) {}
-          rafId = requestAnimationFrame(tick);
+          activeRafId = requestAnimationFrame(tick);
         };
-        rafId = requestAnimationFrame(tick);
+        activeRafId = requestAnimationFrame(tick);
       } else {
         try {
           const raw = await decodeWithZXing(video);
@@ -574,6 +807,97 @@
         }
       }
     })();
+  };
+
+  /**
+   * Open the online name-search popup.
+   * @param {string} query
+   * @param {(payload: object) => void} onConfirm
+   */
+  window.openFoodNameSearch = function (query, onConfirm) {
+    const root = ensureModal();
+    const panel = root.querySelector('#food-search-panel');
+    const resultsEl = root.querySelector('#food-search-results');
+    const statusEl = root.querySelector('#food-search-status');
+    const closeBtn = root.querySelector('#food-search-close');
+
+    // Hide scanner + confirm panels and stop any running camera
+    const backdrop = root.querySelector('.barcode-backdrop');
+    const confirmEl = root.querySelector('#barcode-confirm');
+    stopActiveScannerStream();
+    if (backdrop) backdrop.style.display = 'none';
+    if (confirmEl) confirmEl.style.display = 'none';
+
+    const trimmedQuery = String(query || '').trim();
+    let searchId = 0;
+
+    function renderResults(results) {
+      resultsEl.innerHTML = '';
+      if (!results.length) {
+        if (statusEl) statusEl.textContent = 'No results. Try a different search.';
+        return;
+      }
+      if (statusEl) {
+        statusEl.textContent = results.length + ' result' + (results.length === 1 ? '' : 's');
+      }
+      results.forEach(function (result) {
+        const row = document.createElement('button');
+        row.type = 'button';
+        row.className = 'btn food-search-result';
+        row.style.cssText =
+          'text-align:left;justify-content:flex-start;padding:8px 10px;font-size:0.95em;' +
+          'cursor:pointer;border:1px solid var(--border-color,#444);width:100%;box-sizing:border-box;';
+        row.textContent = (result.sourceLabel || 'Online') + ' · ' + result.name;
+        row.addEventListener('click', function () {
+          showConfirmDialog(root, onConfirm, {
+            name: result.name,
+            fdc_id: result.fdc_id,
+            sourceLabel: result.sourceLabel,
+            nutrition_source: result.source,
+            defaultGrams: result.defaultGrams,
+            fdcRecord: result.fdcRecord,
+            rescale: function (g) { return scalePer100(result.per100, g); },
+          }, function () {
+            window.openFoodNameSearch(trimmedQuery, onConfirm);
+          });
+        });
+        resultsEl.appendChild(row);
+      });
+    }
+
+    if (!trimmedQuery) {
+      panel.style.display = 'flex';
+      if (statusEl) statusEl.textContent = 'Type a food name to search.';
+      return;
+    }
+
+    panel.style.display = 'flex';
+    if (statusEl) statusEl.textContent = 'Searching…';
+    resultsEl.innerHTML = '';
+
+    const myId = ++searchId;
+    searchFoodsOnline(trimmedQuery)
+      .then(function (results) {
+        if (myId !== searchId) return;
+        if (panel.style.display === 'none') return;
+        console.info(
+          '[barcode scanner] Search for "' + trimmedQuery + '" returned ' +
+          (results ? results.length : 0) + ' result(s).'
+        );
+        renderResults(results || []);
+      })
+      .catch(function (err) {
+        if (myId !== searchId) return;
+        if (panel.style.display === 'none') return;
+        console.error('[barcode scanner] Search failed for "' + trimmedQuery + '":', err);
+        if (statusEl) statusEl.textContent = 'Search failed: ' + (err && err.message);
+        resultsEl.innerHTML = '';
+      });
+
+    closeBtn.onclick = function () {
+      panel.style.display = 'none';
+      searchId++;
+    };
   };
 
   function extractMacrosForScanner(nutrients) {

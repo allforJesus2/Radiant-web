@@ -74,6 +74,16 @@
             color: #ffffff;
             opacity: 1;
         }
+
+        .food-search-result:hover {
+            background-color: var(--hover-color, #444);
+            border-color: var(--hover-color, #555);
+        }
+
+        .food-search-result:focus {
+            outline: 2px solid var(--accent-color, #007BFF);
+            outline-offset: -1px;
+        }
         
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-10px); }
