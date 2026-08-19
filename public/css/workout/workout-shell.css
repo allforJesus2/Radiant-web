@@ -8,6 +8,13 @@
     src: url('../../fonts/caveat-latin.woff2') format('woff2');
 }
 
+/* Single font scale factor — increase this ONE value to make ALL fonts
+   on workout pages (5/3/1, custom workout, etc.) larger proportionally.
+   Default 100% = 16px; e.g. 112.5% = 18px baseline. */
+html {
+    font-size: 140%;
+}
+
 :root {
     --ink: #2c2416;
     --ink-light: #5c5347;
