@@ -163,15 +163,26 @@ function extractMacrosPer100g(nutrients) {
   if (!nutrients) {
     return { calories: 0, protein: 0, fat: 0, carbs: 0 };
   }
-  return {
-    calories: nutrients.calories || 0,
-    protein: nutrients.protein || 0,
-    fat: nutrients.fat || 0,
-    carbs:
-      nutrients.carbohydrate != null
-        ? nutrients.carbohydrate
-        : nutrients.carbs || 0,
+  // Coerce to a finite number and clamp negatives to 0. USDA data can carry
+  // small negative artifacts (e.g. carbohydrate "by difference" = -0.17) and
+  // some foods lack an explicit energy value entirely.
+  const nn = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) && n > 0 ? n : 0;
   };
+  const protein = nn(nutrients.protein);
+  const fat = nn(nutrients.fat);
+  const carbs = nn(
+    nutrients.carbohydrate != null ? nutrients.carbohydrate : nutrients.carbs
+  );
+  let calories = nn(nutrients.calories);
+  if (calories === 0 && (protein > 0 || fat > 0 || carbs > 0)) {
+    // Derive energy via Atwater general factors (4/4/9) when the source lacks
+    // an explicit energy nutrient. Also corrects legacy records whose energy
+    // nutrient ids (e.g. Atwater 2047/2048) were dropped during import.
+    calories = Math.round((protein * 4 + carbs * 4 + fat * 9) * 10) / 10;
+  }
+  return { calories, protein, fat, carbs };
 }
 
 function scaleMacrosFrom100g(per100, grams) {
