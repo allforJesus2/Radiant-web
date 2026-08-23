@@ -34,6 +34,11 @@ const WorkoutUtils = {
         this.migrate531OneRepMaxes();
     },
 
+    applyHandFont() {
+        document.body.dataset.handFont = RadiantStorage.workout.getHandFont();
+        document.documentElement.style.fontSize = RadiantStorage.workout.getFontSize() + '%';
+    },
+
     /**
      * Sync 531 main-lift 1RM inputs into exerciseLibrary (one-time per install).
      */
@@ -536,6 +541,7 @@ const WorkoutUtils = {
 if (typeof document !== 'undefined') {
     document.addEventListener('DOMContentLoaded', () => {
         WorkoutUtils.initialize();
+        WorkoutUtils.applyHandFont();
     });
 }
 

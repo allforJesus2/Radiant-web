@@ -469,14 +469,24 @@
                 }
             }
 
+            function updateWeekPhaseLabel() {
+                const label = document.getElementById('week-phase-label');
+                if (!label) return;
+                if (!workoutPlan.weeks || Object.keys(workoutPlan.weeks).length === 0) {
+                    label.textContent = '';
+                    return;
+                }
+                label.textContent = `Week ${currentWeek}: ${getWeekLabel(currentWeek)}`;
+            }
+
             function updateWeekTabLabels() {
                 for (let week = 1; week <= 4; week++) {
                     const tab = document.querySelector(`.week-tab[data-week="${week}"]`);
                     if (tab) {
-                        const label = getWeekLabel(week);
-                        tab.innerHTML = `Week ${week}<br>(${label})`;
+                        tab.innerHTML = `Week ${week}`;
                     }
                 }
+                updateWeekPhaseLabel();
                 updateAllWeekCheckmarks();
             }
 
@@ -498,6 +508,126 @@
                 'BBB 5×10 too hard? Stay at 50% TM or cut sets until quality returns',
                 'Struggling to hit prescribed AMRAP reps? Lower that lift\'s TM ~10% in Program Setup'
             ];
+
+            const FORM_TIPS = {
+                squat: {
+                    items: [
+                        'Toe Angle: point toes relatively straight forward — a slight 5–7 degree flare is acceptable',
+                        'Tripod Foot: distribute weight evenly across three points — the heel, base of the big toe, and base of the little toe',
+                        'Hip Hinge: initiate the movement by driving the hips back slightly and tilting the chest forward to engage the posterior chain',
+                        'External Rotation Torque: root your feet into the floor, squeeze your glutes, and drive your knees outward so they track in line with your toes',
+                        'Postural Integrity: keep a neutral spine and a locked core — descend until your thighs drop below parallel',
+                        'The Ascent: drive through your heels to push straight up, ensuring your hips and chest rise at the exact same rate'
+                    ]
+                },
+                bench: {
+                    items: [
+                        'The Setup: create a stable tripod by digging your upper traps and heels firmly into the ground while keeping your butt lightly grazing the bench',
+                        'Lats Engagement: grip the bar tightly and try to physically "bend the bar" with your hands — this packs your shoulder blades back and down, engaging the lats',
+                        'The Descent: unrack by pushing into the bar with 10–20% effort first to establish stability, then lower the bar with a slow, controlled negative to your lower sternum, keeping your elbows tucked at roughly a 45-degree angle',
+                        'The Press: leg drive is initiated by pushing your heels into the floor, routing that force through your hamstrings and glutes into the upper body to propel the bar upward'
+                    ]
+                },
+                deadlift: {
+                    items: [
+                        'The Setup: stand with feet inside shoulder width — position the bar directly over your mid-foot so it is touching or nearly touching your shins',
+                        'The Wedge: hinge down to grab the bar, pull the "slack" out of the bar by pulling your chest up and lats down, and lengthen your arms to lock your upper back into slight thoracic extension',
+                        'Floor to Knee (The Squat): push the floor away through your mid-foot — your hips and chest must rise simultaneously, maintaining the exact same back angle until the bar passes your knees',
+                        'Knee to Lockout (The Hinge): once the bar clears your kneecaps, drive your hips forward and squeeze your glutes hard to stand up completely straight',
+                        'The Descent: reverse the motion precisely — hinge at the hips first (like an RDL) until the bar clears your knees, then squat the weight down to the floor'
+                    ]
+                },
+                ohp: {
+                    items: [
+                        'The Stance: stand with feet shoulder-width apart — grip the bar just outside your shoulders so your forearms remain perfectly vertical under the bar',
+                        'The Front Rack: rest the bar on your front delts with your elbows pointing slightly forward, not flared out to the sides',
+                        'The Core Brace: squeeze your glutes and brace your abs hard to lock your pelvis — this prevents your lower back from over-arching during the lift',
+                        'The Bar Path: pull your chin back to clear a path, then press the bar straight up in a vertical line, keeping it over your mid-foot',
+                        'The Lockout: push your head forward once the bar clears your forehead, lock your elbows out, and finish with your biceps by your ears'
+                    ]
+                }
+            };
+
+            let formTipIndices = { squat: 0, bench: 0, deadlift: 0, ohp: 0 };
+            let formTipTimer = null;
+
+            function getFormTips(mainLiftName) {
+                const key = (mainLiftName || '').toLowerCase();
+                return FORM_TIPS[key] || null;
+            }
+
+            function getFormTipText(mainLiftName) {
+                const key = (mainLiftName || '').toLowerCase();
+                const tips = FORM_TIPS[key];
+                if (!tips) return '';
+                return tips.items[formTipIndices[key] % tips.items.length];
+            }
+
+            function updateFormTipLabels(animate = true) {
+                document.querySelectorAll('.form-tip-rotating-label').forEach(label => {
+                    const key = label.dataset.lift || '';
+                    const tips = FORM_TIPS[key];
+                    if (!tips) return;
+                    const text = tips.items[formTipIndices[key] % tips.items.length];
+                    if (!animate || label.textContent === text) {
+                        label.textContent = text;
+                    } else {
+                        label.classList.add('form-tip-fading');
+                        setTimeout(() => {
+                            label.textContent = text;
+                            label.classList.remove('form-tip-fading');
+                        }, NOTES_FADE_MS);
+                    }
+                });
+            }
+
+            function startFormTipRotation() {
+                if (formTipTimer) {
+                    clearInterval(formTipTimer);
+                    formTipTimer = null;
+                }
+                updateFormTipLabels(false);
+                formTipTimer = setInterval(() => {
+                    ['squat', 'bench', 'deadlift', 'ohp'].forEach(k => formTipIndices[k]++);
+                    updateFormTipLabels(true);
+                }, 6000);
+            }
+
+            const FORM_TIP_TITLES = { squat: 'Squat', bench: 'Bench Press', deadlift: 'Deadlift', ohp: 'Overhead Press' };
+
+            function openFormTipsModal(liftKey) {
+                const tips = getFormTips(liftKey);
+                if (!tips) return;
+                const titleEl = document.getElementById('form-tips-title');
+                const bodyEl = document.getElementById('form-tips-body');
+                const modal = document.getElementById('form-tips-modal');
+                if (titleEl) titleEl.textContent = (FORM_TIP_TITLES[liftKey] || liftKey) + ' Form Tips';
+                if (bodyEl) bodyEl.innerHTML = `<ul>${tips.items.map(tip => `<li class="form-tips-item">${tip}</li>`).join('')}</ul>`;
+                if (modal) modal.hidden = false;
+            }
+
+            function hideFormTipsModal() {
+                const modal = document.getElementById('form-tips-modal');
+                if (modal) modal.hidden = true;
+            }
+
+            window.openFormTipsModal = openFormTipsModal;
+
+            const formTipsModal = document.getElementById('form-tips-modal');
+            const closeFormTipsButton = document.getElementById('close-form-tips');
+            if (closeFormTipsButton) {
+                closeFormTipsButton.addEventListener('click', hideFormTipsModal);
+            }
+            if (formTipsModal) {
+                formTipsModal.addEventListener('click', (e) => {
+                    if (e.target === formTipsModal) hideFormTipsModal();
+                });
+            }
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && formTipsModal && !formTipsModal.hidden) {
+                    hideFormTipsModal();
+                }
+            });
 
             function getCurrentNotesIndex() {
                 if (WORKOUT_NOTES_ITEMS.length === 0) return 0;
@@ -2450,6 +2580,17 @@
                             <div class="day-content ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">
                                 <div class="day-card">
                                     <div class="day-header">Day ${day.day}: ${day.name}</div>
+                                    ${(function () {
+                                        const formTipsForDay = getFormTips(day.mainLift.name);
+                                        if (!formTipsForDay) return '';
+                                        return `
+                                    <div class="form-tip-strip" title="Tap to view all form tips" onclick="openFormTipsModal('${day.mainLift.name.toLowerCase()}')">
+                                        <span class="form-tip-icon">📝</span>
+                                        <span class="form-tip-rotating-label" data-lift="${day.mainLift.name.toLowerCase()}">${getFormTipText(day.mainLift.name)}</span>
+                                        <span class="form-tip-chevron">›</span>
+                                    </div>`;
+                                    })()}
+
                                     <button type="button" class="begin-workout-btn" data-week="${week}" data-day="${dayIndex}">Begin Workout</button>
 
                                     <div class="collapsible-wrapper notes-collapsible">
@@ -2464,6 +2605,8 @@
                                         </div>
                                     </div>
                                     
+                                    
+
                                     ${(day.mainLift.warmup || []).length > 0 ? `
                                     <div class="warm-up-section workout-section">
                                         <h4>Warm-up Sets</h4>
@@ -2700,10 +2843,13 @@
                 }
 
                 startNotesRotation();
+                startFormTipRotation();
             }
             
             // Function to show specific week content
             function showWeekContent(weekNum, dayIndex) {
+                currentWeek = weekNum;
+                updateWeekPhaseLabel();
                 document.querySelectorAll('.week-content').forEach(content => {
                     content.classList.toggle('active', content.dataset.week === weekNum.toString());
                 });

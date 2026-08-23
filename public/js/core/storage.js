@@ -22,6 +22,8 @@ const RadiantStorage = {
         DAILY_NOTES: 'dailyNotes',
         SLEEP: 'sleep',
         WORKOUT_SETTINGS: 'workoutSettings',
+        WORKOUT_FONT: 'workoutFont',
+        WORKOUT_FONT_SIZE: 'workoutFontSize',
         WORKOUT_ROUTINES: 'workoutRoutines',
         WORKOUT_SCHEDULE: 'workoutSchedule',
         EXERCISE_LIBRARY: 'exerciseLibrary',
@@ -428,6 +430,22 @@ const RadiantStorage = {
 
         saveSettings(settings) {
             RadiantStorage.setJSON(RadiantStorage.KEYS.WORKOUT_SETTINGS, settings);
+        },
+
+        getHandFont() {
+            return RadiantStorage.getRaw(RadiantStorage.KEYS.WORKOUT_FONT) || 'caveat';
+        },
+
+        setHandFont(font) {
+            RadiantStorage.setRaw(RadiantStorage.KEYS.WORKOUT_FONT, font);
+        },
+
+        getFontSize() {
+            return RadiantStorage.getRaw(RadiantStorage.KEYS.WORKOUT_FONT_SIZE) || '140';
+        },
+
+        setFontSize(size) {
+            RadiantStorage.setRaw(RadiantStorage.KEYS.WORKOUT_FONT_SIZE, String(size));
         },
 
         getRoutines() {

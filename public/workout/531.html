@@ -118,6 +118,16 @@
                         <option value="beginners">5/3/1 for Beginners (FSL + specific accessories)</option>
                     </select>
                 </div>
+                <div class="input-group level-up-setup-hidden">
+                    <label for="hand-font-select">Handwriting Font</label>
+                    <select id="hand-font-select">
+                        <option value="caveat">Caveat</option>
+                        <option value="shantell">Shantell Sans</option>
+                        <option value="default">Browser default</option>
+                    </select>
+                    <label for="font-size-input">Font Size (%)</label>
+                    <input type="number" id="font-size-input" min="100" max="200" step="5" placeholder="140">
+                </div>
                 <div id="bbb-accessory-inputs" class="level-up-setup-hidden" style="display:none">
                     <div id="bbb-weight-preview" style="font-size:0.85rem; color:#666; margin-bottom:0.5rem;"></div>
                 </div>
@@ -183,11 +193,12 @@
                     <span style="width: 72px; flex-shrink: 0;"></span>
                 </div>
                 <div class="week-tabs">
-                    <div class="week-tab active" data-week="1">Week 1<br>(5/5/5+)</div>
-                    <div class="week-tab" data-week="2">Week 2<br>(3/3/3+)</div>
-                    <div class="week-tab" data-week="3">Week 3<br>(5/3/1+)</div>
-                    <div class="week-tab" data-week="4">Week 4<br>(Deload)</div>
+                    <div class="week-tab active" data-week="1">Week 1</div>
+                    <div class="week-tab" data-week="2">Week 2</div>
+                    <div class="week-tab" data-week="3">Week 3</div>
+                    <div class="week-tab" data-week="4">Week 4</div>
                 </div>
+                <div id="week-phase-label" class="week-phase-label"></div>
                 
                 <div id="workout-results">
                     <p>Enter your 1-rep max values in Program Setup and click Save to create your personalized 5/3/1 program.</p>
@@ -203,6 +214,15 @@
                 <button type="button" id="close-setup-notes" class="close-setup-notes">&times;</button>
             </div>
             <div id="setup-notes-body" class="setup-notes-body"></div>
+        </div>
+    </div>
+    <div id="form-tips-modal" class="form-tips-modal" hidden>
+        <div class="form-tips-content">
+            <div class="form-tips-header">
+                <h3 id="form-tips-title">Form Tips</h3>
+                <button type="button" id="close-form-tips" class="close-form-tips">&times;</button>
+            </div>
+            <div id="form-tips-body" class="form-tips-body"></div>
         </div>
     </div>
     <div id="first-plan-modal" class="first-plan-modal" hidden>
@@ -225,6 +245,26 @@
         document.addEventListener('DOMContentLoaded', function () {
             setupHeader(null, { showCenter: false, basePath: '../' });
         });
+    </script>
+    <script>
+        (function () {
+            var select = document.getElementById('hand-font-select');
+            if (select) {
+                select.value = RadiantStorage.workout.getHandFont();
+                select.addEventListener('change', function () {
+                    RadiantStorage.workout.setHandFont(select.value);
+                    document.body.dataset.handFont = select.value;
+                });
+            }
+            var sizeInput = document.getElementById('font-size-input');
+            if (sizeInput) {
+                sizeInput.value = RadiantStorage.workout.getFontSize();
+                sizeInput.addEventListener('change', function () {
+                    RadiantStorage.workout.setFontSize(sizeInput.value);
+                    document.documentElement.style.fontSize = sizeInput.value + '%';
+                });
+            }
+        })();
     </script>
 </body>
 </html>
