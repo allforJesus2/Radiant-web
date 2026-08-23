@@ -13,6 +13,7 @@
 			--card-border: rgba(255, 235, 200, 0.14);
 			--button-bg: rgba(255, 255, 255, 0.03);
 			--button-border: rgba(255, 255, 255, 0.09);
+			--btn-size: 78px; /* circular nav button diameter — change this one value to resize all buttons */
 			--brand-font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 			--brand-tracking: 0.42em;
 		}
@@ -114,33 +115,47 @@
 		/* ── navigation buttons ───────────────────────────────────────── */
 		.nav {
 			display: flex;
-			flex-direction: column;
-			gap: 10px;
+			flex-wrap: wrap;
+			justify-content: center;
+			align-items: center;
+			gap: 14px;
 			margin-bottom: 28px;
 		}
 
 		.btn {
 			appearance: none;
-			width: 100%;
-			min-width: 200px;
-			padding: 15px 20px;
+			width: var(--btn-size);
+			height: var(--btn-size);
+			padding: calc(var(--btn-size) * 0.09);
+			display: flex;
+			flex-direction: column;
+			align-items: center;
+			justify-content: center;
+			gap: calc(var(--btn-size) * 0.064);
 			font-family: var(--brand-font);
-			font-size: 13px;
+			font-size: calc(var(--btn-size) * 0.103);
 			font-weight: 300;
-			letter-spacing: 0.32em;
+			letter-spacing: 0.16em;
+			text-indent: 0.16em; /* re-center the letter-spaced label */
 			text-transform: uppercase;
 			color: var(--text);
 			background: var(--button-bg);
 			border: 1px solid var(--button-border);
-			border-radius: 12px;
+			border-radius: 50%;
 			cursor: pointer;
 			transition: transform 0.25s ease, border-color 0.25s ease,
 				box-shadow 0.25s ease, background 0.25s ease;
 		}
 
+		.btn-icon {
+			font-size: calc(var(--btn-size) * 0.256);
+			line-height: 1;
+			display: block;
+		}
+
 		.btn:hover,
 		.btn:focus-visible {
-			transform: translateY(-2px);
+			transform: translateY(-2px) scale(1.04);
 			background: rgba(232, 201, 138, 0.07);
 			border-color: rgba(232, 201, 138, 0.35);
 			box-shadow: 0 0 24px rgba(232, 201, 138, 0.12), 0 6px 18px rgba(0, 0, 0, 0.4);
@@ -148,7 +163,7 @@
 		}
 
 		.btn:active {
-			transform: translateY(0);
+			transform: translateY(0) scale(0.96);
 			transition-duration: 0.08s;
 		}
 
@@ -237,13 +252,13 @@
 		<div id="announcements"></div>
 
 		<nav class="nav">
-			<button class="btn rise" style="animation-delay:.35s" onclick="checkProfileAndNavigate()">Nutrition 🍎</button>
-			<button class="btn rise" style="animation-delay:.41s" onclick="window.location.href='workout/531.html'">Exercise 🏋️‍♀️</button>
-			<button class="btn rise" style="animation-delay:.47s" onclick="window.location.href='notes.html#sleep'">Sleep 💤</button>
-			<button class="btn rise" style="animation-delay:.53s" onclick="window.location.href='notes.html'">Daily Notes 📝</button>
-			<button class="btn rise" style="animation-delay:.59s" onclick="window.location.href='profile.html'">Profile 👤</button>
-			<button class="btn rise" style="animation-delay:.65s" onclick="window.location.href='charts.html'">Analysis 📊</button>
-			<button class="btn rise" style="animation-delay:.71s" onclick="window.location.href='settings.html'">Settings ⚙️</button>
+			<button class="btn rise" style="animation-delay:.35s" onclick="checkProfileAndNavigate()"><span class="btn-icon">🍎</span><span class="btn-label">Nutrition</span></button>
+			<button class="btn rise" style="animation-delay:.41s" onclick="window.location.href='workout/531.html'"><span class="btn-icon">🏋️‍♀️</span><span class="btn-label">Exercise</span></button>
+			<button class="btn rise" style="animation-delay:.47s" onclick="window.location.href='notes.html#sleep'"><span class="btn-icon">💤</span><span class="btn-label">Sleep</span></button>
+			<button class="btn rise" style="animation-delay:.53s" onclick="window.location.href='notes.html'"><span class="btn-icon">📝</span><span class="btn-label">Daily Notes</span></button>
+			<button class="btn rise" style="animation-delay:.59s" onclick="window.location.href='profile.html'"><span class="btn-icon">👤</span><span class="btn-label">Profile</span></button>
+			<button class="btn rise" style="animation-delay:.65s" onclick="window.location.href='charts.html'"><span class="btn-icon">📊</span><span class="btn-label">Analysis</span></button>
+			<button class="btn rise" style="animation-delay:.71s" onclick="window.location.href='settings.html'"><span class="btn-icon">⚙️</span><span class="btn-label">Settings</span></button>
 		</nav>
 
 		<!-- Contact link -->
