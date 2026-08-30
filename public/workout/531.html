@@ -222,7 +222,14 @@
                 <h3 id="form-tips-title">Form Tips</h3>
                 <button type="button" id="close-form-tips" class="close-form-tips">&times;</button>
             </div>
-            <div id="form-tips-body" class="form-tips-body"></div>
+            <div class="form-tips-nav">
+                <button type="button" id="form-tips-prev" class="form-tips-arrow" aria-label="Previous tip">&#8249;</button>
+                <div id="form-tips-body" class="form-tips-body"></div>
+                <button type="button" id="form-tips-next" class="form-tips-arrow" aria-label="Next tip">&#8250;</button>
+            </div>
+            <div class="form-tips-footer">
+                <span id="form-tips-counter" class="form-tips-counter"></span>
+            </div>
         </div>
     </div>
     <div id="first-plan-modal" class="first-plan-modal" hidden>

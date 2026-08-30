@@ -28,7 +28,7 @@
             let bbbLeaderCyclesCompleted = 0;
             const BBB_FOREVER_LEADER_CYCLES = 2;
             let amrapResults = {}; // Store AMRAP results for each exercise
-            let checkedDays = {}; // Store checked days: {week: {day: true}}
+            let checkedDays = {}; // Store checked days: {week: {day: 'YYYY-MM-DD'}}
             let completedTimers = {}; // Store completed rest timers: {timerId: completionCount}
             let workoutModeActive = false;
             let notesRotationIndex = 0;
@@ -165,6 +165,16 @@
                     
                     // Restore checked days
                     checkedDays = profile.checkedDays || {};
+                    // Migrate legacy boolean values to completion date strings
+                    Object.keys(checkedDays).forEach(weekKey => {
+                        const weekDays = checkedDays[weekKey];
+                        if (!weekDays || typeof weekDays !== 'object') return;
+                        Object.keys(weekDays).forEach(dayKey => {
+                            if (weekDays[dayKey] === true) {
+                                weekDays[dayKey] = getLocalDateString();
+                            }
+                        });
+                    });
                     completedTimers = profile.completedTimers || {};
                     notesRotationIndex = (profile.notesRotationIndex ?? -1) + 1;
                     
@@ -595,15 +605,50 @@
 
             const FORM_TIP_TITLES = { squat: 'Squat', bench: 'Bench Press', deadlift: 'Deadlift', ohp: 'Overhead Press' };
 
-            function openFormTipsModal(liftKey) {
+            let formTipsModalLift = null;
+            let formTipsModalIndex = 0;
+
+            function getFormTipItems(liftKey) {
                 const tips = getFormTips(liftKey);
-                if (!tips) return;
-                const titleEl = document.getElementById('form-tips-title');
+                return tips ? tips.items : null;
+            }
+
+            function renderFormTipModal() {
+                const items = getFormTipItems(formTipsModalLift);
                 const bodyEl = document.getElementById('form-tips-body');
-                const modal = document.getElementById('form-tips-modal');
+                const counterEl = document.getElementById('form-tips-counter');
+                const prevBtn = document.getElementById('form-tips-prev');
+                const nextBtn = document.getElementById('form-tips-next');
+                if (!items || !items.length) return;
+                formTipsModalIndex = ((formTipsModalIndex % items.length) + items.length) % items.length;
+                if (bodyEl) bodyEl.textContent = items[formTipsModalIndex];
+                if (counterEl) counterEl.textContent = (formTipsModalIndex + 1) + ' of ' + items.length;
+                if (prevBtn) prevBtn.disabled = items.length <= 1;
+                if (nextBtn) nextBtn.disabled = items.length <= 1;
+            }
+
+            function openFormTipsModal(liftKey) {
+                const items = getFormTipItems(liftKey);
+                if (!items) return;
+                formTipsModalLift = liftKey;
+                formTipsModalIndex = (formTipIndices[liftKey] || 0) % items.length;
+                const titleEl = document.getElementById('form-tips-title');
                 if (titleEl) titleEl.textContent = (FORM_TIP_TITLES[liftKey] || liftKey) + ' Form Tips';
-                if (bodyEl) bodyEl.innerHTML = `<ul>${tips.items.map(tip => `<li class="form-tips-item">${tip}</li>`).join('')}</ul>`;
+                renderFormTipModal();
+                const modal = document.getElementById('form-tips-modal');
                 if (modal) modal.hidden = false;
+            }
+
+            function showPrevFormTip() {
+                if (!formTipsModalLift) return;
+                formTipsModalIndex--;
+                renderFormTipModal();
+            }
+
+            function showNextFormTip() {
+                if (!formTipsModalLift) return;
+                formTipsModalIndex++;
+                renderFormTipModal();
             }
 
             function hideFormTipsModal() {
@@ -618,14 +663,28 @@
             if (closeFormTipsButton) {
                 closeFormTipsButton.addEventListener('click', hideFormTipsModal);
             }
+            const prevFormTipButton = document.getElementById('form-tips-prev');
+            if (prevFormTipButton) {
+                prevFormTipButton.addEventListener('click', showPrevFormTip);
+            }
+            const nextFormTipButton = document.getElementById('form-tips-next');
+            if (nextFormTipButton) {
+                nextFormTipButton.addEventListener('click', showNextFormTip);
+            }
             if (formTipsModal) {
                 formTipsModal.addEventListener('click', (e) => {
                     if (e.target === formTipsModal) hideFormTipsModal();
                 });
             }
             document.addEventListener('keydown', (e) => {
-                if (e.key === 'Escape' && formTipsModal && !formTipsModal.hidden) {
-                    hideFormTipsModal();
+                if (formTipsModal && !formTipsModal.hidden) {
+                    if (e.key === 'Escape') {
+                        hideFormTipsModal();
+                    } else if (e.key === 'ArrowLeft') {
+                        showPrevFormTip();
+                    } else if (e.key === 'ArrowRight') {
+                        showNextFormTip();
+                    }
                 }
             });
 
@@ -746,6 +805,58 @@
                 const month = String(d.getMonth() + 1).padStart(2, '0');
                 const day = String(d.getDate()).padStart(2, '0');
                 return `${d.getFullYear()}-${month}-${day}`;
+            }
+
+            const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+            function formatCompletionDate(dateStr) {
+                if (!dateStr) return '';
+                const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+                if (!match) return dateStr;
+                const monthIndex = parseInt(match[2], 10) - 1;
+                const dayNum = parseInt(match[3], 10);
+                if (monthIndex < 0 || monthIndex > 11 || dayNum < 1 || dayNum > 31) return dateStr;
+                return `${MONTHS[monthIndex]} ${dayNum}`;
+            }
+
+            function getDayCompletionDate(week, day) {
+                const value = checkedDays[week] && checkedDays[week][day];
+                return value && typeof value === 'string' ? value : '';
+            }
+
+            function getFullCompletionLabel(dateStr) {
+                if (!dateStr) return '';
+                const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+                if (!match) return '';
+                const year = parseInt(match[1], 10);
+                const monthIndex = parseInt(match[2], 10) - 1;
+                const dayNum = parseInt(match[3], 10);
+                if (monthIndex < 0 || monthIndex >= 11 || dayNum < 1 || dayNum > 31) return '';
+                return `Completed ${MONTHS[monthIndex]} ${dayNum}, ${year}`;
+            }
+
+            function setDayTabCompletion(dayTab, dateStr) {
+                if (!dayTab) return;
+                if (dateStr) {
+                    dayTab.classList.add('checked');
+                    let dateSpan = dayTab.querySelector('.day-completion-date');
+                    if (!dateSpan) {
+                        dateSpan = document.createElement('span');
+                        dateSpan.className = 'day-completion-date';
+                        dayTab.appendChild(dateSpan);
+                    }
+                    dateSpan.textContent = formatCompletionDate(dateStr);
+                    dayTab.dataset.completedDate = dateStr;
+                    dayTab.title = getFullCompletionLabel(dateStr);
+                } else {
+                    dayTab.classList.remove('checked');
+                    const dateSpan = dayTab.querySelector('.day-completion-date');
+                    if (dateSpan) {
+                        dateSpan.remove();
+                    }
+                    delete dayTab.dataset.completedDate;
+                    dayTab.title = '';
+                }
             }
 
             function getStandardIncrement(exercise) {
@@ -1702,10 +1813,10 @@
                 // Toggle checkmark
                 if (checkedDays[week][day]) {
                     delete checkedDays[week][day];
-                    dayTab.classList.remove('checked');
+                    setDayTabCompletion(dayTab, '');
                 } else {
-                    checkedDays[week][day] = true;
-                    dayTab.classList.add('checked');
+                    checkedDays[week][day] = getLocalDateString();
+                    setDayTabCompletion(dayTab, checkedDays[week][day]);
                 }
                 
                 // Update week checkmark
@@ -1737,10 +1848,10 @@
                     return;
                 }
 
-                checkedDays[week][day] = true;
+                checkedDays[week][day] = getLocalDateString();
                 const dayTab = document.querySelector(`.day-tab[data-week="${week}"][data-day="${day}"]`);
                 if (dayTab) {
-                    dayTab.classList.add('checked');
+                    setDayTabCompletion(dayTab, checkedDays[week][day]);
                 }
                 updateWeekCheckmark(week);
             }
@@ -1757,7 +1868,7 @@
                 delete checkedDays[week][day];
                 const dayTab = document.querySelector(`.day-tab[data-week="${week}"][data-day="${day}"]`);
                 if (dayTab) {
-                    dayTab.classList.remove('checked');
+                    setDayTabCompletion(dayTab, '');
                 }
                 updateWeekCheckmark(week);
             }
@@ -2065,7 +2176,7 @@
                 if (checkedDays[week]?.[dayIndex]) {
                     delete checkedDays[week][dayIndex];
                     const dayTab = document.querySelector(`.day-tab[data-week="${week}"][data-day="${dayIndex}"]`);
-                    if (dayTab) dayTab.classList.remove('checked');
+                    if (dayTab) setDayTabCompletion(dayTab, '');
                 }
                 updateWeekCheckmark(week);
 
@@ -2567,7 +2678,8 @@
                         html += '<div class="day-tabs">';
                         workoutPlan.weeks[week].forEach((day, dayIndex) => {
                             const isChecked = checkedDays[week] && checkedDays[week][dayIndex];
-                            html += `<div class="day-tab ${dayIndex === 0 ? 'active' : ''} ${isChecked ? 'checked' : ''}" data-week="${week}" data-day="${dayIndex}">Day ${day.day}<span class="checkmark">✓</span></div>`;
+                            const completionDate = getDayCompletionDate(week, dayIndex);
+                            html += `<div class="day-tab ${dayIndex === 0 ? 'active' : ''} ${isChecked ? 'checked' : ''}" data-week="${week}" data-day="${dayIndex}"${isChecked ? ` data-completed-date="${completionDate}" title="${getFullCompletionLabel(completionDate)}"` : ''}>Day ${day.day}<span class="checkmark">✓</span>${isChecked ? `<span class="day-completion-date">${formatCompletionDate(completionDate)}</span>` : ''}</div>`;
                         });
                         html += '</div>';
                         html += '<p class="day-checkmark-hint">💡 tap active day again to mark as complete</p>';

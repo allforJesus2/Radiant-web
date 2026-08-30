@@ -458,6 +458,14 @@
     display: inline;
 }
 
+.day-tab .day-completion-date {
+    display: block;
+    font-size: 0.7rem;
+    line-height: 1;
+    margin-top: 1px;
+    color: var(--success);
+}
+
 .day-checkmark-hint {
     font-size: 0.85rem;
     color: var(--ink-light);
@@ -699,27 +707,53 @@
     box-shadow: none;
 }
 
-.form-tips-body {
-    padding: 20px 24px;
-    overflow-y: auto;
+.form-tips-nav {
+    display: flex;
+    align-items: stretch;
     flex: 1;
+    overflow: hidden;
 }
 
-.form-tips-body ul {
-    list-style: none;
-    padding-left: 0;
-    margin: 0;
-}
-
-.form-tips-item {
-    padding: 8px 0;
-    border-bottom: 1px dashed var(--notebook-line);
-    font-size: 1rem;
+.form-tips-body {
+    flex: 1;
+    padding: 20px 12px;
+    overflow-y: auto;
+    font-size: 1.05rem;
     line-height: 1.5;
 }
 
-.form-tips-item:last-child {
-    border-bottom: none;
+.form-tips-arrow {
+    background: none;
+    border: none;
+    box-shadow: none;
+    width: 52px;
+    flex-shrink: 0;
+    font-size: 2rem;
+    line-height: 1;
+    color: var(--ink);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.form-tips-arrow:hover:not(:disabled) {
+    background: var(--paper-shadow);
+}
+
+.form-tips-arrow:disabled {
+    opacity: 0.3;
+    cursor: default;
+}
+
+.form-tips-footer {
+    padding: 8px 20px;
+    border-top: 1px dashed var(--notebook-line);
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.form-tips-counter {
+    font-size: 0.85rem;
+    color: var(--ink-light);
 }
 .begin-workout-btn {
     background: var(--success);
