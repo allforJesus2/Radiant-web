@@ -202,18 +202,34 @@ function displayRoutines() {
         const exerciseCount = routine.exercises ? routine.exercises.length : 0;
         displayText += ` - ${exerciseCount} exercise${exerciseCount !== 1 ? 's' : ''}`;
 
-        routineElement.textContent = displayText;
-        routineElement.onclick = function() {
+        const textSpan = document.createElement('span');
+        textSpan.textContent = displayText;
+        textSpan.style.cursor = 'pointer';
+        textSpan.onclick = function() {
             window.location.href = `edit-workout-routine.html?selectedRoutine=${encodeURIComponent(routineName)}`;
         };
+        routineElement.appendChild(textSpan);
 
-        const deleteButton = document.createElement('button');
+        const buttonGroup = document.createElement('span');
+        buttonGroup.style.display = 'flex';
+        buttonGroup.style.gap = '8px';
+
+        const copyButton = document.createElement('span');
+        copyButton.textContent = '📋';
+        copyButton.onclick = function(e) {
+            e.stopPropagation();
+            copyRoutine(routineName);
+        };
+        buttonGroup.appendChild(copyButton);
+
+        const deleteButton = document.createElement('span');
         deleteButton.textContent = '❌';
         deleteButton.onclick = function(e) {
-            e.stopPropagation(); // Prevent event from bubbling up to the parent div
+            e.stopPropagation();
             deleteRoutine(routineName);
         };
-        routineElement.appendChild(deleteButton);
+        buttonGroup.appendChild(deleteButton);
+        routineElement.appendChild(buttonGroup);
         routineList.appendChild(routineElement);
     });
 }
@@ -227,6 +243,30 @@ function deleteRoutine(routineName) {
         WorkoutUtils.saveRoutines(routines);
         displayRoutines();
     }
+}
+
+// Function to copy a workout routine
+function copyRoutine(routineName) {
+    const routines = WorkoutUtils.getRoutines();
+    const routine = routines[routineName];
+    if (!routine) return;
+
+    let copyName = routineName + ' (Copy)';
+    let counter = 1;
+    while (routines[copyName]) {
+        copyName = routineName + ' (Copy ' + counter + ')';
+        counter++;
+    }
+
+    routines[copyName] = {
+        cycleDay: routine.cycleDay,
+        exercises: routine.exercises.map(function(ex) {
+            return Object.assign({}, ex, { id: 'ex-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9) });
+        })
+    };
+
+    WorkoutUtils.saveRoutines(routines);
+    displayRoutines();
 }
 
 // Display routines on page load

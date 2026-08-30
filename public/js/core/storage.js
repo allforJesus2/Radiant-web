@@ -433,7 +433,7 @@ const RadiantStorage = {
         },
 
         getHandFont() {
-            return RadiantStorage.getRaw(RadiantStorage.KEYS.WORKOUT_FONT) || 'caveat';
+            return RadiantStorage.getRaw(RadiantStorage.KEYS.WORKOUT_FONT) || 'shantell';
         },
 
         setHandFont(font) {
@@ -441,7 +441,7 @@ const RadiantStorage = {
         },
 
         getFontSize() {
-            return RadiantStorage.getRaw(RadiantStorage.KEYS.WORKOUT_FONT_SIZE) || '140';
+            return RadiantStorage.getRaw(RadiantStorage.KEYS.WORKOUT_FONT_SIZE) || '100';
         },
 
         setFontSize(size) {
