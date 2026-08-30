@@ -317,86 +317,6 @@
     return results;
   }
 
-  /**
-   * Online Open Food Facts word search.
-   * @returns {Promise<Array<{name:string, fdc_id:number|null, sourceLabel:string, source:string, defaultGrams:number, per100:object, fdcRecord:object|null}>>}
-   */
-  async function searchOffFoods(query) {
-    // Use the OFF v2 JSON API (CORS-enabled) — the legacy cgi/search.pl endpoint
-    // does not send Access-Control-Allow-Origin headers from browser contexts.
-    // Note: OFF's api/v2/search can return unrelated products that ignore
-    // search_terms, so we additionally filter client-side against the query words.
-    // Drops canned/unrelated results so the fallback source (e.g. USDA) gets a
-    // chance to return real matches for off_then_usda / both routing.
-    const words = String(query)
-      .toLowerCase()
-      .split(/\s+/)
-      .filter(Boolean);
-    const url =
-      'https://world.openfoodfacts.org/api/v2/search?search_terms=' +
-      encodeURIComponent(String(query)) +
-      '&page_size=25&fields=code,product_name,product_name_en,brands,serving_quantity,serving_size,nutriments';
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('Open Food Facts request failed (' + r.status + ')');
-    const data = await r.json();
-    const products = Array.isArray(data && data.products) ? data.products : [];
-    const results = [];
-    for (let i = 0; i < products.length; i++) {
-      const p = products[i] || {};
-      const n = p.nutriments || {};
-      if (!n['energy-kcal_100g']) continue;
-      // Lenient relevance check: keep a product only if any query word appears
-      // in its name or brand.
-      const nameLower = String(p.product_name_en || p.product_name || '').toLowerCase();
-      const brandRaw = String(p.brands || '');
-      if (words.length && !words.some(function (w) {
-        return nameLower.includes(w) || brandRaw.toLowerCase().includes(w);
-      })) {
-        continue;
-      }
-      const nutrients = mapOffNutrients(n);
-      const servingGrams = numberOrNull(p.serving_quantity) || 100;
-      const brand = brandRaw.split(',')[0].trim();
-      const displayName = nameWithBrand(p.product_name_en || p.product_name || 'Unknown product', brand);
-      const code = String(p.code || '').replace(/\D/g, '');
-      const syntheticId = code ? Number(code) : null;
-      results.push({
-        name: displayName,
-        source: 'off_api',
-        fdc_id: syntheticId,
-        sourceLabel: 'Open Food Facts',
-        defaultGrams: servingGrams,
-        per100: extractMacrosForScanner(nutrients),
-        fdcRecord: syntheticId ? {
-          fdc_id: syntheticId,
-          name: displayName,
-          name_lc: displayName.toLowerCase(),
-          gtin_upc: code,
-          brand_owner: brand,
-          source: 'off_api',
-          serving_weight: servingGrams,
-          serving_description: String(p.serving_size || ''),
-          nutrients,
-        } : null,
-      });
-    }
-    // Surface a console warning when OFF returned products but the client-side
-    // relevance filter dropped all of them (canned/unrelated results).
-    if (words.length && products.length && !results.length) {
-      var sampleNames = [];
-      for (var s = 0; s < Math.min(products.length, 10); s++) {
-        sampleNames.push(
-          String((products[s] && (products[s].product_name_en || products[s].product_name)) || '')
-        );
-      }
-      console.warn(
-        '[barcode scanner] Open Food Facts returned ' + products.length +
-        ' products for "' + query + '" but none matched the query words.' +
-        ' Sample names: [' + sampleNames.join(', ') + ']'
-      );
-    }
-    return results;
-  }
 
   /**
    * Word search routed by the user's barcode source preference.
@@ -409,47 +329,6 @@
    * @returns {Promise<Array>}
    */
   async function searchFoodsOnline(query) {
-    const src = getBarcodeSourceSetting();
-    if (src === 'usda') {
-      try {
-        return await searchUsdaFoods(query);
-      } catch (e) {
-        console.error('[barcode scanner] USDA search failed:', e);
-        throw e;
-      }
-    }
-    if (src === 'off') {
-      try {
-        return await searchOffFoods(query);
-      } catch (e) {
-        console.error('[barcode scanner] Open Food Facts search failed:', e);
-        throw e;
-      }
-    }
-    if (src === 'both') {
-      // USDA first, then Open Food Facts fallback (matches the barcode scanner's 'both' behavior)
-      try {
-        const usda = await searchUsdaFoods(query);
-        if (usda.length) return usda;
-        console.warn('[barcode scanner] USDA returned no results for "' + query + '", falling back to Open Food Facts.');
-      } catch (e) {
-        console.error('[barcode scanner] USDA search failed, falling back to Open Food Facts:', e);
-      }
-      try {
-        return await searchOffFoods(query);
-      } catch (e) {
-        console.error('[barcode scanner] Open Food Facts search failed:', e);
-        throw e;
-      }
-    }
-    // 'off_then_usda' (default) and any unknown value — OFF first, USDA fallback
-    try {
-      const off = await searchOffFoods(query);
-      if (off.length) return off;
-      console.warn('[barcode scanner] Open Food Facts returned no results for "' + query + '", falling back to USDA.');
-    } catch (e) {
-      console.error('[barcode scanner] Open Food Facts search failed, falling back to USDA:', e);
-    }
     try {
       return await searchUsdaFoods(query);
     } catch (e) {
