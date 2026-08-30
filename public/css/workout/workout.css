@@ -747,3 +747,11 @@
     transform: none;
     box-shadow: none;
 }
+
+.action-btn {
+  display: inline-block;     /* or flex */
+  width: auto;               /* key change! */
+  padding: 4px 8px;          /* compact padding */
+  margin-right: 2px;         /* small gap between buttons */
+  font-size: 13px;           /* smaller text = tighter spacing */
+}
