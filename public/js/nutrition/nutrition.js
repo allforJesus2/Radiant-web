@@ -1,5 +1,6 @@
 	var today;
 	var displayFoodItemsGeneration = 0;
+	var pendingExpandMealType = null;
 
 	// Threshold (minutes) used for both deduplication and "recent food" yellow highlight
 	const RECENT_FOOD_MINUTES = 60;
@@ -972,6 +973,7 @@ function finalizePendingFood() {
     foodLog[today].push(pendingFoodItem);
     RadiantStorage.nutrition.saveFoodLog(foodLog);
     var existingData = foodLog[today];
+    pendingExpandMealType = getMealType(pendingFoodItem.timeAdded);
     displayFoodItems(existingData);
     hideOffsetDialog();
 }
@@ -1036,6 +1038,7 @@ function mergeOrAppendFoodLogItem(p) {
 
     function finish() {
         RadiantStorage.nutrition.saveFoodLog(foodLog);
+        pendingExpandMealType = getMealType(foodItem.timeAdded);
         displayFoodItems(existingData);
         if (p.done) p.done();
     }
@@ -1391,7 +1394,10 @@ async function displayFoodItems(foodItems) {
                 fragment.appendChild(mealItemsContainer);
             }
 
-            if (collapseState[mealKey] !== undefined) {
+            if (pendingExpandMealType && mealType === pendingExpandMealType) {
+                applyMealCollapseState(mealHeaderContainer, mealItemsContainer, true);
+                pendingExpandMealType = null;
+            } else if (collapseState[mealKey] !== undefined) {
                 applyMealCollapseState(mealHeaderContainer, mealItemsContainer, collapseState[mealKey] !== 'none');
             } else {
                 applyMealCollapseState(mealHeaderContainer, mealItemsContainer, isMealExpandedByDefault(mealType));
