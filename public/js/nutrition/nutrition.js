@@ -1808,6 +1808,30 @@ var NUTRIENT_GROUP_AT = {
     vitamin_c:  'Vitamins',
     tryptophan: 'Amino Acids',
 };
+var DAILY_VALUES = {
+    fat: 78,
+    saturated_fat: 20,
+    cholesterol: 300,
+    sodium: 2300,
+    fiber: 28,
+    protein: 50,
+    vitamin_d: 20,
+    calcium: 1300,
+    iron: 18,
+    potassium: 4700,
+    zinc: 11,
+    magnesium: 420,
+    vitamin_a: 900,
+    vitamin_c: 90,
+    vitamin_e: 15,
+    vitamin_k: 120,
+    thiamin: 1.2,
+    riboflavin: 1.3,
+    niacin: 16,
+    vitamin_b6: 1.7,
+    folate: 400,
+    vitamin_b12: 2.4,
+};
 function _nutrientLabel(key) {
     var meta = NUTRIENT_META[key];
     if (meta && meta[1]) return meta[1];
@@ -1863,10 +1887,14 @@ async function showNutrientDetails(item) {
         var val = nutrients[key];
         if (val == null) return;
         var scaled = Math.round(val * scale * 1000) / 1000;
-        groupHtml += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.08);padding:2px 0;">' +
-            '<span style="opacity:.85;">' + _nutrientLabel(key) + '</span>' +
-            '<span><strong>' + scaled + '</strong> ' + _nutrientUnit(key) + '</span>' +
-            '</div>';
+        var row = '<span style="opacity:.85;">' + _nutrientLabel(key) + '</span>' +
+            '<span><strong>' + scaled + '</strong> ' + _nutrientUnit(key);
+        if (DAILY_VALUES[key] && scaled > 0) {
+            var pct = Math.round((scaled / DAILY_VALUES[key]) * 100);
+            row += ' (<span style="opacity:.6;font-size:0.9em;">' + pct + '%</span> <span style="opacity:.6;font-size:0.85em;">DV</span>)';
+        }
+        row += '</span>';
+        groupHtml += '<div style="display:flex;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.08);padding:2px 0;">' + row + '</div>';
     });
     flushGroup();
     body.innerHTML = html || '<p style="opacity:.7;">No detailed nutrient data available for this item.</p>';
