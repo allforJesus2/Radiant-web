@@ -260,13 +260,22 @@
             gap: 7px;
         }
 
+        .list-item-actions {
+            display: none;
+        }
+        .show-actions .list-item-actions {
+            display: flex;
+        }
+
         .list-item-actions .delete-btn,
-        .list-item-actions .edit-item-btn {
+        .list-item-actions .edit-item-btn,
+        .list-item-actions .info-btn {
             position: static;
             transform: none;
-            font-size: 0.8em;
+            font-size: 1em;
             line-height: 1;
         }
+
 
         .planned-meal-item > .delete-btn {
             font-size: 0.8em;

@@ -1846,7 +1846,7 @@ async function showNutrientDetails(item) {
     var modal = document.getElementById('nutrientDetailModal');
     var title = document.getElementById('nutrientDetailTitle');
     var body  = document.getElementById('nutrientDetailBody');
-    var grams = parseFloat(document.getElementById('editGrams').value) || item.grams || 100;
+    var grams = item.grams || 100;
     var scale = grams / 100;
 
     title.textContent = item.name + ' (' + grams + 'g)';
@@ -1906,9 +1906,6 @@ function initNutrientDetailModal() {
     });
     document.getElementById('nutrientDetailModal').addEventListener('click', function(e) {
         if (e.target === this) this.style.display = 'none';
-    });
-    document.getElementById('editItemDetails').addEventListener('click', function() {
-        if (editTarget) showNutrientDetails(editTarget.item);
     });
 }
 // ---- end nutrient details ----
@@ -2058,13 +2055,27 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
         showEditDialog(item, allFoodItems);
     });
 
+    var infoButton = document.createElement('button');
+    infoButton.textContent = 'ℹ️';
+    infoButton.className = 'info-btn';
+    infoButton.setAttribute('aria-label', 'View nutrient details');
+    infoButton.addEventListener('click', function(e) {
+        e.stopPropagation();
+        showNutrientDetails(item);
+    });
+
     var itemActions = document.createElement('div');
     itemActions.className = 'list-item-actions';
     itemActions.appendChild(deleteButton);
     itemActions.appendChild(editButton);
+    itemActions.appendChild(infoButton);
     listItem.appendChild(itemActions);
 
-    listItem.addEventListener('click', function() {
+    listItem.addEventListener('click', function(e) {
+        var root = document.getElementById('scrollableWindow');
+        if (root) {
+            root.classList.toggle('show-actions');
+        }
         foodInput.value = item.name;
         if (item.fdc_id != null && item.fdc_id !== '') {
             foodInput.dataset.fdcId = String(item.fdc_id);
