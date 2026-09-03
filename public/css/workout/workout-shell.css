@@ -26,7 +26,7 @@
 }
 
 /* Single font scale factor — increase this ONE value to make ALL fonts
-   on workout pages (5/3/1, custom workout, etc.) larger proportionally.
+   on workout pages (strength, custom workout, etc.) larger proportionally.
    Default 100% = 16px; e.g. 112.5% = 18px baseline. */
 html {
     font-size: 140%;

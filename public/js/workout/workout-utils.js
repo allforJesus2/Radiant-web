@@ -31,7 +31,7 @@ const WorkoutUtils = {
             this.saveSettings(this.DEFAULT_SETTINGS);
         }
 
-        this.migrate531OneRepMaxes();
+        this.migrateStrengthOneRepMaxes();
     },
 
     applyHandFont() {
@@ -40,10 +40,10 @@ const WorkoutUtils = {
     },
 
     /**
-     * Sync 531 main-lift 1RM inputs into exerciseLibrary (one-time per install).
+     * Sync strength main-lift 1RM inputs into exerciseLibrary (one-time per install).
      */
-    migrate531OneRepMaxes() {
-        const profile = RadiantStorage.workout.get531Profile();
+    migrateStrengthOneRepMaxes() {
+        const profile = RadiantStorage.workout.getStrengthProfile();
         if (!profile || !profile.inputs) return;
 
         const map = {
@@ -71,7 +71,7 @@ const WorkoutUtils = {
                 oneRepMax: oneRepMax,
                 lastTested: new Date().toISOString().split('T')[0],
                 category: key === 'squat' || key === 'deadlift' ? 'lower' : 'upper',
-                source: '531',
+                source: 'strength',
             };
             changed = true;
         });

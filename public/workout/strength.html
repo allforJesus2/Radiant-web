@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>5/3/1 Workout Generator</title>
-    <link rel="stylesheet" href="../css/workout/531-workout.css">
+    <title>Strength Workout Generator</title>
+    <link rel="stylesheet" href="../css/workout/strength-workout.css">
 </head>
 <body>
     <div class="container">
         <div id="rest-timer-display" class="rest-timer-display" style="display: none;"></div>
         <header id="dateHeader">
-            <h1>5/3/1 Workout Plan <span id="level-display" class="level-display">L: 1</span></h1>
+            <h1>Strength Workout Plan <span id="level-display" class="level-display">L: 1</span></h1>
         </header>
         <div class="blur-overlay" id="blurOverlay"></div>
         <div class="main-tabs">
@@ -115,7 +115,7 @@
                         <option value="bbb-forever">Forever BBB (Leader/Anchor cycles)</option>
                         <option value="fsl">First Set Last (5x5 @ First Set Weight)</option>
                         <option value="triumvirate">Triumvirate (2 accessories, 5x10-15)</option>
-                        <option value="beginners">5/3/1 for Beginners (FSL + specific accessories)</option>
+                        <option value="beginners">Strength for Beginners (FSL + specific accessories)</option>
                     </select>
                 </div>
                 <div class="input-group level-up-setup-hidden">
@@ -136,7 +136,7 @@
                 <div id="quiz-modal" class="quiz-modal" style="display: none;">
                     <div class="quiz-content">
                         <div class="quiz-header">
-                            <h3>Find Your Perfect 5/3/1 Accessory Template</h3>
+                            <h3>Find Your Perfect Strength Accessory Template</h3>
                             <button id="close-quiz" class="close-quiz">&times;</button>
                         </div>
                         <div class="quiz-body">
@@ -198,10 +198,8 @@
                     <div class="week-tab" data-week="3">Week 3</div>
                     <div class="week-tab" data-week="4">Week 4</div>
                 </div>
-                <div id="week-phase-label" class="week-phase-label"></div>
-                
                 <div id="workout-results">
-                    <p>Enter your 1-rep max values in Program Setup and click Save to create your personalized 5/3/1 program.</p>
+                    <p>Enter your 1-rep max values in Program Setup and click Save to create your personalized Strength program.</p>
                 </div>
             </div>
         </div>
@@ -216,7 +214,7 @@
             <div id="setup-notes-body" class="setup-notes-body"></div>
         </div>
     </div>
-    <div id="form-tips-modal" class="form-tips-modal" hidden>
+    <div id="form-tips-modal" class="form-tips-modal simple-popup-modal" hidden>
         <div class="form-tips-content">
             <div class="form-tips-header">
                 <h3 id="form-tips-title">Form Tips</h3>
@@ -232,13 +230,22 @@
             </div>
         </div>
     </div>
+    <div id="other-tips-modal" class="simple-popup-modal" hidden>
+        <div class="simple-popup-content">
+            <div class="simple-popup-header">
+                <h3>Other Tips</h3>
+                <button type="button" id="close-other-tips" class="simple-popup-close" aria-label="Close">&times;</button>
+            </div>
+            <ul id="other-tips-body" class="simple-popup-body"></ul>
+        </div>
+    </div>
     <div id="first-plan-modal" class="first-plan-modal" hidden>
         <div class="first-plan-content">
             <div class="first-plan-header">
                 <h3>Congratulations!</h3>
             </div>
             <div class="first-plan-body">
-                <p>Your personalized 5/3/1 workout plan is ready. You're on Week 1, Day 1 — let's get to work.</p>
+                <p>Your personalized Strength workout plan is ready. You're on Week 1, Day 1 — let's get to work.</p>
                 <button type="button" id="close-first-plan" class="first-plan-btn">Let's Go</button>
             </div>
         </div>
@@ -246,7 +253,7 @@
 
     <script src="../js/core/storage.js"></script>
     <script src="../js/workout/workout-utils.js"></script>
-    <script src="../js/workout/531-workout.js"></script>
+    <script src="../js/workout/strength-workout.js"></script>
     <script src="../js/core/menu.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {

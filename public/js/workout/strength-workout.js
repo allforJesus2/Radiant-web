@@ -1,21 +1,3 @@
-        // Toggle collapsible sections
-        function toggleCollapsible(header) {
-            const content = header.nextElementSibling;
-            const isCollapsed = header.classList.contains('collapsed');
-            
-            if (isCollapsed) {
-                header.classList.remove('collapsed');
-                content.classList.remove('collapsed');
-            } else {
-                header.classList.add('collapsed');
-                content.classList.add('collapsed');
-            }
-
-            if (header.querySelector('.notes-rotating-label')) {
-                window.onNotesCollapsibleToggle?.(header, !header.classList.contains('collapsed'));
-            }
-        }
-        
         document.addEventListener('DOMContentLoaded', function() {
             // Variables
             let tmPercentage = 90;
@@ -31,9 +13,6 @@
             let checkedDays = {}; // Store checked days: {week: {day: 'YYYY-MM-DD'}}
             let completedTimers = {}; // Store completed rest timers: {timerId: completionCount}
             let workoutModeActive = false;
-            let notesRotationIndex = 0;
-            let notesRotationTimer = null;
-            let notesRotationPaused = false;
             const NOTES_FADE_MS = 300;
             let levelUpReviewActive = false;
             let levelUpReviewOld1RMs = {};
@@ -55,15 +34,15 @@
                 accessory: 90
             };
 
-            function log531Error(location, message, data) {
+            function logStrengthError(location, message, data) {
                 if (typeof RadiantStorage !== 'undefined' && RadiantStorage.debug) {
-                    RadiantStorage.debug.log('531', location, message, data);
+                    RadiantStorage.debug.log('strength', location, message, data);
                 }
             }
 
             const VALID_ACCESSORY_TEMPLATES = ['standard', 'bbb', 'bbb-forever', 'fsl', 'triumvirate', 'beginners'];
 
-            function normalize531WorkoutPlanInPlace(plan) {
+            function normalizestrengthWorkoutPlanInPlace(plan) {
                 if (!plan || typeof plan !== 'object') return;
                 if (!plan.weeks || typeof plan.weeks !== 'object') {
                     plan.weeks = {};
@@ -89,7 +68,7 @@
                 }
             }
 
-            function normalize531Profile(raw) {
+            function normalizeStrengthProfile(raw) {
                 if (!raw || typeof raw !== 'object') return null;
                 const profile = { ...raw };
                 profile.inputs = profile.inputs && typeof profile.inputs === 'object' ? { ...profile.inputs } : {};
@@ -112,7 +91,7 @@
                     profile.bbbLeaderCyclesCompleted = 0;
                 }
                 if (profile.workoutPlan) {
-                    normalize531WorkoutPlanInPlace(profile.workoutPlan);
+                    normalizestrengthWorkoutPlanInPlace(profile.workoutPlan);
                 }
                 return profile;
             }
@@ -131,7 +110,7 @@
             // Load saved profile from localStorage
             function loadProfile() {
                 try {
-                const profile = normalize531Profile(RadiantStorage.workout.get531Profile());
+                const profile = normalizeStrengthProfile(RadiantStorage.workout.getStrengthProfile());
                 if (profile) {
                     
                     // Restore input values
@@ -176,7 +155,6 @@
                         });
                     });
                     completedTimers = profile.completedTimers || {};
-                    notesRotationIndex = (profile.notesRotationIndex ?? -1) + 1;
                     
                     // Restore rest time settings
                     if (profile.restTimeSettings) {
@@ -196,7 +174,7 @@
                         try {
                             renderWorkoutPlan();
                         } catch (renderErr) {
-                            log531Error('renderWorkoutPlan', renderErr.message, { phase: 'load' });
+                            logStrengthError('renderWorkoutPlan', renderErr.message, { phase: 'load' });
                             if (hasAny1RMInput()) {
                                 generateWorkoutPlan();
                             }
@@ -214,7 +192,7 @@
                     }, 0);
                 }
                 } catch (err) {
-                    log531Error('loadProfile', err.message, {});
+                    logStrengthError('loadProfile', err.message, {});
                     console.error('loadProfile failed:', err);
                 }
             }
@@ -382,10 +360,9 @@
                     restTimeSettings, // Save rest time settings
                     checkedDays, // Save checked days
                     completedTimers, // Save completed rest timers
-                    notesRotationIndex
                 };
                 
-                RadiantStorage.workout.save531Profile(profile);
+                RadiantStorage.workout.saveStrengthProfile(profile);
             }
 
             // Configuration objects
@@ -456,39 +433,6 @@
                 return weekPercentages[week];
             }
 
-            function getWeekLabel(week) {
-                if (isForeverBbbLeaderPhase()) {
-                    switch (week) {
-                        case 1: case 2: case 3: return '5/5/5';
-                        case 4: return 'Deload';
-                    }
-                }
-                if (isForeverBbbAnchorPhase()) {
-                    switch (week) {
-                        case 1: return '5/5/5+';
-                        case 2: return '3/3/3+';
-                        case 3: return '5/3/1+';
-                        case 4: return 'Deload';
-                    }
-                }
-                switch (week) {
-                    case 1: return '5/5/5+';
-                    case 2: return '3/3/3+';
-                    case 3: return '5/3/1+';
-                    case 4: return 'Deload';
-                }
-            }
-
-            function updateWeekPhaseLabel() {
-                const label = document.getElementById('week-phase-label');
-                if (!label) return;
-                if (!workoutPlan.weeks || Object.keys(workoutPlan.weeks).length === 0) {
-                    label.textContent = '';
-                    return;
-                }
-                label.textContent = `Week ${currentWeek}: ${getWeekLabel(currentWeek)}`;
-            }
-
             function updateWeekTabLabels() {
                 for (let week = 1; week <= 4; week++) {
                     const tab = document.querySelector(`.week-tab[data-week="${week}"]`);
@@ -496,7 +440,6 @@
                         tab.innerHTML = `Week ${week}`;
                     }
                 }
-                updateWeekPhaseLabel();
                 updateAllWeekCheckmarks();
             }
 
@@ -558,55 +501,15 @@
                 }
             };
 
-            let formTipIndices = { squat: 0, bench: 0, deadlift: 0, ohp: 0 };
-            let formTipTimer = null;
+            const FORM_TIP_TITLES = { squat: 'Squat', bench: 'Bench Press', deadlift: 'Deadlift', ohp: 'Overhead Press' };
+
+            let formTipsModalLift = null;
+            let formTipsModalIndex = 0;
 
             function getFormTips(mainLiftName) {
                 const key = (mainLiftName || '').toLowerCase();
                 return FORM_TIPS[key] || null;
             }
-
-            function getFormTipText(mainLiftName) {
-                const key = (mainLiftName || '').toLowerCase();
-                const tips = FORM_TIPS[key];
-                if (!tips) return '';
-                return tips.items[formTipIndices[key] % tips.items.length];
-            }
-
-            function updateFormTipLabels(animate = true) {
-                document.querySelectorAll('.form-tip-rotating-label').forEach(label => {
-                    const key = label.dataset.lift || '';
-                    const tips = FORM_TIPS[key];
-                    if (!tips) return;
-                    const text = tips.items[formTipIndices[key] % tips.items.length];
-                    if (!animate || label.textContent === text) {
-                        label.textContent = text;
-                    } else {
-                        label.classList.add('form-tip-fading');
-                        setTimeout(() => {
-                            label.textContent = text;
-                            label.classList.remove('form-tip-fading');
-                        }, NOTES_FADE_MS);
-                    }
-                });
-            }
-
-            function startFormTipRotation() {
-                if (formTipTimer) {
-                    clearInterval(formTipTimer);
-                    formTipTimer = null;
-                }
-                updateFormTipLabels(false);
-                formTipTimer = setInterval(() => {
-                    ['squat', 'bench', 'deadlift', 'ohp'].forEach(k => formTipIndices[k]++);
-                    updateFormTipLabels(true);
-                }, 6000);
-            }
-
-            const FORM_TIP_TITLES = { squat: 'Squat', bench: 'Bench Press', deadlift: 'Deadlift', ohp: 'Overhead Press' };
-
-            let formTipsModalLift = null;
-            let formTipsModalIndex = 0;
 
             function getFormTipItems(liftKey) {
                 const tips = getFormTips(liftKey);
@@ -631,7 +534,7 @@
                 const items = getFormTipItems(liftKey);
                 if (!items) return;
                 formTipsModalLift = liftKey;
-                formTipsModalIndex = (formTipIndices[liftKey] || 0) % items.length;
+                formTipsModalIndex = 0;
                 const titleEl = document.getElementById('form-tips-title');
                 if (titleEl) titleEl.textContent = (FORM_TIP_TITLES[liftKey] || liftKey) + ' Form Tips';
                 renderFormTipModal();
@@ -656,7 +559,21 @@
                 if (modal) modal.hidden = true;
             }
 
+            function openOtherTipsModal() {
+                const modal = document.getElementById('other-tips-modal');
+                const body = document.getElementById('other-tips-body');
+                if (!modal || !body) return;
+                body.innerHTML = WORKOUT_NOTES_ITEMS.map(item => `<li>${item}</li>`).join('');
+                modal.hidden = false;
+            }
+
+            function closeOtherTipsModal() {
+                const modal = document.getElementById('other-tips-modal');
+                if (modal) modal.hidden = true;
+            }
+
             window.openFormTipsModal = openFormTipsModal;
+            window.openOtherTipsModal = openOtherTipsModal;
 
             const formTipsModal = document.getElementById('form-tips-modal');
             const closeFormTipsButton = document.getElementById('close-form-tips');
@@ -676,6 +593,16 @@
                     if (e.target === formTipsModal) hideFormTipsModal();
                 });
             }
+            const otherTipsModal = document.getElementById('other-tips-modal');
+            const closeOtherTipsButton = document.getElementById('close-other-tips');
+            if (closeOtherTipsButton) {
+                closeOtherTipsButton.addEventListener('click', closeOtherTipsModal);
+            }
+            if (otherTipsModal) {
+                otherTipsModal.addEventListener('click', (e) => {
+                    if (e.target === otherTipsModal) closeOtherTipsModal();
+                });
+            }
             document.addEventListener('keydown', (e) => {
                 if (formTipsModal && !formTipsModal.hidden) {
                     if (e.key === 'Escape') {
@@ -686,111 +613,12 @@
                         showNextFormTip();
                     }
                 }
-            });
-
-            function getCurrentNotesIndex() {
-                if (WORKOUT_NOTES_ITEMS.length === 0) return 0;
-                return notesRotationIndex % WORKOUT_NOTES_ITEMS.length;
-            }
-
-            function getNotesHeaderText() {
-                if (WORKOUT_NOTES_ITEMS.length === 0) return 'Notes';
-                return WORKOUT_NOTES_ITEMS[getCurrentNotesIndex()];
-            }
-
-            function applyNotesHeaderText(label, text, animate) {
-                if (!animate || label.textContent === text) {
-                    label.textContent = text;
-                    return;
-                }
-                label.classList.add('notes-label-fading');
-                setTimeout(() => {
-                    label.textContent = text;
-                    label.classList.remove('notes-label-fading');
-                }, NOTES_FADE_MS);
-            }
-
-            function updateNotesHeaders(animate = true) {
-                const headerText = getNotesHeaderText();
-                document.querySelectorAll('.notes-rotating-label').forEach(label => {
-                    applyNotesHeaderText(label, headerText, animate);
-                });
-            }
-
-            function isAnyNotesExpanded() {
-                return !!document.querySelector('.notes-collapsible .collapsible-header:not(.collapsed)');
-            }
-
-            function syncNotesHighlight(wrapper) {
-                if (!wrapper) return;
-                const activeIndex = getCurrentNotesIndex();
-                wrapper.querySelectorAll('.notes-list-item').forEach(item => {
-                    item.classList.toggle(
-                        'notes-item-active',
-                        parseInt(item.dataset.noteIndex, 10) === activeIndex
-                    );
-                });
-            }
-
-            function clearNotesHighlight(wrapper) {
-                if (!wrapper) return;
-                wrapper.querySelectorAll('.notes-list-item').forEach(item => {
-                    item.classList.remove('notes-item-active');
-                });
-            }
-
-            function pauseNotesRotation() {
-                if (notesRotationTimer) {
-                    clearInterval(notesRotationTimer);
-                    notesRotationTimer = null;
-                }
-                notesRotationPaused = true;
-            }
-
-            function resumeNotesRotation() {
-                if (!notesRotationPaused) return;
-                notesRotationPaused = false;
-                if (notesRotationTimer) {
-                    clearInterval(notesRotationTimer);
-                    notesRotationTimer = null;
-                }
-                notesRotationTimer = setInterval(() => {
-                    notesRotationIndex++;
-                    updateNotesHeaders(true);
-                    saveProfile();
-                }, 5000);
-            }
-
-            function startNotesRotation() {
-                if (notesRotationTimer) {
-                    clearInterval(notesRotationTimer);
-                    notesRotationTimer = null;
-                }
-                updateNotesHeaders(false);
-                if (isAnyNotesExpanded()) {
-                    notesRotationPaused = true;
-                    return;
-                }
-                notesRotationPaused = false;
-                notesRotationTimer = setInterval(() => {
-                    notesRotationIndex++;
-                    updateNotesHeaders(true);
-                    saveProfile();
-                }, 5000);
-            }
-
-            window.onNotesCollapsibleToggle = (header, expanded) => {
-                const wrapper = header.closest('.notes-collapsible');
-                if (expanded) {
-                    pauseNotesRotation();
-                    syncNotesHighlight(wrapper);
-                } else {
-                    clearNotesHighlight(wrapper);
-                    if (!isAnyNotesExpanded()) {
-                        resumeNotesRotation();
+                if (otherTipsModal && !otherTipsModal.hidden) {
+                    if (e.key === 'Escape') {
+                        closeOtherTipsModal();
                     }
                 }
-            };
+            });
 
             function get1RMsFromInputs() {
                 const lifts = {};
@@ -1114,19 +942,19 @@
             }
 
             function append1RMHistory(source, newLifts, previousLifts, extra = {}) {
-                RadiantStorage.workout.append5311RMHistoryEntry(
+                RadiantStorage.workout.appendStrength1RMHistoryEntry(
                     build1RMHistoryEntry(source, newLifts, previousLifts, extra)
                 );
             }
 
             function getPreviousLiftsFromHistory() {
-                const history = RadiantStorage.workout.get5311RMHistory();
+                const history = RadiantStorage.workout.getStrength1RMHistory();
                 if (history.length === 0) return {};
                 return { ...(history[history.length - 1].lifts || {}) };
             }
 
             function liftsDifferFromLastHistory(newLifts) {
-                const history = RadiantStorage.workout.get5311RMHistory();
+                const history = RadiantStorage.workout.getStrength1RMHistory();
                 if (history.length === 0) return true;
                 const last = history[history.length - 1];
                 return LIFT_KEYS.some(key => (newLifts[key] || 0) !== (last.lifts?.[key] || 0));
@@ -1527,7 +1355,7 @@
                         { text: "Build muscle mass and size", scores: { 'bbb-forever': 6, standard: 2, fsl: 1, triumvirate: 1, beginners: 1 } },
                         { text: "Increase strength and power", scores: { fsl: 3, standard: 2, 'bbb-forever': 1, triumvirate: 2, beginners: 2 } },
                         { text: "General fitness and conditioning", scores: { standard: 3, triumvirate: 2, fsl: 1, 'bbb-forever': 2, beginners: 2 } },
-                        { text: "I'm new to 5/3/1 and need structure", scores: { beginners: 3, standard: 2, fsl: 1, 'bbb-forever': 1, triumvirate: 1 } }
+                        { text: "I'm new to Strength and need structure", scores: { beginners: 3, standard: 2, fsl: 1, 'bbb-forever': 1, triumvirate: 1 } }
                     ]
                 },
                 {
@@ -1540,9 +1368,9 @@
                     ]
                 },
                 {
-                    question: "What's your experience level with 5/3/1?",
+                    question: "What's your experience level with Strength?",
                     options: [
-                        { text: "Complete beginner to 5/3/1", scores: { beginners: 3, standard: 2, fsl: 1, 'bbb-forever': 1, triumvirate: 1 } },
+                        { text: "Complete beginner to Strength", scores: { beginners: 3, standard: 2, fsl: 1, 'bbb-forever': 1, triumvirate: 1 } },
                         { text: "Some experience, still learning", scores: { standard: 3, fsl: 2, beginners: 2, 'bbb-forever': 2, triumvirate: 1 } },
                         { text: "Intermediate - comfortable with the program", scores: { fsl: 3, 'bbb-forever': 4, standard: 2, triumvirate: 2, beginners: 1 } },
                         { text: "Advanced - ready for challenging variations", scores: { 'bbb-forever': 5, fsl: 2, triumvirate: 2, standard: 1, beginners: 1 } }
@@ -1603,7 +1431,7 @@
                         alert('Workout plan saved.');
                     }
                 } catch (err) {
-                    log531Error('handleSave1RMs', err.message, {});
+                    logStrengthError('handleSave1RMs', err.message, {});
                     console.error('Save failed:', err);
                     alert('Could not save workout plan. Try refreshing the page.');
                 }
@@ -1652,7 +1480,7 @@
             if (saveButton) {
                 saveButton.addEventListener('click', handleSaveButtonClick);
             } else {
-                log531Error('init', 'No save or generate button found in DOM', {});
+                logStrengthError('init', 'No save or generate button found in DOM', {});
             }
 
             const cancelLevelUpButton = document.getElementById('cancel-level-up');
@@ -2655,11 +2483,7 @@
                 const resultsContainer = document.getElementById('workout-results');
                 
                 if (!workoutPlan.weeks || Object.keys(workoutPlan.weeks).length === 0) {
-                    if (notesRotationTimer) {
-                        clearInterval(notesRotationTimer);
-                        notesRotationTimer = null;
-                    }
-                    resultsContainer.innerHTML = '<p>Enter your 1-rep max values in Program Setup and click Save to create your personalized 5/3/1 program.</p>';
+                    resultsContainer.innerHTML = '<p>Enter your 1-rep max values in Program Setup and click Save to create your personalized Strength program.</p>';
                     return;
                 }
                 
@@ -2692,30 +2516,13 @@
                             <div class="day-content ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">
                                 <div class="day-card">
                                     <div class="day-header">Day ${day.day}: ${day.name}</div>
-                                    ${(function () {
-                                        const formTipsForDay = getFormTips(day.mainLift.name);
-                                        if (!formTipsForDay) return '';
-                                        return `
-                                    <div class="form-tip-strip" title="Tap to view all form tips" onclick="openFormTipsModal('${day.mainLift.name.toLowerCase()}')">
-                                        <span class="form-tip-icon">📝</span>
-                                        <span class="form-tip-rotating-label" data-lift="${day.mainLift.name.toLowerCase()}">${getFormTipText(day.mainLift.name)}</span>
-                                        <span class="form-tip-chevron">›</span>
-                                    </div>`;
-                                    })()}
+                                    <div class="day-tips-row">
+                                        <button type="button" class="day-tips-btn"
+                                                onclick="openFormTipsModal('${day.mainLift.name.toLowerCase()}')">Form Tips</button>
+                                        <button type="button" class="day-tips-btn" onclick="openOtherTipsModal()">Other Tips</button>
+                                    </div>
 
                                     <button type="button" class="begin-workout-btn" data-week="${week}" data-day="${dayIndex}">Begin Workout</button>
-
-                                    <div class="collapsible-wrapper notes-collapsible">
-                                        <div class="collapsible-header collapsed" onclick="toggleCollapsible(this)">
-                                            <strong class="notes-rotating-label">${getNotesHeaderText()}</strong>
-                                            <span class="collapsible-toggle">▼</span>
-                                        </div>
-                                        <div class="collapsible-content collapsed">
-                                            <ul style="list-style: none; padding-left: 0; margin: 0.5rem 0;">
-                                                ${WORKOUT_NOTES_ITEMS.map((item, index) => `<li class="notes-list-item" data-note-index="${index}">${item}</li>`).join('')}
-                                            </ul>
-                                        </div>
-                                    </div>
                                     
                                     
 
@@ -2776,7 +2583,7 @@
                                 
                                 html += `
                                     <div class="amrap-logging">
-                                        <h4>📊 Log Your AMRAP Performance (Wendler Philosophy)</h4>
+                                        <h4>📊 Log Your Performance</h4>
                                         <p style="margin-bottom: 1rem; font-size: 0.95rem;">
                                             Your performance on this 1+ set determines your progression for the next cycle.
                                         </p>`;
@@ -2953,15 +2760,11 @@
                     if (workoutModeBar) workoutModeBar.style.display = 'flex';
                     updateWorkoutModeTitle();
                 }
-
-                startNotesRotation();
-                startFormTipRotation();
             }
             
             // Function to show specific week content
             function showWeekContent(weekNum, dayIndex) {
                 currentWeek = weekNum;
-                updateWeekPhaseLabel();
                 document.querySelectorAll('.week-content').forEach(content => {
                     content.classList.toggle('active', content.dataset.week === weekNum.toString());
                 });
@@ -3008,12 +2811,12 @@
 
                 'triumvirate': 'The Triumvirate template prescribes two assistance exercises per main lift, each performed for 5 sets of 10-15 reps. This focused approach targets specific muscle groups that support your main lifts, providing balanced development with moderate volume.',
 
-                'beginners': '5/3/1 for Beginners combines FSL work (5 sets of 5 reps at your first set weight) with specific push, pull, and single-leg/core accessories (50 reps each). This template is designed to build a foundation of strength and work capacity for those new to the program.'
+                'beginners': 'Strength for Beginners combines FSL work (5 sets of 5 reps at your first set weight) with specific push, pull, and single-leg/core accessories (50 reps each). This template is designed to build a foundation of strength and work capacity for those new to the program.'
             };
 
             const BBB_SUPPLEMENTAL_NOTE = '5×10 supplemental: 50% or 60% TM — start at 50%, move to 60% when 5×10 feels manageable.';
             const BBB_AMRAP_VS_5S_PRO_NOTE = 'AMRAP is not required for muscle growth on BBB — the 5×10 block (~50 reps at 50–60% TM) is the size stimulus. Forever BBB uses 5s Pro (no AMRAP) so you finish those sets with quality. Save AMRAP for a later Anchor cycle (e.g. FSL).';
-            const TRAINING_MAX_NOTE = 'Wendler recommends 85–90% of 1RM as your Training Max.';
+            const TRAINING_MAX_NOTE = 'Typically, 85–90% of 1RM as your Training Max.';
 
             function renderSetupNotesBody() {
                 const body = document.getElementById('setup-notes-body');
@@ -3190,7 +2993,7 @@
                     'bbb-forever': 'Forever BBB (Leader/Anchor cycles)',
                     fsl: 'First Set Last (FSL)',
                     triumvirate: 'Triumvirate',
-                    beginners: '5/3/1 for Beginners'
+                    beginners: 'Strength for Beginners'
                 };
                 
                 // Update the select dropdown
@@ -3524,7 +3327,7 @@
                 
                 // Build new HTML content
                 let html = `
-                    <h4>📊 Log Your AMRAP Performance (Wendler Philosophy)</h4>
+                    <h4>📊 Log Your Performance</h4>
                     <p style="margin-bottom: 1rem; font-size: 0.95rem;">
                         Your performance on this 1+ set determines your progression for the next cycle.
                     </p>`;

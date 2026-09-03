@@ -32,8 +32,8 @@ const RadiantStorage = {
         LAST_COMPLETED_DATE: 'lastCompletedDate',
         STORED_DAY: 'storedDay',
         CHECKBOX_STATES: 'checkboxStates',
-        PROFILE_531: '531-workout-profile',
-        PROFILE_531_1RM_HISTORY: '531-1rm-history',
+        PROFILE_STRENGTH: 'strength-workout-profile',
+        PROFILE_STRENGTH_1RM_HISTORY: 'strength-1rm-history',
         RECENT_FOOD_SELECTIONS: 'recentFoodSelections',
         MEAL_COLLAPSE_PREFERENCE: 'mealCollapsePreference',
         CUSTOM_RECIPES_BACKUP: 'customRecipesBackup',
@@ -514,26 +514,43 @@ const RadiantStorage = {
             RadiantStorage.setJSON(RadiantStorage.KEYS.CHECKBOX_STATES, states);
         },
 
-        get531Profile() {
-            return RadiantStorage.getJSON(RadiantStorage.KEYS.PROFILE_531, null);
+        _migrate531ProfileKeys() {
+            const map = {
+                '531-workout-profile': RadiantStorage.KEYS.PROFILE_STRENGTH,
+                '531-1rm-history':   RadiantStorage.KEYS.PROFILE_STRENGTH_1RM_HISTORY,
+            };
+            Object.keys(map).forEach(function (oldKey) {
+                const newKey = map[oldKey];
+                const raw = RadiantStorage.getRaw(oldKey);
+                if (raw == null || raw === '') return;
+                if (RadiantStorage.getRaw(newKey) != null) return;
+                RadiantStorage.setRaw(newKey, raw);
+                RadiantStorage.remove(oldKey);
+            });
         },
 
-        save531Profile(profile) {
-            RadiantStorage.setJSON(RadiantStorage.KEYS.PROFILE_531, profile);
+        getStrengthProfile() {
+            RadiantStorage.workout._migrate531ProfileKeys();
+            return RadiantStorage.getJSON(RadiantStorage.KEYS.PROFILE_STRENGTH, null);
         },
 
-        get5311RMHistory() {
-            return RadiantStorage.getJSON(RadiantStorage.KEYS.PROFILE_531_1RM_HISTORY, []);
+        saveStrengthProfile(profile) {
+            RadiantStorage.setJSON(RadiantStorage.KEYS.PROFILE_STRENGTH, profile);
         },
 
-        append5311RMHistoryEntry(entry) {
-            const history = RadiantStorage.workout.get5311RMHistory();
+        getStrength1RMHistory() {
+            RadiantStorage.workout._migrate531ProfileKeys();
+            return RadiantStorage.getJSON(RadiantStorage.KEYS.PROFILE_STRENGTH_1RM_HISTORY, []);
+        },
+
+        appendStrength1RMHistoryEntry(entry) {
+            const history = RadiantStorage.workout.getStrength1RMHistory();
             history.push(entry);
             const maxEntries = 200;
             if (history.length > maxEntries) {
                 history.splice(0, history.length - maxEntries);
             }
-            RadiantStorage.setJSON(RadiantStorage.KEYS.PROFILE_531_1RM_HISTORY, history);
+            RadiantStorage.setJSON(RadiantStorage.KEYS.PROFILE_STRENGTH_1RM_HISTORY, history);
         },
     },
 
@@ -581,13 +598,22 @@ const RadiantStorage = {
             } catch (_) { /* ignore quota errors */ }
         },
 
+        _migrate531DebugKey() {
+            const raw = RadiantStorage.getRaw('531-last-error');
+            if (raw == null || raw === '') return;
+            if (RadiantStorage.getRaw('strength-last-error') != null) return;
+            RadiantStorage.setRaw('strength-last-error', raw);
+            RadiantStorage.remove('531-last-error');
+        },
+
         getLog() {
+            RadiantStorage.debug._migrate531DebugKey();
             const log = RadiantStorage.getJSON(RadiantStorage.KEYS.DEBUG_LOG, []);
-            const legacy = RadiantStorage.getJSON('531-last-error', null);
+            const legacy = RadiantStorage.getJSON('strength-last-error', null);
             if (legacy && typeof legacy === 'object') {
                 const legacyEntry = {
                     ts: legacy.ts || 0,
-                    source: '531',
+                    source: 'strength',
                     location: legacy.location || 'legacy',
                     message: legacy.message || '',
                     data: legacy.data || {},
@@ -605,8 +631,9 @@ const RadiantStorage = {
         },
 
         clearLog() {
+            RadiantStorage.debug._migrate531DebugKey();
             RadiantStorage.remove(RadiantStorage.KEYS.DEBUG_LOG);
-            RadiantStorage.remove('531-last-error');
+            RadiantStorage.remove('strength-last-error');
         },
 
         captureGlobalErrors() {

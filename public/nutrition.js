@@ -2019,6 +2019,13 @@ function deletedGramsForInputField(grams) {
     return gramsToInputValue(grams);
 }
 
+function collapseAllFoodItemActions() {
+    var expanded = document.querySelectorAll('.list-item.expanded');
+    expanded.forEach(function(el) {
+        el.classList.remove('expanded');
+    });
+}
+
 function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsInput, viewRow) {
     var v = viewRow || item;
     var listItem = document.createElement('div');
@@ -2058,6 +2065,8 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
         gramsInput.focus();
         gramsInput.value = gramsStr;
         gramsInput.select();
+
+        collapseAllFoodItemActions();
     });
 
     var editButton = document.createElement('button');
@@ -2067,6 +2076,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
     editButton.addEventListener('click', function(e) {
         e.stopPropagation();
         showEditDialog(item, allFoodItems);
+        collapseAllFoodItemActions();
     });
 
     var infoButton = document.createElement('button');
@@ -2076,6 +2086,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
     infoButton.addEventListener('click', function(e) {
         e.stopPropagation();
         showNutrientDetails(item);
+        collapseAllFoodItemActions();
     });
 
     var itemActions = document.createElement('div');
@@ -2085,11 +2096,16 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
     itemActions.appendChild(infoButton);
     listItem.appendChild(itemActions);
 
+    var toggleButton = document.createElement('button');
+    toggleButton.className = 'toggle-actions-btn';
+    toggleButton.setAttribute('aria-label', 'Toggle actions');
+    toggleButton.addEventListener('click', function(e) {
+        e.stopPropagation();
+        listItem.classList.toggle('expanded');
+    });
+    listItem.appendChild(toggleButton);
+
     listItem.addEventListener('click', function(e) {
-        var root = document.getElementById('scrollableWindow');
-        if (root) {
-            root.classList.toggle('show-actions');
-        }
         foodInput.value = item.name;
         if (item.fdc_id != null && item.fdc_id !== '') {
             foodInput.dataset.fdcId = String(item.fdc_id);
@@ -2326,6 +2342,8 @@ document.addEventListener('DOMContentLoaded', async function() {
 	initEditItemDialog();
 	initUnitSelector();
 	setupUnitSelector();
+
+	document.addEventListener('click', collapseAllFoodItemActions);
 
 	today = getTodayKey();
 	localStorage.setItem('today', today);

@@ -417,21 +417,6 @@
     margin-right: calc(-1 * var(--pad-x));
 }
 
-/* Week phase description shown as a single header under the tabs, above the
-   day tabs (e.g. "Week 1: 5/5/5+"). Updates based on the selected week. */
-.week-phase-label {
-    margin: 0 calc(-1 * var(--pad-x));
-    padding: 0.5rem var(--pad-x) 0.15rem;
-    text-align: left;
-    font-size: 1.3rem;
-    font-weight: 600;
-    color: var(--ink);
-    background: var(--paper);
-}
-
-.week-phase-label:empty {
-    display: none;
-}
 
 
 .week-content.active {
@@ -556,104 +541,21 @@
     font-size: 1.05rem;
 }
 
-.collapsible-header .notes-rotating-label {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    margin-right: 8px;
-    transition: opacity 0.3s ease;
-}
-
-.collapsible-header .notes-rotating-label.notes-label-fading {
-    opacity: 0;
-}
-
-.notes-list-item.notes-item-active {
-    background: var(--highlight);
-    border-radius: var(--radius);
-    padding: 2px 6px;
-    margin-left: -6px;
-    margin-right: -6px;
-}
-
-.collapsible-toggle {
-    font-size: 1rem;
-    color: var(--ink-light);
-    transition: transform 0.3s;
-}
-
-.collapsible-header.collapsed .collapsible-toggle {
-    transform: rotate(-90deg);
-}
-
-.collapsible-content {
-    max-height: 1000px;
-    overflow: hidden;
-    transition: max-height 0.3s ease-out, padding 0.3s ease-out;
-    padding: 0 12px 10px;
-    border-left: 2px solid var(--border-color);
-    margin-left: 8px;
-}
-
-.collapsible-content.collapsed {
-    max-height: 0;
-    padding: 0 12px;
-}
-
-.collapsible-wrapper {
-    margin-bottom: 1rem;
-}
-
-.form-tip-strip {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    font-size: 0.8rem;
-    line-height: 1.35;
-    color: var(--ink-light);
-    background: var(--paper-shadow);
-    border: 1px solid var(--border-color);
-    border-radius: var(--radius);
-    padding: 6px 10px;
-    margin: 0 0 0.75rem;
-    cursor: pointer;
-    transition: background 0.2s ease;
-}
-
-.form-tip-strip:hover {
-    background: var(--highlight);
-}
-
-.form-tip-icon {
-    font-size: 0.8rem;
-    flex-shrink: 0;
-}
-
-.form-tip-rotating-label {
-    flex: 1;
-    min-width: 0;
-    font-style: italic;
-    font-size: 0.78rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    transition: opacity 0.3s ease;
-}
-
-.form-tip-rotating-label.form-tip-fading {
-    opacity: 0;
-}
-
-.form-tip-chevron {
-    flex-shrink: 0;
-    font-size: 1rem;
-    line-height: 1;
-    color: var(--ink-light);
-}
-
 /* Form Tips Modal */
+.simple-popup-modal {
+    position: fixed;
+    inset: 0;
+    background-color: rgba(44, 36, 22, 0.65);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.simple-popup-modal[hidden] {
+    display: none;
+}
+
 .form-tips-modal {
     position: fixed;
     inset: 0;
@@ -668,6 +570,18 @@
     display: none;
 }
 
+.simple-popup-content {
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: var(--radius);
+    width: 90%;
+    max-width: 600px;
+    max-height: 80vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 4px 4px 0 var(--ink);
+}
+
 .form-tips-content {
     background: var(--paper);
     border: 2px solid var(--ink);
@@ -680,7 +594,7 @@
     box-shadow: 4px 4px 0 var(--ink);
 }
 
-.form-tips-header {
+.simple-popup-header {
     background: var(--pencil-dark);
     color: white;
     padding: 16px 20px;
@@ -688,6 +602,33 @@
     justify-content: space-between;
     align-items: center;
     flex-shrink: 0;
+}
+
+.simple-popup-header h3 {
+    margin: 0;
+    font-size: 1.5rem;
+    color: white;
+}
+
+.simple-popup-close {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 1.75rem;
+    cursor: pointer;
+    padding: 0;
+    width: auto;
+    box-shadow: none;
+}
+
+.simple-popup-body {
+    flex: 1;
+    padding: 20px 12px;
+    overflow-y: auto;
+    font-size: 1.05rem;
+    line-height: 1.5;
+    list-style: disc;
+    padding-left: 1.5rem;
 }
 
 .form-tips-header h3 {
@@ -755,6 +696,30 @@
     font-size: 0.85rem;
     color: var(--ink-light);
 }
+
+.day-tips-row {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin: 0 0 0.75rem;
+}
+
+.day-tips-btn {
+    background: var(--paper-shadow);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 1px 1px 0 var(--border-color);
+    transition: background 0.2s ease;
+}
+
+.day-tips-btn:hover {
+    background: var(--highlight);
+}
+
 .begin-workout-btn {
     background: var(--success);
     border-color: var(--pencil-dark);
@@ -889,7 +854,6 @@ body.workout-mode .week-tabs,
 body.workout-mode .day-tabs,
 body.workout-mode .day-checkmark-hint,
 body.workout-mode .begin-workout-btn,
-body.workout-mode .collapsible-wrapper,
 body.workout-mode .level-up-button,
 body.workout-mode .notes:not(.workout-mode-keep) {
     display: none !important;

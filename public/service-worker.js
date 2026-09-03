@@ -45,7 +45,7 @@ const FILES_TO_CACHE = [
   'css/charts/charts.css',
   'css/workout/workout-shell.css',
   'css/workout/workout.css',
-  'css/workout/531-workout.css',
+  'css/workout/strength-workout.css',
   'css/workout/gzcl.css',
   'css/workout/edit-workout-routine.css',
   'fonts/caveat-latin.woff2',
@@ -79,7 +79,7 @@ const FILES_TO_CACHE = [
   'js/vendor/three.module.min.js',
   'vendor/zxing/index.min.js',
   'js/workout/workout-utils.js',
-  'js/workout/531-workout.js',
+  'js/workout/strength-workout.js',
   'js/workout/gzcl.js',
   'js/workout/custom-workout-nav.js',
   'js/workout/workout-item-render.js',
@@ -94,7 +94,7 @@ const FILES_TO_CACHE = [
   'workout/workout-routine.html',
   'workout/edit-workout-routine.html',
   'workout/set-workout-day.html',
-  'workout/531.html',
+  'workout/strength.html',
   'workout/gzcl.html',
 ];
 

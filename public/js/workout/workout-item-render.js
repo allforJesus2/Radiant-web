@@ -1,5 +1,5 @@
 /**
- * Shared workout item HTML rendering (531-style markup).
+ * Shared workout item HTML rendering (strength-style markup).
  */
 function restTimeToSeconds(restTime, restTimeUnit) {
     const value = parseInt(restTime, 10) || 0;

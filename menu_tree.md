@@ -9,7 +9,7 @@ The application's main dashboard provides access to all core features through a 
 ```
 🏠 HOME (index.html)
 ├── 🍎 Nutrition → checkProfileAndNavigate()
-├── 🏋️‍♀️ Exercise → workout/531.html
+├── 🏋️‍♀️ Exercise → workout/strength.html
 ├── 💤 Sleep → sleep.html
 ├── 👤 Profile → profile.html
 ├── 📊 Analysis → charts.html
@@ -38,7 +38,7 @@ The application's main dashboard provides access to all core features through a 
 - **Home** → `index.html`
 
 ### 2. 🏋️‍♀️ Exercise Module
-**Entry Point:** `workout/531.html`
+**Entry Point:** `workout/strength.html`
 
 #### Workout Navigation Bar
 ```
@@ -54,12 +54,12 @@ Home | Today's Workout | Workout Routines | Schedule
 │   ├── Workout Routines → workout_routine.html
 │   └── Schedule → set_workout_day.html
 ├── 🏃‍♂️ Workout Programs
-│   ├── 5/3/1 Program → workout/531.html
+│   ├── Strength Program → workout/strength.html
 │   └── GZCL Program → workout/gzcl.html
 ├── 📋 Workout Routines → workout_routine.html
 ├── ✏️ Edit Workout Routine → edit_workout_routine.html
 ├── 📅 Set Workout Schedule → set_workout_day.html
-└── 🎯 Five-Three-One Routine → five-three-one/exersize-routine.html
+└── 🎯 Five-Three-One Routine → exercise-program/exersize-routine.html
 ```
 
 ### 3. 👤 Profile Setup Flow
@@ -136,13 +136,13 @@ The home page displays random Bible verses for daily inspiration.
 ├── 🔍 debug.html (Debug Tools)
 ├── 📝 create-recipe.html (Recipe Creation)
 ├── 📁 workout/
-│   ├── 531.html (5/3/1 Program)
+│   ├── strength.html (Strength Program)
 │   └── gzcl.html (GZCL Program)
 ├── 🏋️‍♀️ workout.html (Today's Workout)
 ├── 📋 workout_routine.html (Routine Management)
 ├── ✏️ edit_workout_routine.html (Routine Editor)
 ├── 📅 set_workout_day.html (Schedule)
-├── 📁 five-three-one/
+├── 📁 exercise-program/
 │   └── exersize-routine.html
 ├── 🔧 Profile Setup Pages:
 │   ├── calculate_bmr.html
