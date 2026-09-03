@@ -34,6 +34,14 @@
                 accessory: 90
             };
 
+            // Progression chart state
+            let progressionChart = null;
+            let chartUpdateTimeoutId = null;
+            const CHART_SLOTS_PER_CYCLE = 48;   // 4 weeks × 4 days × 3 sets
+            const CHART_DAYS_PER_WEEK = 4;
+            const CHART_LIFT_DAY = { ohp: 1, deadlift: 2, bench: 3, squat: 4 };
+            const CHART_LIFT_NAMES = { ohp: 'OHP', deadlift: 'Deadlift', bench: 'Bench Press', squat: 'Squat' };
+
             function logStrengthError(location, message, data) {
                 if (typeof RadiantStorage !== 'undefined' && RadiantStorage.debug) {
                     RadiantStorage.debug.log('strength', location, message, data);
@@ -92,6 +100,12 @@
                 }
                 if (profile.workoutPlan) {
                     normalizestrengthWorkoutPlanInPlace(profile.workoutPlan);
+                }
+                if (profile.chartPastCycles != null) {
+                    profile.chartPastCycles = Math.max(0, Math.min(6, parseInt(profile.chartPastCycles, 10) || 2));
+                }
+                if (profile.chartFutureCycles != null) {
+                    profile.chartFutureCycles = Math.max(1, Math.min(6, parseInt(profile.chartFutureCycles, 10) || 2));
                 }
                 return profile;
             }
@@ -166,6 +180,16 @@
                         if (mainRestEl) mainRestEl.value = restTimeSettings.main;
                         if (accessoryRestEl) accessoryRestEl.value = restTimeSettings.accessory;
                         updateTimeDisplays();
+                    }
+
+                    // Restore progression chart cycle counts
+                    if (profile.chartPastCycles != null) {
+                        const pastEl = document.getElementById('chart-past-cycles');
+                        if (pastEl) pastEl.value = profile.chartPastCycles;
+                    }
+                    if (profile.chartFutureCycles != null) {
+                        const futureEl = document.getElementById('chart-future-cycles');
+                        if (futureEl) futureEl.value = profile.chartFutureCycles;
                     }
                     
                     // Restore workout plan
@@ -360,10 +384,342 @@
                     restTimeSettings, // Save rest time settings
                     checkedDays, // Save checked days
                     completedTimers, // Save completed rest timers
+                    chartPastCycles: getChartCycleConfig().past, // Save progression chart past cycles
+                    chartFutureCycles: getChartCycleConfig().future, // Save progression chart future cycles
                 };
                 
                 RadiantStorage.workout.saveStrengthProfile(profile);
             }
+
+            // ---------------- Progression chart ----------------
+            function getChartCssVar(name, fallback) {
+                const value = getComputedStyle(document.documentElement).getPropertyValue(name);
+                return value && value.trim() ? value.trim() : fallback;
+            }
+
+            function chartHexToRgba(hex, alpha) {
+                const clean = String(hex).trim().replace(/^#/, '');
+                if (clean.length === 6 && /^[0-9a-f]{6}$/i.test(clean)) {
+                    const r = parseInt(clean.slice(0, 2), 16);
+                    const g = parseInt(clean.slice(2, 4), 16);
+                    const b = parseInt(clean.slice(4, 6), 16);
+                    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+                }
+                return hex;
+            }
+
+            function getChartCycleConfig() {
+                const profile = normalizeStrengthProfile(RadiantStorage.workout.getStrengthProfile());
+                const storedPast = profile && profile.chartPastCycles != null ? parseInt(profile.chartPastCycles, 10) : NaN;
+                const storedFuture = profile && profile.chartFutureCycles != null ? parseInt(profile.chartFutureCycles, 10) : NaN;
+
+                const pastEl = document.getElementById('chart-past-cycles');
+                const futureEl = document.getElementById('chart-future-cycles');
+                let past = pastEl ? parseInt(pastEl.value, 10) : NaN;
+                let future = futureEl ? parseInt(futureEl.value, 10) : NaN;
+                if (!Number.isFinite(past)) past = Number.isFinite(storedPast) ? storedPast : 2;
+                if (!Number.isFinite(future)) future = Number.isFinite(storedFuture) ? storedFuture : 2;
+                past = Math.max(0, Math.min(6, past));
+                future = Math.max(1, Math.min(6, future));
+                return { past, future };
+            }
+
+            function getHistoricalLevelBaselines(pastCount) {
+                if (pastCount <= 0) return [];
+                const history = RadiantStorage.workout.getStrength1RMHistory();
+                const byLevel = new Map();
+                history.forEach(entry => {
+                    const level = entry.cycleLevel;
+                    if (!Number.isInteger(level) || level <= 0) return;
+                    if (level >= userLevel) return;
+                    const existing = byLevel.get(level);
+                    if (!existing || entry.ts >= existing.ts) {
+                        byLevel.set(level, entry);
+                    }
+                });
+                return Array.from(byLevel.entries())
+                    .sort((a, b) => a[0] - b[0])
+                    .slice(-pastCount)
+                    .map(([level, entry]) => ({
+                        level,
+                        lifts: { ...(entry.lifts || {}) },
+                    }));
+            }
+
+            function getBaseline1RMs() {
+                if (levelUpReviewActive) {
+                    return readLevelUpReviewNew1RMs();
+                }
+                return get1RMsFromInputs();
+            }
+
+            function buildTimelineBaselines() {
+                const { past, future } = getChartCycleConfig();
+                const historical = getHistoricalLevelBaselines(past);
+                const baselines = [];
+
+                historical.forEach(h => {
+                    baselines.push({ level: h.level, lifts: { ...h.lifts } });
+                });
+
+                const currentLifts = getBaseline1RMs();
+                baselines.push({ level: userLevel, lifts: { ...currentLifts } });
+
+                const predicted = { ...currentLifts };
+                for (let i = 1; i <= future; i++) {
+                    const next = {};
+                    LIFT_KEYS.forEach(key => {
+                        const base = predicted[key] || 0;
+                        if (base <= 0) {
+                            next[key] = 0;
+                            return;
+                        }
+                        if (i === 1) {
+                            next[key] = levelUpReviewActive
+                                ? base + getStandardIncrement(key)
+                                : computeProposed1RM(key, base);
+                        } else {
+                            next[key] = base + getStandardIncrement(key);
+                        }
+                    });
+                    baselines.push({ level: userLevel + i, lifts: next });
+                    LIFT_KEYS.forEach(key => {
+                        predicted[key] = next[key];
+                    });
+                }
+
+                const known = {};
+                baselines.forEach(b => {
+                    LIFT_KEYS.forEach(key => {
+                        const value = (b.lifts && b.lifts[key]) || 0;
+                        if (value > 0) {
+                            known[key] = value;
+                            b.lifts[key] = value;
+                        } else if (known[key] != null) {
+                            b.lifts[key] = known[key];
+                        } else {
+                            b.lifts[key] = null;
+                        }
+                    });
+                });
+
+                return baselines;
+            }
+
+            function buildProgressionChartData() {
+                const baselines = buildTimelineBaselines();
+
+                const includedPastLevels = baselines.findIndex(b => b.level === userLevel);
+                const totalLevels = baselines.length;
+                const totalSlots = totalLevels * CHART_SLOTS_PER_CYCLE;
+                const dividerSlot = (includedPastLevels + 1) * CHART_SLOTS_PER_CYCLE;
+
+                const labels = new Array(totalSlots).fill('');
+                baselines.forEach((b, levelIdx) => {
+                    for (let week = 1; week <= 4; week++) {
+                        for (let day = 1; day <= 4; day++) {
+                            const slot = levelIdx * CHART_SLOTS_PER_CYCLE + (week - 1) * 12 + (day - 1) * 3;
+                            labels[slot] = `L${b.level} W${week} D${day}`;
+                        }
+                    }
+                });
+
+                const datasets = [];
+                LIFT_KEYS.forEach(lift => {
+                    const liftDay = CHART_LIFT_DAY[lift];
+                    const hasLift = baselines.some(b => (b.lifts[lift] || 0) > 0);
+                    if (!hasLift) return;
+
+                    const values = new Array(totalSlots).fill(null);
+                    baselines.forEach((b, levelIdx) => {
+                        const base = b.lifts[lift];
+                        if (!base || base <= 0) return;
+                        const tm = round5(base * (tmPercentage / 100));
+                        for (let week = 1; week <= 4; week++) {
+                            const weekSets = weekPercentages[week];
+                            for (let setIdx = 0; setIdx < weekSets.length; setIdx++) {
+                                const slot = levelIdx * CHART_SLOTS_PER_CYCLE + (week - 1) * 12 + (liftDay - 1) * 3 + setIdx;
+                                values[slot] = round5(tm * (weekSets[setIdx].percentage / 100));
+                            }
+                        }
+                    });
+
+                    datasets.push({
+                        label: CHART_LIFT_NAMES[lift] || lift,
+                        lift,
+                        data: values,
+                    });
+                });
+
+                return { labels, datasets, dividerSlot, baselines };
+            }
+
+            function renderProgressionChart() {
+                const canvas = document.getElementById('progression-chart');
+                const wrap = document.querySelector('.progression-chart-wrap');
+                const empty = document.getElementById('progression-chart-empty');
+
+                if (typeof Chart === 'undefined') {
+                    if (wrap) wrap.hidden = true;
+                    if (empty) empty.hidden = false;
+                    return;
+                }
+
+                const data = buildProgressionChartData();
+                const hasData = data.datasets.length > 0;
+
+                if (wrap) wrap.hidden = !hasData;
+                if (empty) empty.hidden = hasData;
+
+                if (progressionChart) {
+                    progressionChart.destroy();
+                    progressionChart = null;
+                }
+                if (!hasData || !canvas) return;
+
+                const dividerSlot = data.dividerSlot;
+                const ink = getChartCssVar('--ink', '#2c2416');
+                const gridColor = chartHexToRgba(ink, 0.12);
+                const liftColors = {
+                    squat: getChartCssVar('--pencil', '#4a6741'),
+                    bench: getChartCssVar('--accent', '#c0392b'),
+                    deadlift: getChartCssVar('--success', '#3d6b4f'),
+                    ohp: getChartCssVar('--pencil-dark', '#2d4228'),
+                };
+
+                let maxVal = 0;
+                data.datasets.forEach(ds => {
+                    ds.data.forEach(v => {
+                        if (v != null && v > maxVal) maxVal = v;
+                    });
+                });
+                const suggestedMax = maxVal > 0 ? Math.ceil(maxVal * 1.08) : undefined;
+
+                const dividerPlugin = {
+                    id: 'progressionPredictDivider',
+                    afterDraw(chart) {
+                        const { ctx, chartArea, scales } = chart;
+                        if (!chartArea || !scales.x) return;
+                        if (dividerSlot <= 0 || dividerSlot >= chart.data.labels.length) return;
+                        const dividerX = chartArea.left
+                            + (dividerSlot / chart.data.labels.length) * (chartArea.right - chartArea.left);
+                        ctx.save();
+                        ctx.fillStyle = chartHexToRgba(ink, 0.05);
+                        ctx.fillRect(dividerX, chartArea.top, chartArea.right - dividerX, chartArea.bottom - chartArea.top);
+                        ctx.strokeStyle = ink;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(dividerX, chartArea.top);
+                        ctx.lineTo(dividerX, chartArea.bottom);
+                        ctx.stroke();
+                        ctx.restore();
+                    },
+                };
+
+                const baselines = data.baselines;
+                const config = {
+                    type: 'line',
+                    data: {
+                        labels: data.labels,
+                        datasets: data.datasets.map(ds => ({
+                            label: ds.label,
+                            data: ds.data,
+                            borderColor: liftColors[ds.lift],
+                            backgroundColor: liftColors[ds.lift],
+                            pointRadius: 2,
+                            pointHoverRadius: 4,
+                            borderWidth: 1.5,
+                            tension: 0.25,
+                            fill: false,
+                            spanGaps: false,
+                            segment: {
+                                borderDash: (ctx) => (ctx.p0DataIndex >= dividerSlot ? [6, 4] : undefined),
+                            },
+                        })),
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        animation: prefersReducedMotion() ? false : { duration: 400 },
+                        interaction: {
+                            mode: 'nearest',
+                            axis: 'x',
+                            intersect: false,
+                        },
+                        scales: {
+                            x: {
+                                type: 'category',
+                                ticks: {
+                                    autoSkip: true,
+                                    maxRotation: 0,
+                                    minRotation: 0,
+                                    font: { size: 10 },
+                                    color: ink,
+                                },
+                                grid: { color: gridColor },
+                            },
+                            y: {
+                                ticks: {
+                                    color: ink,
+                                    callback: (value) => `${value} lbs`,
+                                },
+                                grid: { color: gridColor },
+                                suggestedMax,
+                            },
+                        },
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    color: ink,
+                                    boxWidth: window.innerWidth < 768 ? 12 : 40,
+                                },
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    title(items) {
+                                        if (!items.length) return '';
+                                        const idx = items[0].dataIndex;
+                                        const levelIdx = Math.floor(idx / CHART_SLOTS_PER_CYCLE);
+                                        const within = idx % CHART_SLOTS_PER_CYCLE;
+                                        const week = Math.floor(within / 12) + 1;
+                                        const day = Math.floor((within % 12) / 3) + 1;
+                                        const baseline = baselines[levelIdx];
+                                        return `Level ${baseline ? baseline.level : '?'} · Week ${week} · Day ${day}`;
+                                    },
+                                    label(context) {
+                                        const within = context.dataIndex % CHART_SLOTS_PER_CYCLE;
+                                        const setIdx = ((within % 12) % 3) + 1;
+                                        return `${context.dataset.label} Set ${setIdx}: ${context.parsed.y} lbs`;
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    plugins: [dividerPlugin],
+                };
+
+                progressionChart = new Chart(canvas, config);
+            }
+
+            function updateProgressionChart() {
+                renderProgressionChart();
+                requestAnimationFrame(() => {
+                    if (progressionChart && progressionChart.resize) {
+                        progressionChart.resize();
+                    }
+                });
+            }
+
+            function scheduleProgressionChartUpdate() {
+                if (chartUpdateTimeoutId) clearTimeout(chartUpdateTimeoutId);
+                chartUpdateTimeoutId = setTimeout(() => {
+                    chartUpdateTimeoutId = null;
+                    updateProgressionChart();
+                }, 200);
+            }
+
+            // ---------------- /Progression chart ----------------
 
             // Configuration objects
             const daysSetup = [
@@ -1024,6 +1380,7 @@
                 exitLevelUpReviewMode();
                 setActiveMainTab('workout');
                 saveProfile();
+                updateProgressionChart();
 
                 let phaseMessage = '';
                 if (phaseTransition === 'started-anchor') {
@@ -1184,6 +1541,7 @@
                     if (levelUpReviewActive) {
                         ensureLevelUpReviewVisible();
                     }
+                    updateProgressionChart();
                 } else {
                     inputSection.classList.remove('active');
                     resultSection.classList.add('active');
@@ -1493,6 +1851,7 @@
                 levelUpReviewEl.addEventListener('input', (e) => {
                     if (e.target.classList.contains('level-up-new-input')) {
                         updateLevelUpReviewDeltas();
+                        updateProgressionChart();
                     }
                 });
             }
@@ -1513,6 +1872,7 @@
                     option.classList.add('active');
                     tmPercentage = parseInt(option.dataset.value);
                     updateBbbWeightPreview();
+                    updateProgressionChart();
                     if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
                         generateWorkoutPlan();
                     }
@@ -1538,6 +1898,29 @@
                 
                 saveProfile();
             });
+
+            // Progression chart: live update on 1RM input
+            ['squat-1rm', 'bench-1rm', 'deadlift-1rm', 'ohp-1rm'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('input', scheduleProgressionChartUpdate);
+                }
+            });
+
+            // Progression chart: cycle count inputs
+            function handleChartRangeChange() {
+                const { past, future } = getChartCycleConfig();
+                const pastEl = document.getElementById('chart-past-cycles');
+                const futureEl = document.getElementById('chart-future-cycles');
+                if (pastEl) pastEl.value = past;
+                if (futureEl) futureEl.value = future;
+                saveProfile();
+                updateProgressionChart();
+            }
+            const chartPastCyclesEl = document.getElementById('chart-past-cycles');
+            const chartFutureCyclesEl = document.getElementById('chart-future-cycles');
+            if (chartPastCyclesEl) chartPastCyclesEl.addEventListener('change', handleChartRangeChange);
+            if (chartFutureCyclesEl) chartFutureCyclesEl.addEventListener('change', handleChartRangeChange);
 
             // Long press handler for day tabs (mobile)
             let longPressTimer = null;
@@ -1747,6 +2130,7 @@
             // Load saved profile on page load
             loadProfile();
             setActiveMainTab(hasWorkoutPlan() ? 'workout' : 'setup');
+            updateProgressionChart();
             
             // Rest Timer Functions
             function formatTime(seconds) {
@@ -2515,12 +2899,11 @@
                             html += `
                             <div class="day-content ${dayIndex === 0 ? 'active' : ''}" data-day="${dayIndex}">
                                 <div class="day-card">
-                                    <div class="day-header">Day ${day.day}: ${day.name}</div>
-                                    <div class="day-tips-row">
+                                    <div class="day-header"><span>Day ${day.day}: ${day.name}</span><div class="day-tips-row">
                                         <button type="button" class="day-tips-btn"
                                                 onclick="openFormTipsModal('${day.mainLift.name.toLowerCase()}')">Form Tips</button>
                                         <button type="button" class="day-tips-btn" onclick="openOtherTipsModal()">Other Tips</button>
-                                    </div>
+                                    </div></div>
 
                                     <button type="button" class="begin-workout-btn" data-week="${week}" data-day="${dayIndex}">Begin Workout</button>
                                     

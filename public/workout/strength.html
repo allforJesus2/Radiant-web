@@ -164,23 +164,50 @@
                 <button type="button" id="setup-notes-button" class="setup-notes-btn level-up-setup-hidden">Notes & Tips</button>
                 <button id="save-button">Save 1 Rep Maxes</button>
 
+                <div class="input-group progression-chart-group">
+                    <label for="progression-chart">Weight Progression · Actual + Predicted</label>
+                    <div class="progression-chart-config">
+                        <label for="chart-past-cycles">Past cycles</label>
+                        <input type="number" id="chart-past-cycles" min="0" max="6" step="1" value="2">
+                        <label for="chart-future-cycles">Future cycles</label>
+                        <input type="number" id="chart-future-cycles" min="1" max="6" step="1" value="2">
+                    </div>
+                    <div id="progression-chart-empty" class="progression-chart-empty" hidden>
+                        Enter your 1-rep max values above to preview working sets across cycles.
+                    </div>
+                    <div class="progression-chart-wrap">
+                        <canvas id="progression-chart" role="img" aria-label="Working set weights per cycle, actual and predicted"></canvas>
+                    </div>
+                    <p class="percentage-info">
+                        Every working set is shown per training day (Week 4 is a 40/50/60% TM deload).
+                        Solid = completed/current · Dashed = predicted. Next-cycle increases: +5 lbs upper /
+                        +10 lbs lower, or your logged Week 3 AMRAP decision.
+                    </p>
+                </div>
+
                 <div class="input-group level-up-setup-hidden">
                     <div class="rest-timer-settings">
                         <h3>Rest Timer Settings</h3>
-                        <div class="input-group">
-                            <label for="warmup-rest-time">Warmup Rest Time (seconds)</label>
+                        <div class="rest-timer-row">
+                            <label for="warmup-rest-time">Warmup</label>
                             <input type="number" id="warmup-rest-time" min="30" max="300" step="5" value="75">
-                            <div class="time-display" id="warmup-time-display">1:15</div>
+                            <span class="rest-timer-unit">sec</span>
+                            <span class="time-display" id="warmup-time-display">1:15</span>
+                            <span class="rest-timer-unit">mins</span>
                         </div>
-                        <div class="input-group">
-                            <label for="main-rest-time">Main Lift Rest Time (seconds)</label>
+                        <div class="rest-timer-row">
+                            <label for="main-rest-time">Main Lift</label>
                             <input type="number" id="main-rest-time" min="60" max="600" step="15" value="180">
-                            <div class="time-display" id="main-time-display">3:00</div>
+                            <span class="rest-timer-unit">sec</span>
+                            <span class="time-display" id="main-time-display">3:00</span>
+                            <span class="rest-timer-unit">mins</span>
                         </div>
-                        <div class="input-group">
-                            <label for="accessory-rest-time">Accessory Rest Time (seconds)</label>
+                        <div class="rest-timer-row">
+                            <label for="accessory-rest-time">Accessory</label>
                             <input type="number" id="accessory-rest-time" min="30" max="300" step="5" value="90">
-                            <div class="time-display" id="accessory-time-display">1:30</div>
+                            <span class="rest-timer-unit">sec</span>
+                            <span class="time-display" id="accessory-time-display">1:30</span>
+                            <span class="rest-timer-unit">mins</span>
                         </div>
                     </div>
                 </div>
@@ -251,6 +278,7 @@
         </div>
     </div>
 
+    <script src="../js/vendor/chart.min.js"></script>
     <script src="../js/core/storage.js"></script>
     <script src="../js/workout/workout-utils.js"></script>
     <script src="../js/workout/strength-workout.js"></script>
