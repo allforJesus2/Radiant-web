@@ -2,7 +2,7 @@
             // Variables
             let tmPercentage = 90;
             let upperProgression = 5;
-            let lowerProgression = 10;
+            let lowerProgression = 5;
             let maxWeek3Percentage = 95;
             let accessoryTemplate = 'standard';
             let workoutPlan = {};
@@ -855,12 +855,15 @@
                     return [40, 50, 60];
                 }
                 const isUpper = lift === 'bench' || lift === 'ohp';
-                const betweenWeekStep = isUpper ? upperProgression : lowerProgression;
+                const delta = isUpper ? upperProgression : lowerProgression;
+                const defaultDelta = 5;
                 const withinWeekStep = 10;
-                const baseWeek1Set1 = 65;
+                const baseWeek1Set1 = maxWeek3Percentage
+                    - (2 * defaultDelta + 2 * withinWeekStep)
+                    + (delta - defaultDelta);
                 const weekOffset = week - 1;
                 return [0, 1, 2].map(setIdx => {
-                    let pct = baseWeek1Set1 + (betweenWeekStep * weekOffset) + (withinWeekStep * setIdx);
+                    const pct = baseWeek1Set1 + (delta * weekOffset) + (withinWeekStep * setIdx);
                     return Math.min(Math.round(pct), maxWeek3Percentage);
                 });
             }
