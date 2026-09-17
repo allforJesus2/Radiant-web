@@ -1408,6 +1408,15 @@ body.workout-mode .workout-item-suggestions {
     color: var(--ink-light);
 }
 
+.rest-timer-row input[type="range"] {
+    width: 100px;
+    accent-color: var(--pencil);
+}
+
+.rest-timer-row input[type="range"]:first-of-type {
+    margin-right: 4px;
+}
+
 .rest-timer-settings .time-display {
     font-family: var(--hand-font), 'Purisa', 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 0.95rem;

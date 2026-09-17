@@ -1,6 +1,9 @@
         document.addEventListener('DOMContentLoaded', function() {
             // Variables
             let tmPercentage = 90;
+            let upperProgression = 5;
+            let lowerProgression = 10;
+            let maxWeek3Percentage = 95;
             let accessoryTemplate = 'standard';
             let workoutPlan = {};
             let currentWeek = 1;
@@ -37,6 +40,8 @@
             // Progression chart state
             let progressionChart = null;
             let chartUpdateTimeoutId = null;
+            let chartState = { dividerSlot: 0, baselines: [] };
+            let chartHiddenLifts = {};
             const CHART_SLOTS_PER_CYCLE = 48;   // 4 weeks × 4 days × 3 sets
             const CHART_DAYS_PER_WEEK = 4;
             const CHART_LIFT_DAY = { ohp: 1, deadlift: 2, bench: 3, squat: 4 };
@@ -181,6 +186,11 @@
                         if (accessoryRestEl) accessoryRestEl.value = restTimeSettings.accessory;
                         updateTimeDisplays();
                     }
+
+                    // Restore progression settings
+                    upperProgression = profile.upperProgression != null ? profile.upperProgression : 5;
+                    lowerProgression = profile.lowerProgression != null ? profile.lowerProgression : 10;
+                    maxWeek3Percentage = profile.maxWeek3Percentage != null ? profile.maxWeek3Percentage : 95;
 
                     // Restore progression chart cycle counts
                     if (profile.chartPastCycles != null) {
@@ -373,6 +383,9 @@
                         ohp: document.getElementById('ohp-1rm').value,
                     },
                     tmPercentage,
+                    upperProgression,
+                    lowerProgression,
+                    maxWeek3Percentage,
                     accessoryTemplate,
                     workoutPlan,
                     currentWeek,
@@ -536,10 +549,10 @@
                         if (!base || base <= 0) return;
                         const tm = round5(base * (tmPercentage / 100));
                         for (let week = 1; week <= 4; week++) {
-                            const weekSets = weekPercentages[week];
-                            for (let setIdx = 0; setIdx < weekSets.length; setIdx++) {
+                            const percentages = getLiftProgression(week, lift);
+                            for (let setIdx = 0; setIdx < percentages.length; setIdx++) {
                                 const slot = levelIdx * CHART_SLOTS_PER_CYCLE + (week - 1) * 12 + (liftDay - 1) * 3 + setIdx;
-                                values[slot] = round5(tm * (weekSets[setIdx].percentage / 100));
+                                values[slot] = round5(tm * (percentages[setIdx] / 100));
                             }
                         }
                     });
@@ -554,6 +567,26 @@
                 return { labels, datasets, dividerSlot, baselines };
             }
 
+            function getChartDatasetConfig(ds, liftColors) {
+                return {
+                    label: ds.label,
+                    lift: ds.lift,
+                    data: ds.data,
+                    borderColor: liftColors[ds.lift],
+                    backgroundColor: liftColors[ds.lift],
+                    pointRadius: 2,
+                    pointHoverRadius: 4,
+                    borderWidth: 1.5,
+                    tension: 0.25,
+                    fill: false,
+                    spanGaps: false,
+                    hidden: chartHiddenLifts[ds.lift] || false,
+                    segment: {
+                        borderDash: (ctx) => (ctx.p0DataIndex >= chartState.dividerSlot ? [6, 4] : undefined),
+                    },
+                };
+            }
+
             function renderProgressionChart() {
                 const canvas = document.getElementById('progression-chart');
                 const wrap = document.querySelector('.progression-chart-wrap');
@@ -566,6 +599,7 @@
                 }
 
                 const data = buildProgressionChartData();
+                chartState = { dividerSlot: data.dividerSlot, baselines: data.baselines };
                 const hasData = data.datasets.length > 0;
 
                 if (wrap) wrap.hidden = !hasData;
@@ -577,7 +611,6 @@
                 }
                 if (!hasData || !canvas) return;
 
-                const dividerSlot = data.dividerSlot;
                 const ink = getChartCssVar('--ink', '#2c2416');
                 const gridColor = chartHexToRgba(ink, 0.12);
                 const liftColors = {
@@ -600,9 +633,9 @@
                     afterDraw(chart) {
                         const { ctx, chartArea, scales } = chart;
                         if (!chartArea || !scales.x) return;
-                        if (dividerSlot <= 0 || dividerSlot >= chart.data.labels.length) return;
+                        if (chartState.dividerSlot <= 0 || chartState.dividerSlot >= chart.data.labels.length) return;
                         const dividerX = chartArea.left
-                            + (dividerSlot / chart.data.labels.length) * (chartArea.right - chartArea.left);
+                            + (chartState.dividerSlot / chart.data.labels.length) * (chartArea.right - chartArea.left);
                         ctx.save();
                         ctx.fillStyle = chartHexToRgba(ink, 0.05);
                         ctx.fillRect(dividerX, chartArea.top, chartArea.right - dividerX, chartArea.bottom - chartArea.top);
@@ -616,26 +649,11 @@
                     },
                 };
 
-                const baselines = data.baselines;
                 const config = {
                     type: 'line',
                     data: {
                         labels: data.labels,
-                        datasets: data.datasets.map(ds => ({
-                            label: ds.label,
-                            data: ds.data,
-                            borderColor: liftColors[ds.lift],
-                            backgroundColor: liftColors[ds.lift],
-                            pointRadius: 2,
-                            pointHoverRadius: 4,
-                            borderWidth: 1.5,
-                            tension: 0.25,
-                            fill: false,
-                            spanGaps: false,
-                            segment: {
-                                borderDash: (ctx) => (ctx.p0DataIndex >= dividerSlot ? [6, 4] : undefined),
-                            },
-                        })),
+                        datasets: data.datasets.map(ds => getChartDatasetConfig(ds, liftColors)),
                     },
                     options: {
                         responsive: true,
@@ -670,6 +688,13 @@
                         plugins: {
                             legend: {
                                 position: 'bottom',
+                                onClick: (event, legendItem, legend) => {
+                                    const chart = legend.chart;
+                                    const dataset = chart.data.datasets[legendItem.datasetIndex];
+                                    dataset.hidden = !dataset.hidden;
+                                    chartHiddenLifts[dataset.lift] = dataset.hidden;
+                                    chart.update();
+                                },
                                 labels: {
                                     color: ink,
                                     boxWidth: window.innerWidth < 768 ? 12 : 40,
@@ -684,7 +709,7 @@
                                         const within = idx % CHART_SLOTS_PER_CYCLE;
                                         const week = Math.floor(within / 12) + 1;
                                         const day = Math.floor((within % 12) / 3) + 1;
-                                        const baseline = baselines[levelIdx];
+                                        const baseline = chartState.baselines[levelIdx];
                                         return `Level ${baseline ? baseline.level : '?'} · Week ${week} · Day ${day}`;
                                     },
                                     label(context) {
@@ -703,7 +728,57 @@
             }
 
             function updateProgressionChart() {
-                renderProgressionChart();
+                if (!progressionChart) {
+                    renderProgressionChart();
+                    requestAnimationFrame(() => {
+                        if (progressionChart && progressionChart.resize) {
+                            progressionChart.resize();
+                        }
+                    });
+                    return;
+                }
+
+                const data = buildProgressionChartData();
+                chartState = { dividerSlot: data.dividerSlot, baselines: data.baselines };
+
+                if (data.datasets.length === 0) {
+                    progressionChart.destroy();
+                    progressionChart = null;
+                    const wrap = document.querySelector('.progression-chart-wrap');
+                    const empty = document.getElementById('progression-chart-empty');
+                    if (wrap) wrap.hidden = true;
+                    if (empty) empty.hidden = false;
+                    return;
+                }
+
+                const chart = progressionChart;
+                chart.data.labels = data.labels;
+
+                for (let i = chart.data.datasets.length - 1; i >= 0; i--) {
+                    if (!data.datasets.some(d => d.lift === chart.data.datasets[i].lift)) {
+                        chart.data.datasets.splice(i, 1);
+                    }
+                }
+
+                const liftColors = {
+                    squat: getChartCssVar('--pencil', '#4a6741'),
+                    bench: getChartCssVar('--accent', '#c0392b'),
+                    deadlift: getChartCssVar('--success', '#3d6b4f'),
+                    ohp: getChartCssVar('--pencil-dark', '#2d4228'),
+                };
+
+                data.datasets.forEach(meta => {
+                    let ds = chart.data.datasets.find(existing => existing.lift === meta.lift);
+                    if (ds) {
+                        ds.data = meta.data;
+                    } else {
+                        ds = getChartDatasetConfig(meta, liftColors);
+                        chart.data.datasets.push(ds);
+                    }
+                    ds.hidden = chartHiddenLifts[meta.lift] || false;
+                });
+
+                chart.update();
                 requestAnimationFrame(() => {
                     if (progressionChart && progressionChart.resize) {
                         progressionChart.resize();
@@ -775,19 +850,47 @@
                 ]
             };
 
+            function getLiftProgression(week, lift) {
+                if (week === 4) {
+                    return [40, 50, 60];
+                }
+                const isUpper = lift === 'bench' || lift === 'ohp';
+                const betweenWeekStep = isUpper ? upperProgression : lowerProgression;
+                const withinWeekStep = 10;
+                const baseWeek1Set1 = 65;
+                const weekOffset = week - 1;
+                return [0, 1, 2].map(setIdx => {
+                    let pct = baseWeek1Set1 + (betweenWeekStep * weekOffset) + (withinWeekStep * setIdx);
+                    return Math.min(Math.round(pct), maxWeek3Percentage);
+                });
+            }
+
+            function getMainLiftSets(week, liftKey) {
+                const isLeader = isForeverBbbLeaderPhase();
+                if (isLeader && week !== 4) {
+                    const pcts = getLiftProgression(week, liftKey);
+                    return pcts.map(pct => ({ reps: 5, percentage: pct, amrap: false }));
+                }
+                const pcts = getLiftProgression(week, liftKey);
+                const repSchemes = {
+                    1: [5, 5, '5+'],
+                    2: [3, 3, '3+'],
+                    3: [5, 3, '1+']
+                };
+                const reps = repSchemes[week] || [5, 5, '5+'];
+                return pcts.map((pct, idx) => ({
+                    reps: reps[idx],
+                    percentage: pct,
+                    amrap: week !== 4
+                }));
+            }
+
             const coreOnlySuggestions = [
                 'Ab Wheel', 'Hanging Leg Raises', 'Planks', 'Russian Twists', 'Sit-ups', 'Pallof Press'
             ];
 
             const foreverBbbPullExtras = ['Reverse Curls', 'Wrist Roller'];
             const foreverBbbCoreExtras = ['Standing Bag Kicks'];
-
-            function getMainLiftSets(week) {
-                if (isForeverBbbLeaderPhase() && week !== 4) {
-                    return weekPercentages5sPro[week];
-                }
-                return weekPercentages[week];
-            }
 
             function updateWeekTabLabels() {
                 for (let week = 1; week <= 4; week++) {
@@ -1168,13 +1271,13 @@
                     return 'Anchor cycle — based on Week 3 AMRAP decisions';
                 }
                 if (isForeverBbbLeaderPhase()) {
-                    return 'Leader cycle — standard increases (+5 upper, +10 lower)';
+                    return `Leader cycle — standard increases (+${upperProgression} upper, +${lowerProgression} lower)`;
                 }
                 const hasAmrap = LIFT_KEYS.some(key => getAmrapDecisionKey(key));
                 if (hasAmrap) {
                     return 'Based on Week 3 AMRAP decisions';
                 }
-                return 'Standard increases (+5 upper, +10 lower)';
+                return `Standard increases (+${upperProgression} upper, +${lowerProgression} lower)`;
             }
 
             function updateLevelUpReviewDeltas() {
@@ -1879,6 +1982,77 @@
                     saveProfile();
                 });
             });
+
+            const upperProgressionInput = document.getElementById('upper-progression');
+            const upperProgressionRange = document.getElementById('upper-progression-range');
+            const lowerProgressionInput = document.getElementById('lower-progression');
+            const lowerProgressionRange = document.getElementById('lower-progression-range');
+            const maxWeek3Input = document.getElementById('max-week3-percentage');
+            const maxWeek3Range = document.getElementById('max-week3-range');
+
+            function syncProgressionInputs() {
+                if (upperProgressionInput && upperProgressionRange) {
+                    upperProgressionRange.value = upperProgression;
+                    upperProgressionInput.value = upperProgression;
+                }
+                if (lowerProgressionInput && lowerProgressionRange) {
+                    lowerProgressionRange.value = lowerProgression;
+                    lowerProgressionInput.value = lowerProgression;
+                }
+                if (maxWeek3Input && maxWeek3Range) {
+                    maxWeek3Range.value = maxWeek3Percentage;
+                    maxWeek3Input.value = maxWeek3Percentage;
+                }
+            }
+
+            function setUpperProgression(val) {
+                upperProgression = Math.max(0, Math.min(15, parseInt(val, 10) || 0));
+                syncProgressionInputs();
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    generateWorkoutPlan();
+                }
+                updateProgressionChart();
+                saveProfile();
+            }
+
+            function setLowerProgression(val) {
+                lowerProgression = Math.max(0, Math.min(15, parseInt(val, 10) || 0));
+                syncProgressionInputs();
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    generateWorkoutPlan();
+                }
+                updateProgressionChart();
+                saveProfile();
+            }
+
+            function setMaxWeek3Percentage(val) {
+                maxWeek3Percentage = Math.max(85, Math.min(100, parseInt(val, 10) || 95));
+                syncProgressionInputs();
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    generateWorkoutPlan();
+                }
+                updateProgressionChart();
+                saveProfile();
+            }
+
+            if (upperProgressionRange) {
+                upperProgressionRange.addEventListener('input', () => setUpperProgression(upperProgressionRange.value));
+            }
+            if (upperProgressionInput) {
+                upperProgressionInput.addEventListener('change', () => setUpperProgression(upperProgressionInput.value));
+            }
+            if (lowerProgressionRange) {
+                lowerProgressionRange.addEventListener('input', () => setLowerProgression(lowerProgressionRange.value));
+            }
+            if (lowerProgressionInput) {
+                lowerProgressionInput.addEventListener('change', () => setLowerProgression(lowerProgressionInput.value));
+            }
+            if (maxWeek3Range) {
+                maxWeek3Range.addEventListener('input', () => setMaxWeek3Percentage(maxWeek3Range.value));
+            }
+            if (maxWeek3Input) {
+                maxWeek3Input.addEventListener('change', () => setMaxWeek3Percentage(maxWeek3Input.value));
+            }
             
             accessorySelect.addEventListener('change', () => {
                 const previousTemplate = accessoryTemplate;
@@ -2129,6 +2303,7 @@
 
             // Load saved profile on page load
             loadProfile();
+            syncProgressionInputs();
             setActiveMainTab(hasWorkoutPlan() ? 'workout' : 'setup');
             updateProgressionChart();
             
@@ -2585,7 +2760,7 @@
                         };
                         
                         // Add main lift sets based on week percentages
-                        getMainLiftSets(week).forEach(set => {
+                        getMainLiftSets(week, main).forEach(set => {
                             dayPlan.mainLift.sets.push({
                                 reps: set.reps,
                                 weight: round5(exerciseTM * (set.percentage / 100)),
@@ -2686,7 +2861,7 @@
                             }
                         } else if (effectiveTemplate === 'fsl') {
                             // First set last - use first working set weight for 5x5
-                            const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
+                            const fslWeight = round5(exerciseTM * (getLiftProgression(week, main)[0] / 100));
                             const fslExercises = accessoryExercises.fsl[main];
                             
                             // Reduce FSL volume during deload week
@@ -2724,7 +2899,7 @@
                             }
                         } else if (effectiveTemplate === 'beginners') {
                             // First set last - use first working set weight for 5x5
-                            const fslWeight = round5(exerciseTM * (weekPercentages[week][0].percentage / 100));
+                            const fslWeight = round5(exerciseTM * (getLiftProgression(week, main)[0] / 100));
                             const beginnerExercises = accessoryExercises.beginners[main];
                             
                             dayPlan.fslWeight = fslWeight; // Store for rendering
@@ -3207,8 +3382,8 @@
 
                 const progressionItems = [
                     'After each 4-week cycle:',
-                    'Increase upper body lifts (Bench, OHP) by 5 lbs',
-                    'Increase lower body lifts (Squat, Deadlift) by 10 lbs',
+                    `Increase upper body lifts (Bench, OHP) by ${upperProgression} lbs`,
+                    `Increase lower body lifts (Squat, Deadlift) by ${lowerProgression} lbs`,
                     getProgressionAmrapTipText(),
                 ];
                 if (showProgressionAdjustTip()) {

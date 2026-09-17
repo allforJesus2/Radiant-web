@@ -107,6 +107,49 @@
                     </div>
                 </div>
                 
+                <div class="input-group progression-chart-group">
+                    <label for="progression-chart">Weight Progression · Actual + Predicted</label>
+                    <div class="progression-chart-config">
+                        <label for="chart-past-cycles">Past cycles</label>
+                        <input type="number" id="chart-past-cycles" min="0" max="6" step="1" value="2">
+                        <label for="chart-future-cycles">Future cycles</label>
+                        <input type="number" id="chart-future-cycles" min="1" max="6" step="1" value="2">
+                    </div>
+                    <div id="progression-chart-empty" class="progression-chart-empty" hidden>
+                        Enter your 1-rep max values above to preview working sets across cycles.
+                    </div>
+                    <div class="progression-chart-wrap">
+                        <canvas id="progression-chart" role="img" aria-label="Working set weights per cycle, actual and predicted"></canvas>
+                    </div>
+                    <p class="percentage-info">
+                        Every working set is shown per training day (Week 4 is a 40/50/60% TM deload).
+                        Solid = completed/current · Dashed = predicted. Next-cycle increases: +5 lbs upper /
+                        +10 lbs lower, or your logged Week 3 AMRAP decision.
+                    </p>
+                </div>
+                
+                <div class="input-group level-up-setup-hidden" id="progression-settings">
+                    <label>Progression Settings</label>
+                    <div class="rest-timer-row">
+                        <label for="upper-progression">Upper body</label>
+                        <input type="range" id="upper-progression-range" min="0" max="15" step="1" value="5">
+                        <input type="number" id="upper-progression" min="0" max="15" step="1" value="5">
+                        <span class="rest-timer-unit">% / week</span>
+                    </div>
+                    <div class="rest-timer-row">
+                        <label for="lower-progression">Lower body</label>
+                        <input type="range" id="lower-progression-range" min="0" max="15" step="1" value="10">
+                        <input type="number" id="lower-progression" min="0" max="15" step="1" value="10">
+                        <span class="rest-timer-unit">% / week</span>
+                    </div>
+                    <div class="rest-timer-row">
+                        <label for="max-week3-percentage">Max (Week 3)</label>
+                        <input type="range" id="max-week3-range" min="85" max="100" step="1" value="95">
+                        <input type="number" id="max-week3-percentage" min="85" max="100" step="1" value="95">
+                        <span class="rest-timer-unit">%</span>
+                    </div>
+                </div>
+                
                 <div class="input-group level-up-setup-hidden">
                     <label for="accessory-template">Accessory Template</label>
                     <button id="quiz-button" style="background-color: var(--accent); padding: 10px 15px; width: 100%; margin-bottom: 10px;">Help Me Choose</button>
@@ -163,27 +206,6 @@
 
                 <button type="button" id="setup-notes-button" class="setup-notes-btn level-up-setup-hidden">Notes & Tips</button>
                 <button id="save-button">Save 1 Rep Maxes</button>
-
-                <div class="input-group progression-chart-group">
-                    <label for="progression-chart">Weight Progression · Actual + Predicted</label>
-                    <div class="progression-chart-config">
-                        <label for="chart-past-cycles">Past cycles</label>
-                        <input type="number" id="chart-past-cycles" min="0" max="6" step="1" value="2">
-                        <label for="chart-future-cycles">Future cycles</label>
-                        <input type="number" id="chart-future-cycles" min="1" max="6" step="1" value="2">
-                    </div>
-                    <div id="progression-chart-empty" class="progression-chart-empty" hidden>
-                        Enter your 1-rep max values above to preview working sets across cycles.
-                    </div>
-                    <div class="progression-chart-wrap">
-                        <canvas id="progression-chart" role="img" aria-label="Working set weights per cycle, actual and predicted"></canvas>
-                    </div>
-                    <p class="percentage-info">
-                        Every working set is shown per training day (Week 4 is a 40/50/60% TM deload).
-                        Solid = completed/current · Dashed = predicted. Next-cycle increases: +5 lbs upper /
-                        +10 lbs lower, or your logged Week 3 AMRAP decision.
-                    </p>
-                </div>
 
                 <div class="input-group level-up-setup-hidden">
                     <div class="rest-timer-settings">
