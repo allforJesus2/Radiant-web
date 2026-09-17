@@ -8,6 +8,7 @@
             let maxWeek3Percentage = 95;
             let upperCycleIncrease = 5;
             let lowerCycleIncrease = 10;
+            let roundTo25 = false;
             let accessoryTemplate = 'standard';
             let workoutPlan = {};
             let currentWeek = 1;
@@ -199,6 +200,7 @@
                     maxWeek3Percentage = profile.maxWeek3Percentage != null ? profile.maxWeek3Percentage : 95;
                     upperCycleIncrease = profile.upperCycleIncrease != null ? profile.upperCycleIncrease : 5;
                     lowerCycleIncrease = profile.lowerCycleIncrease != null ? profile.lowerCycleIncrease : 10;
+                    roundTo25 = profile.roundTo25 != null ? profile.roundTo25 : false;
 
                     // Restore progression chart cycle counts
                     if (profile.chartPastCycles != null) {
@@ -398,6 +400,7 @@
                     maxWeek3Percentage,
                     upperCycleIncrease,
                     lowerCycleIncrease,
+                    roundTo25,
                     accessoryTemplate,
                     workoutPlan,
                     currentWeek,
@@ -890,7 +893,7 @@
                 return pcts.map((pct, idx) => ({
                     reps: reps[idx],
                     percentage: pct,
-                    amrap: week !== 4
+                    amrap: week !== 4 && idx === 2
                 }));
             }
 
@@ -2013,6 +2016,7 @@
             const upperCycleIncreaseRange = document.getElementById('upper-cycle-increase-range');
             const lowerCycleIncreaseInput = document.getElementById('lower-cycle-increase');
             const lowerCycleIncreaseRange = document.getElementById('lower-cycle-increase-range');
+            const roundTo25Checkbox = document.getElementById('round-to-25');
 
             function syncProgressionInputs() {
                 if (upperProgressionInput && upperProgressionRange) {
@@ -2047,6 +2051,7 @@
                 const cycleIncLower = document.getElementById('cycle-inc-lower');
                 if (cycleIncUpper) cycleIncUpper.textContent = upperCycleIncrease;
                 if (cycleIncLower) cycleIncLower.textContent = lowerCycleIncrease;
+                if (roundTo25Checkbox) roundTo25Checkbox.checked = roundTo25;
             }
 
             function setUpperProgression(val) {
@@ -2113,6 +2118,16 @@
                 saveProfile();
             }
 
+            function setRoundTo25(val) {
+                roundTo25 = !!val;
+                syncProgressionInputs();
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    generateWorkoutPlan();
+                }
+                updateProgressionChart();
+                saveProfile();
+            }
+
             if (upperProgressionRange) {
                 upperProgressionRange.addEventListener('input', () => setUpperProgression(upperProgressionRange.value));
             }
@@ -2154,6 +2169,9 @@
             }
             if (lowerCycleIncreaseInput) {
                 lowerCycleIncreaseInput.addEventListener('change', () => setLowerCycleIncrease(lowerCycleIncreaseInput.value));
+            }
+            if (roundTo25Checkbox) {
+                roundTo25Checkbox.addEventListener('change', () => setRoundTo25(roundTo25Checkbox.checked));
             }
             
             accessorySelect.addEventListener('change', () => {
@@ -2743,8 +2761,13 @@
             updateTimeDisplays();
             
             // Helper functions
+            function getWeightIncrement() {
+                return roundTo25 ? 2.5 : 5;
+            }
+
             function round5(num) {
-                return Math.round(num / 5) * 5;
+                const inc = getWeightIncrement();
+                return Math.round(num / inc) * inc;
             }
 
             function getBbbWeights(exerciseTM) {
