@@ -3,7 +3,11 @@
             let tmPercentage = 90;
             let upperProgression = 5;
             let lowerProgression = 5;
+            let upperDayStep = 10;
+            let lowerDayStep = 10;
             let maxWeek3Percentage = 95;
+            let upperCycleIncrease = 5;
+            let lowerCycleIncrease = 10;
             let accessoryTemplate = 'standard';
             let workoutPlan = {};
             let currentWeek = 1;
@@ -190,7 +194,11 @@
                     // Restore progression settings
                     upperProgression = profile.upperProgression != null ? profile.upperProgression : 5;
                     lowerProgression = profile.lowerProgression != null ? profile.lowerProgression : 10;
+                    upperDayStep = profile.upperDayStep != null ? profile.upperDayStep : 10;
+                    lowerDayStep = profile.lowerDayStep != null ? profile.lowerDayStep : 10;
                     maxWeek3Percentage = profile.maxWeek3Percentage != null ? profile.maxWeek3Percentage : 95;
+                    upperCycleIncrease = profile.upperCycleIncrease != null ? profile.upperCycleIncrease : 5;
+                    lowerCycleIncrease = profile.lowerCycleIncrease != null ? profile.lowerCycleIncrease : 10;
 
                     // Restore progression chart cycle counts
                     if (profile.chartPastCycles != null) {
@@ -385,7 +393,11 @@
                     tmPercentage,
                     upperProgression,
                     lowerProgression,
+                    upperDayStep,
+                    lowerDayStep,
                     maxWeek3Percentage,
+                    upperCycleIncrease,
+                    lowerCycleIncrease,
                     accessoryTemplate,
                     workoutPlan,
                     currentWeek,
@@ -487,13 +499,7 @@
                             next[key] = 0;
                             return;
                         }
-                        if (i === 1) {
-                            next[key] = levelUpReviewActive
-                                ? base + getStandardIncrement(key)
-                                : computeProposed1RM(key, base);
-                        } else {
-                            next[key] = base + getStandardIncrement(key);
-                        }
+                        next[key] = base + getProjectedCycleIncrease(key);
                     });
                     baselines.push({ level: userLevel + i, lifts: next });
                     LIFT_KEYS.forEach(key => {
@@ -856,14 +862,14 @@
                 }
                 const isUpper = lift === 'bench' || lift === 'ohp';
                 const delta = isUpper ? upperProgression : lowerProgression;
+                const dayStep = isUpper ? upperDayStep : lowerDayStep;
                 const defaultDelta = 5;
-                const withinWeekStep = 10;
                 const baseWeek1Set1 = maxWeek3Percentage
-                    - (2 * defaultDelta + 2 * withinWeekStep)
+                    - (2 * defaultDelta + 2 * dayStep)
                     + (delta - defaultDelta);
                 const weekOffset = week - 1;
                 return [0, 1, 2].map(setIdx => {
-                    const pct = baseWeek1Set1 + (delta * weekOffset) + (withinWeekStep * setIdx);
+                    const pct = baseWeek1Set1 + (delta * weekOffset) + (dayStep * setIdx);
                     return Math.min(Math.round(pct), maxWeek3Percentage);
                 });
             }
@@ -1149,8 +1155,15 @@
                 }
             }
 
+            const STANDARD_UPPER_INC_LBS = 5;
+            const STANDARD_LOWER_INC_LBS = 10;
+
             function getStandardIncrement(exercise) {
-                return (exercise === 'bench' || exercise === 'ohp') ? 5 : 10;
+                return (exercise === 'bench' || exercise === 'ohp') ? STANDARD_UPPER_INC_LBS : STANDARD_LOWER_INC_LBS;
+            }
+
+            function getProjectedCycleIncrease(exercise) {
+                return (exercise === 'bench' || exercise === 'ohp') ? upperCycleIncrease : lowerCycleIncrease;
             }
 
             function getAmrapDecisionKey(exercise) {
@@ -1274,13 +1287,13 @@
                     return 'Anchor cycle — based on Week 3 AMRAP decisions';
                 }
                 if (isForeverBbbLeaderPhase()) {
-                    return `Leader cycle — standard increases (+${upperProgression} upper, +${lowerProgression} lower)`;
+                    return `Leader cycle — standard increases (+${STANDARD_UPPER_INC_LBS} upper, +${STANDARD_LOWER_INC_LBS} lower)`;
                 }
                 const hasAmrap = LIFT_KEYS.some(key => getAmrapDecisionKey(key));
                 if (hasAmrap) {
                     return 'Based on Week 3 AMRAP decisions';
                 }
-                return `Standard increases (+${upperProgression} upper, +${lowerProgression} lower)`;
+                return `Standard increases (+${STANDARD_UPPER_INC_LBS} upper, +${STANDARD_LOWER_INC_LBS} lower)`;
             }
 
             function updateLevelUpReviewDeltas() {
@@ -1990,8 +2003,16 @@
             const upperProgressionRange = document.getElementById('upper-progression-range');
             const lowerProgressionInput = document.getElementById('lower-progression');
             const lowerProgressionRange = document.getElementById('lower-progression-range');
+            const upperDayStepInput = document.getElementById('upper-day-step');
+            const upperDayStepRange = document.getElementById('upper-day-step-range');
+            const lowerDayStepInput = document.getElementById('lower-day-step');
+            const lowerDayStepRange = document.getElementById('lower-day-step-range');
             const maxWeek3Input = document.getElementById('max-week3-percentage');
             const maxWeek3Range = document.getElementById('max-week3-range');
+            const upperCycleIncreaseInput = document.getElementById('upper-cycle-increase');
+            const upperCycleIncreaseRange = document.getElementById('upper-cycle-increase-range');
+            const lowerCycleIncreaseInput = document.getElementById('lower-cycle-increase');
+            const lowerCycleIncreaseRange = document.getElementById('lower-cycle-increase-range');
 
             function syncProgressionInputs() {
                 if (upperProgressionInput && upperProgressionRange) {
@@ -2002,10 +2023,30 @@
                     lowerProgressionRange.value = lowerProgression;
                     lowerProgressionInput.value = lowerProgression;
                 }
+                if (upperDayStepInput && upperDayStepRange) {
+                    upperDayStepRange.value = upperDayStep;
+                    upperDayStepInput.value = upperDayStep;
+                }
+                if (lowerDayStepInput && lowerDayStepRange) {
+                    lowerDayStepRange.value = lowerDayStep;
+                    lowerDayStepInput.value = lowerDayStep;
+                }
                 if (maxWeek3Input && maxWeek3Range) {
                     maxWeek3Range.value = maxWeek3Percentage;
                     maxWeek3Input.value = maxWeek3Percentage;
                 }
+                if (upperCycleIncreaseInput && upperCycleIncreaseRange) {
+                    upperCycleIncreaseRange.value = upperCycleIncrease;
+                    upperCycleIncreaseInput.value = upperCycleIncrease;
+                }
+                if (lowerCycleIncreaseInput && lowerCycleIncreaseRange) {
+                    lowerCycleIncreaseRange.value = lowerCycleIncrease;
+                    lowerCycleIncreaseInput.value = lowerCycleIncrease;
+                }
+                const cycleIncUpper = document.getElementById('cycle-inc-upper');
+                const cycleIncLower = document.getElementById('cycle-inc-lower');
+                if (cycleIncUpper) cycleIncUpper.textContent = upperCycleIncrease;
+                if (cycleIncLower) cycleIncLower.textContent = lowerCycleIncrease;
             }
 
             function setUpperProgression(val) {
@@ -2028,12 +2069,46 @@
                 saveProfile();
             }
 
+            function setUpperDayStep(val) {
+                upperDayStep = Math.max(0, Math.min(20, parseInt(val, 10) || 10));
+                syncProgressionInputs();
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    generateWorkoutPlan();
+                }
+                updateProgressionChart();
+                saveProfile();
+            }
+
+            function setLowerDayStep(val) {
+                lowerDayStep = Math.max(0, Math.min(20, parseInt(val, 10) || 10));
+                syncProgressionInputs();
+                if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
+                    generateWorkoutPlan();
+                }
+                updateProgressionChart();
+                saveProfile();
+            }
+
             function setMaxWeek3Percentage(val) {
                 maxWeek3Percentage = Math.max(85, Math.min(100, parseInt(val, 10) || 95));
                 syncProgressionInputs();
                 if (workoutPlan.weeks && Object.keys(workoutPlan.weeks).length > 0) {
                     generateWorkoutPlan();
                 }
+                updateProgressionChart();
+                saveProfile();
+            }
+
+            function setUpperCycleIncrease(val) {
+                upperCycleIncrease = Math.max(0, Math.min(30, parseInt(val, 10) || 5));
+                syncProgressionInputs();
+                updateProgressionChart();
+                saveProfile();
+            }
+
+            function setLowerCycleIncrease(val) {
+                lowerCycleIncrease = Math.max(0, Math.min(30, parseInt(val, 10) || 10));
+                syncProgressionInputs();
                 updateProgressionChart();
                 saveProfile();
             }
@@ -2050,11 +2125,35 @@
             if (lowerProgressionInput) {
                 lowerProgressionInput.addEventListener('change', () => setLowerProgression(lowerProgressionInput.value));
             }
+            if (upperDayStepRange) {
+                upperDayStepRange.addEventListener('input', () => setUpperDayStep(upperDayStepRange.value));
+            }
+            if (upperDayStepInput) {
+                upperDayStepInput.addEventListener('change', () => setUpperDayStep(upperDayStepInput.value));
+            }
+            if (lowerDayStepRange) {
+                lowerDayStepRange.addEventListener('input', () => setLowerDayStep(lowerDayStepRange.value));
+            }
+            if (lowerDayStepInput) {
+                lowerDayStepInput.addEventListener('change', () => setLowerDayStep(lowerDayStepInput.value));
+            }
             if (maxWeek3Range) {
                 maxWeek3Range.addEventListener('input', () => setMaxWeek3Percentage(maxWeek3Range.value));
             }
             if (maxWeek3Input) {
                 maxWeek3Input.addEventListener('change', () => setMaxWeek3Percentage(maxWeek3Input.value));
+            }
+            if (upperCycleIncreaseRange) {
+                upperCycleIncreaseRange.addEventListener('input', () => setUpperCycleIncrease(upperCycleIncreaseRange.value));
+            }
+            if (upperCycleIncreaseInput) {
+                upperCycleIncreaseInput.addEventListener('change', () => setUpperCycleIncrease(upperCycleIncreaseInput.value));
+            }
+            if (lowerCycleIncreaseRange) {
+                lowerCycleIncreaseRange.addEventListener('input', () => setLowerCycleIncrease(lowerCycleIncreaseRange.value));
+            }
+            if (lowerCycleIncreaseInput) {
+                lowerCycleIncreaseInput.addEventListener('change', () => setLowerCycleIncrease(lowerCycleIncreaseInput.value));
             }
             
             accessorySelect.addEventListener('change', () => {
@@ -3385,8 +3484,8 @@
 
                 const progressionItems = [
                     'After each 4-week cycle:',
-                    `Increase upper body lifts (Bench, OHP) by ${upperProgression} lbs`,
-                    `Increase lower body lifts (Squat, Deadlift) by ${lowerProgression} lbs`,
+                    `Increase upper body lifts (Bench, OHP) by ${STANDARD_UPPER_INC_LBS} lbs`,
+                    `Increase lower body lifts (Squat, Deadlift) by ${STANDARD_LOWER_INC_LBS} lbs`,
                     getProgressionAmrapTipText(),
                 ];
                 if (showProgressionAdjustTip()) {

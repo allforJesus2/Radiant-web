@@ -123,8 +123,8 @@
                     </div>
                     <p class="percentage-info">
                         Every working set is shown per training day (Week 4 is a 40/50/60% TM deload).
-                        Solid = completed/current · Dashed = predicted. Next-cycle increases: +5 lbs upper /
-                        +10 lbs lower, or your logged Week 3 AMRAP decision.
+                        Solid = completed/current · Dashed = predicted. Predicted cycles assume
+                        <span id="cycle-inc-upper">5</span> lbs upper / <span id="cycle-inc-lower">10</span> lbs lower increases per 4-week cycle.
                     </p>
                 </div>
                 
@@ -141,6 +141,30 @@
                         <input type="range" id="lower-progression-range" min="0" max="15" step="1" value="5">
                         <input type="number" id="lower-progression" min="0" max="15" step="1" value="5">
                         <span class="rest-timer-unit">% / week</span>
+                    </div>
+                    <div class="rest-timer-row">
+                        <label for="upper-day-step">Upper body step</label>
+                        <input type="range" id="upper-day-step-range" min="0" max="20" step="1" value="10">
+                        <input type="number" id="upper-day-step" min="0" max="20" step="1" value="10">
+                        <span class="rest-timer-unit">% / day</span>
+                    </div>
+                    <div class="rest-timer-row">
+                        <label for="lower-day-step">Lower body step</label>
+                        <input type="range" id="lower-day-step-range" min="0" max="20" step="1" value="10">
+                        <input type="number" id="lower-day-step" min="0" max="20" step="1" value="10">
+                        <span class="rest-timer-unit">% / day</span>
+                    </div>
+                    <div class="rest-timer-row">
+                        <label for="upper-cycle-increase">Upper body cycle</label>
+                        <input type="range" id="upper-cycle-increase-range" min="0" max="30" step="1" value="5">
+                        <input type="number" id="upper-cycle-increase" min="0" max="30" step="1" value="5">
+                        <span class="rest-timer-unit">lbs / cycle</span>
+                    </div>
+                    <div class="rest-timer-row">
+                        <label for="lower-cycle-increase">Lower body cycle</label>
+                        <input type="range" id="lower-cycle-increase-range" min="0" max="30" step="1" value="10">
+                        <input type="number" id="lower-cycle-increase" min="0" max="30" step="1" value="10">
+                        <span class="rest-timer-unit">lbs / cycle</span>
                     </div>
                     <div class="rest-timer-row">
                         <label for="max-week3-percentage">Max (Week 3)</label>
