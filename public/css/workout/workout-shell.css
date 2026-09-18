@@ -747,7 +747,7 @@ button.day-tab.active {
     font-weight: 400;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 999px) {
     .rest-timer-display {
         bottom: 16px;
         left: 16px;

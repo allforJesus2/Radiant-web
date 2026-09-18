@@ -7,8 +7,6 @@
 }
 
 .main-content {
-    display: flex;
-    flex-wrap: wrap;
     gap: 0;
     border: 2px solid var(--ink);
     border-top: none;
@@ -23,22 +21,14 @@
     padding: 20px var(--pad-x) 28px;
 }
 
-@media (min-width: 769px) {
-    .input-section,
-    .result-section {
-        display: block !important;
-    }
+.input-section,
+.result-section {
+    display: none;
+}
 
-    .input-section {
-        flex: 1;
-        min-width: 280px;
-        border-right: 1px dashed var(--border-color);
-    }
-
-    .result-section {
-        flex: 1.6;
-        min-width: 320px;
-    }
+.input-section.active,
+.result-section.active {
+    display: block;
 }
 
 .input-group {
@@ -392,7 +382,7 @@
     box-shadow: none;
 }
 
-@media (min-width: 769px) {
+@media (min-width: 999px) {
     .main-tab {
         background: var(--paper);
         color: var(--ink);
@@ -975,7 +965,7 @@ body.workout-mode .workout-item-set-row .rest-timer-btn.set-detail-timer {
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 999px) {
     .container {
         padding: 8px 10px 24px;
     }
@@ -989,16 +979,6 @@ body.workout-mode .workout-item-set-row .rest-timer-btn.set-detail-timer {
         --pad-x: 14px;
         width: 100%;
         padding: 16px var(--pad-x) 24px;
-    }
-
-    .input-section,
-    .result-section {
-        display: none;
-    }
-
-    .input-section.active,
-    .result-section.active {
-        display: block;
     }
 
     #dateHeader h1 {
@@ -1417,6 +1397,13 @@ body.workout-mode .workout-item-suggestions {
     margin-right: 4px;
 }
 
+.rest-timer-row .rounding-checkbox {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--pencil);
+    cursor: pointer;
+}
+
 .rest-timer-settings .time-display {
     font-family: var(--hand-font), 'Purisa', 'Comic Sans MS', 'Segoe Print', cursive;
     font-size: 0.95rem;
@@ -1481,7 +1468,7 @@ body.workout-mode .workout-item-suggestions {
     display: none;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 999px) {
     .progression-chart-wrap {
         height: 220px;
     }
