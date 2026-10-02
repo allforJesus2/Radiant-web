@@ -317,28 +317,116 @@
     return results;
   }
 
+  /**
+   * Online Open Food Facts word search.
+   * Products lacking energy/calorie data are skipped so every result has macros.
+   * @returns {Promise<Array<{name:string, fdc_id:number|null, sourceLabel:string, source:string, defaultGrams:number, per100:object, fdcRecord:object|null}>>}
+   */
+  async function searchOffFoods(query, limit = 25) {
+    const url =
+      'https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_terms=' +
+      encodeURIComponent(query) +
+      '&page_size=' +
+      limit +
+      '&fields=product_name,product_name_en,brands,code,nutriments,serving_quantity,serving_size,nutrition_data';
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Open Food Facts request failed (' + r.status + ')');
+    const data = await r.json();
+    const products = Array.isArray(data && data.products) ? data.products : [];
+    const results = [];
+    for (let i = 0; i < products.length; i++) {
+      const p = products[i] || {};
+      const nutriments = p.nutriments || {};
+      if (!nutriments['energy-kcal_100g']) continue;
+      const brand = String(p.brands || '').split(',')[0].trim();
+      const displayName = nameWithBrand(p.product_name_en || p.product_name || 'Unknown product', brand);
+      // Use the numeric barcode as fdc_id — EAN-13/UPC-A fit safely in JS float;
+      // USDA FDC IDs are 6–7 digits so no collision with a 12–13 digit barcode.
+      const syntheticId = Number(p.code) || null;
+      const defaultGrams = numberOrNull(p.serving_quantity) || 100;
+      const nutrients = mapOffNutrients(nutriments);
+      results.push({
+        name: displayName,
+        source: 'off_api',
+        fdc_id: syntheticId,
+        sourceLabel: 'Open Food Facts',
+        defaultGrams,
+        per100: extractMacrosForScanner(nutrients),
+        fdcRecord: syntheticId ? {
+          fdc_id: syntheticId,
+          name: displayName,
+          name_lc: displayName.toLowerCase(),
+          gtin_upc: String(p.code || ''),
+          brand_owner: brand,
+          source: 'off_api',
+          serving_weight: defaultGrams,
+          serving_description: String(p.serving_size || ''),
+          nutrients,
+        } : null,
+      });
+    }
+    return results;
+  }
 
   /**
-   * Word search routed by the user's barcode source preference.
-   * Mirrors the scanner's fallback semantics: 'both' = USDA first, then OFF;
-   * 'off_then_usda' (default) = OFF first, then USDA.
-   * Errors from a failing source are logged to the console (instead of being
-   * silently swallowed) so they are visible whenever a search is performed.
-   * The final failure is re-thrown so the caller can show a UI notification.
+   * Word search routed by the given active source ('usda' or 'off').
+   * Unknown sources fall back to USDA as a safe default.
+   * Errors from the failing source are logged to the console and re-thrown
+   * so the caller can show a UI notification.
    * @param {string} query
+   * @param {string} source
    * @returns {Promise<Array>}
    */
-  async function searchFoodsOnline(query) {
+  async function searchFoodsOnline(query, source) {
+    const useOff = source === 'off';
     try {
-      return await searchUsdaFoods(query);
+      return useOff ? await searchOffFoods(query) : await searchUsdaFoods(query);
     } catch (e) {
-      console.error('[barcode scanner] USDA search failed:', e);
+      console.error('[barcode scanner] ' + (useOff ? 'Open Food Facts' : 'USDA') + ' search failed:', e);
       throw e;
     }
   }
 
   function getBarcodeSourceSetting() {
     return RadiantStorage.settings.getBarcodeSource();
+  }
+
+  let _activeSearchSource = null;
+
+  function defaultSearchSourceFromSetting() {
+    const s = getBarcodeSourceSetting();
+    return s === 'usda' || s === 'both' ? 'usda' : 'off';
+  }
+
+  function activeSearchSource() {
+    return _activeSearchSource || defaultSearchSourceFromSetting();
+  }
+
+  function otherSearchSource(src) {
+    return src === 'usda' ? 'off' : 'usda';
+  }
+
+  function renderSourceTabs(container, active, onSelect) {
+    if (!container) return;
+    container.innerHTML = '';
+    const tabs = [
+      { src: 'usda', label: 'USDA' },
+      { src: 'off', label: 'Open Food Facts' },
+    ];
+    tabs.forEach(function (tab) {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      const isActive = tab.src === active;
+      btn.textContent = tab.label;
+      btn.style.cssText =
+        'flex:1;padding:8px 10px;font-size:0.9em;cursor:pointer;box-sizing:border-box;' +
+        'border:1px solid var(--border-color,#444);border-bottom:2px solid ' +
+        (isActive ? 'var(--accent,#4c9aff)' : 'transparent') + ';' +
+        'background:' + (isActive ? 'var(--accent-dim,rgba(76,154,255,.18))' : 'var(--button,#333)') + ';' +
+        'color:var(--text-color,#fff);opacity:' + (isActive ? '1' : '0.75') + ';';
+      btn.addEventListener('click', function () { onSelect(tab.src); });
+      container.appendChild(btn);
+    });
   }
 
   function scalePer100(per100, grams) {
@@ -354,7 +442,7 @@
 
   function ensureModal() {
     let el = document.getElementById('barcode-scanner-root');
-    if (el && (!el.querySelector('#barcode-manual') || !el.querySelector('#barcode-save-label') || !el.querySelector('#food-search-panel'))) {
+    if (el && (!el.querySelector('#barcode-manual') || !el.querySelector('#barcode-save-label') || !el.querySelector('#food-search-panel') || !el.querySelector('#food-search-tabs') || !el.querySelector('#barcode-source-tabs'))) {
       el.remove();
       el = null;
     }
@@ -365,6 +453,7 @@
       <div class="barcode-backdrop" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:9998;align-items:center;justify-content:center;flex-direction:column;">
         <div class="barcode-panel" style="background:var(--button,#333);color:var(--text-color,#fff);padding:16px;border-radius:8px;max-width:min(480px,95vw);width:100%;box-sizing:border-box;">
           <h3 style="margin:0 0 12px;">Scan barcode</h3>
+          <div id="barcode-source-tabs" style="display:flex;gap:8px;margin-bottom:12px;"></div>
           <video id="barcode-video" playsinline muted style="width:100%;max-height:240px;background:#000;border-radius:6px;"></video>
           <canvas id="barcode-canvas" style="display:none;"></canvas>
           <p id="barcode-hint" style="margin:10px 0;font-size:0.9em;opacity:.85;">Point camera at barcode</p>
@@ -400,6 +489,7 @@
             <h3 style="margin:0;font-size:1em;">Search results</h3>
             <button type="button" class="btn" id="food-search-close">Close</button>
           </div>
+          <div id="food-search-tabs" style="display:flex;gap:8px;margin-bottom:8px;"></div>
           <p id="food-search-status" style="margin:0 0 8px;font-size:0.9em;opacity:.85;">Searching…</p>
           <div id="food-search-results" style="max-height:50vh;overflow-y:auto;display:flex;flex-direction:column;gap:4px;"></div>
         </div>
@@ -542,6 +632,17 @@
     backdrop.style.display = 'flex';
     hint.textContent = 'Starting camera…';
 
+    const tabsEl = root.querySelector('#barcode-source-tabs');
+    function renderBarcodeTabs() {
+      renderSourceTabs(tabsEl, activeSearchSource(), function (src) {
+        if (_activeSearchSource === src) return;
+        _activeSearchSource = src;
+        renderBarcodeTabs();
+        hint.textContent = src === 'off' ? 'Searching in Open Food Facts…' : 'Searching in USDA…';
+      });
+    }
+    renderBarcodeTabs();
+
     cancelBtn.onclick = () => {
       closeScan();
     };
@@ -574,8 +675,9 @@
         return;
       }
 
-      // Online lookup — route based on user's source preference
-      const src = getBarcodeSourceSetting();
+      // Online lookup — query only the active tab's source
+      const src = activeSearchSource();
+      const sourceLabel = src === 'off' ? 'Open Food Facts' : 'USDA';
 
       function confirmFromResult(result) {
         showConfirm({
@@ -589,43 +691,17 @@
         });
       }
 
+      function notFound() {
+        closed = false;
+        backdrop.style.display = 'flex';
+        hint.textContent = 'Not found in ' + sourceLabel + '. Switch the tab above and press Look up to retry.';
+        if (manualInput) manualInput.value = code;
+      }
+
       try {
-        if (src === 'usda') {
-          const usda = await fetchUsdaByBarcode(code);
-          if (!usda) { alert('Product not found. Try manual entry.'); return; }
-          confirmFromResult(usda);
-
-        } else if (src === 'off') {
-          const off = await fetchOffByBarcode(code);
-          if (!off) { alert('Product not found. Try manual entry.'); return; }
-          confirmFromResult(off);
-
-        } else if (src === 'both') {
-          let result = null;
-          try {
-            result = await fetchUsdaByBarcode(code);
-          } catch (usdaErr) {
-            hint.textContent = 'USDA lookup failed, trying Open Food Facts…';
-          }
-          if (!result) {
-            result = await fetchOffByBarcode(code);
-          }
-          if (!result) { alert('Product not found. Try manual entry.'); return; }
-          confirmFromResult(result);
-        } else {
-          // 'off_then_usda' (default) and any unknown value — OFF first, USDA fallback
-          let result = null;
-          try {
-            result = await fetchOffByBarcode(code);
-          } catch (offErr) {
-            hint.textContent = 'Open Food Facts lookup failed, trying USDA…';
-          }
-          if (!result) {
-            result = await fetchUsdaByBarcode(code);
-          }
-          if (!result) { alert('Product not found. Try manual entry.'); return; }
-          confirmFromResult(result);
-        }
+        const result = src === 'off' ? await fetchOffByBarcode(code) : await fetchUsdaByBarcode(code);
+        if (!result) { notFound(); return; }
+        confirmFromResult(result);
       } catch (e) {
         alert('Online lookup failed: ' + (e && e.message));
       }
@@ -698,6 +774,7 @@
     const resultsEl = root.querySelector('#food-search-results');
     const statusEl = root.querySelector('#food-search-status');
     const closeBtn = root.querySelector('#food-search-close');
+    const tabsEl = root.querySelector('#food-search-tabs');
 
     // Hide scanner + confirm panels and stop any running camera
     const backdrop = root.querySelector('.barcode-backdrop');
@@ -708,6 +785,7 @@
 
     const trimmedQuery = String(query || '').trim();
     let searchId = 0;
+    const resultsCache = {};
 
     function renderResults(results) {
       resultsEl.innerHTML = '';
@@ -743,34 +821,56 @@
       });
     }
 
+    function renderTabs() {
+      renderSourceTabs(tabsEl, activeSearchSource(), function (src) {
+        if (_activeSearchSource === src) return;
+        _activeSearchSource = src;
+        renderTabs();
+        if (!trimmedQuery) return;
+        if (resultsCache[src]) {
+          renderResults(resultsCache[src]);
+        } else {
+          runSearch();
+        }
+      });
+    }
+    renderTabs();
+
+    function runSearch() {
+      panel.style.display = 'flex';
+      if (statusEl) statusEl.textContent = 'Searching…';
+      resultsEl.innerHTML = '';
+
+      const src = activeSearchSource();
+      const myId = ++searchId;
+      searchFoodsOnline(trimmedQuery, src)
+        .then(function (results) {
+          if (myId !== searchId) return;
+          if (panel.style.display === 'none') return;
+          console.info(
+            '[barcode scanner] Search for "' + trimmedQuery + '" returned ' +
+            (results ? results.length : 0) + ' result(s).'
+          );
+          var cached = results || [];
+          resultsCache[src] = cached;
+          renderResults(cached);
+        })
+        .catch(function (err) {
+          if (myId !== searchId) return;
+          if (panel.style.display === 'none') return;
+          console.error('[barcode scanner] Search failed for "' + trimmedQuery + '":', err);
+          if (statusEl) statusEl.textContent = 'Search failed: ' + (err && err.message);
+          resultsEl.innerHTML = '';
+        });
+    }
+
     if (!trimmedQuery) {
       panel.style.display = 'flex';
       if (statusEl) statusEl.textContent = 'Type a food name to search.';
       return;
     }
 
-    panel.style.display = 'flex';
-    if (statusEl) statusEl.textContent = 'Searching…';
-    resultsEl.innerHTML = '';
-
-    const myId = ++searchId;
-    searchFoodsOnline(trimmedQuery)
-      .then(function (results) {
-        if (myId !== searchId) return;
-        if (panel.style.display === 'none') return;
-        console.info(
-          '[barcode scanner] Search for "' + trimmedQuery + '" returned ' +
-          (results ? results.length : 0) + ' result(s).'
-        );
-        renderResults(results || []);
-      })
-      .catch(function (err) {
-        if (myId !== searchId) return;
-        if (panel.style.display === 'none') return;
-        console.error('[barcode scanner] Search failed for "' + trimmedQuery + '":', err);
-        if (statusEl) statusEl.textContent = 'Search failed: ' + (err && err.message);
-        resultsEl.innerHTML = '';
-      });
+    runSearch();
 
     closeBtn.onclick = function () {
       panel.style.display = 'none';

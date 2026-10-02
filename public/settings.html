@@ -42,14 +42,14 @@
         </div>
 
         <div style="margin: 20px 0;">
-            <label for="barcodeLookupSource" style="display: block; margin-bottom: 6px; font-weight: bold;">Barcode lookup source</label>
+            <label for="barcodeLookupSource" style="display: block; margin-bottom: 6px; font-weight: bold;">Default search database</label>
             <select id="barcodeLookupSource" class="btn" style="padding: 8px; width: 100%; box-sizing: border-box;">
                 <option value="off_then_usda">Open Food Facts first, then USDA (recommended)</option>
                 <option value="both">USDA first, then Open Food Facts</option>
                 <option value="usda">USDA only</option>
                 <option value="off">Open Food Facts only</option>
             </select>
-            <p class="small-text">Controls which online database is queried when a barcode is not in the local branded DB. Open Food Facts requires no API key and has broader international coverage. USDA has higher-quality US data but the free DEMO_KEY allows only 30 lookups per hour.</p>
+            <p class="small-text">Sets the default tab for food search and barcode scanning. The 🔍 search popup and 📷 barcode scanner show USDA / Open Food Facts tabs so you can switch databases at any time; the tab you select there applies until the page is reloaded. Open Food Facts requires no API key and has broader international coverage. USDA has higher-quality US data but the free DEMO_KEY allows only 30 lookups per hour.</p>
         </div>
 
         <h2>Performance Settings</h2>
