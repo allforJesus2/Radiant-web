@@ -1468,6 +1468,143 @@ body.workout-mode .workout-item-suggestions {
     display: none;
 }
 
+#normal-1rm-inputs {
+    min-width: 340px;
+    overflow-x: auto;
+}
+
+.one-rep-max-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 140px;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.one-rep-max-row label {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.one-rep-max-row input[type="number"] {
+    width: 100%;
+}
+
+#progression-settings {
+    margin-bottom: 1.25rem;
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius);
+    background: var(--paper-shadow);
+}
+
+#progression-settings > summary {
+    cursor: pointer;
+    padding: 0.75rem 14px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    list-style: none;
+}
+
+#progression-settings > summary::-webkit-details-marker {
+    display: none;
+}
+
+#progression-settings > summary::after {
+    content: '\25B8';
+    font-size: 0.9em;
+    margin-left: 0.5rem;
+    transition: transform 0.15s ease;
+}
+
+#progression-settings[open] > summary::after {
+    transform: rotate(90deg);
+}
+
+#progression-settings .adv-config-body {
+    padding: 0 14px 14px;
+    overflow-x: auto;
+}
+
+#progression-settings .adv-config-columns {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+#progression-settings .adv-config-col {
+    display: grid;
+    gap: 0;
+}
+
+#progression-settings .adv-config-col-title {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ink);
+}
+
+#progression-settings .adv-config-col .progression-row {
+    grid-template-columns: 1fr 72px auto;
+}
+
+#progression-settings .progression-row {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) 1fr 72px auto;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+#progression-settings .progression-row:last-child {
+    margin-bottom: 0;
+}
+
+#progression-settings .progression-row label {
+    font-size: 0.95rem;
+    white-space: nowrap;
+    margin: 0;
+}
+
+#progression-settings .progression-row input[type="range"] {
+    width: 100%;
+    accent-color: var(--pencil);
+    min-width: 0;
+}
+
+#progression-settings .progression-row input[type="number"] {
+    padding: 8px;
+    font-size: 0.95rem;
+    width: 100%;
+}
+
+#progression-settings .progression-row .rest-timer-unit {
+    font-size: 0.85rem;
+    color: var(--ink-light);
+    white-space: nowrap;
+}
+
+#progression-settings .rounding-progression-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: nowrap;
+}
+
+#progression-settings .rounding-progression-row label {
+    white-space: normal;
+}
+
+#progression-settings .rounding-progression-row .rounding-checkbox {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    accent-color: var(--pencil);
+    cursor: pointer;
+    margin: 0;
+}
+
 @media (max-width: 999px) {
     .progression-chart-wrap {
         height: 220px;

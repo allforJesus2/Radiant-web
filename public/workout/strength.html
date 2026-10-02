@@ -78,22 +78,22 @@
                 </div>
 
                 <div id="normal-1rm-inputs" class="level-up-setup-hidden">
-                <div class="input-group">
+                <div class="input-group one-rep-max-row">
                     <label for="squat-1rm">Squat 1 Rep Max (lbs)</label>
                     <input type="number" id="squat-1rm" min="0" step="5" placeholder="e.g. 315">
                 </div>
                 
-                <div class="input-group">
+                <div class="input-group one-rep-max-row">
                     <label for="bench-1rm">Bench Press 1 Rep Max (lbs)</label>
                     <input type="number" id="bench-1rm" min="0" step="5" placeholder="e.g. 225">
                 </div>
                 
-                <div class="input-group">
+                <div class="input-group one-rep-max-row">
                     <label for="deadlift-1rm">Deadlift 1 Rep Max (lbs)</label>
                     <input type="number" id="deadlift-1rm" min="0" step="5" placeholder="e.g. 405">
                 </div>
                 
-                <div class="input-group">
+                <div class="input-group one-rep-max-row">
                     <label for="ohp-1rm">Overhead Press 1 Rep Max (lbs)</label>
                     <input type="number" id="ohp-1rm" min="0" step="5" placeholder="e.g. 135">
                 </div>
@@ -128,55 +128,59 @@
                     </p>
                 </div>
                 
-                <div class="input-group level-up-setup-hidden" id="progression-settings">
-                    <label>Progression Settings</label>
-                    <div class="rest-timer-row">
-                        <label for="upper-progression">Upper body</label>
-                        <input type="range" id="upper-progression-range" min="0" max="15" step="1" value="5">
-                        <input type="number" id="upper-progression" min="0" max="15" step="1" value="5">
-                        <span class="rest-timer-unit">% / week</span>
+                <details class="level-up-setup-hidden" id="progression-settings">
+                    <summary>Advanced Configuration</summary>
+                    <div class="adv-config-body">
+                        <div class="adv-config-columns">
+                            <div class="adv-config-col">
+                                <h4 class="adv-config-col-title">Upper body progression</h4>
+                                <div class="progression-row">
+                                    <input type="range" id="upper-progression-range" min="0" max="15" step="1" value="5">
+                                    <input type="number" id="upper-progression" min="0" max="15" step="1" value="5">
+                                    <span class="rest-timer-unit">% / week</span>
+                                </div>
+                                <div class="progression-row">
+                                    <input type="range" id="upper-day-step-range" min="0" max="20" step="1" value="10">
+                                    <input type="number" id="upper-day-step" min="0" max="20" step="1" value="10">
+                                    <span class="rest-timer-unit">% / day</span>
+                                </div>
+                                <div class="progression-row">
+                                    <input type="range" id="upper-cycle-increase-range" min="0" max="30" step="1" value="5">
+                                    <input type="number" id="upper-cycle-increase" min="0" max="30" step="1" value="5">
+                                    <span class="rest-timer-unit">lbs / cycle</span>
+                                </div>
+                            </div>
+                            <div class="adv-config-col">
+                                <h4 class="adv-config-col-title">Lower body progression</h4>
+                                <div class="progression-row">
+                                    <input type="range" id="lower-progression-range" min="0" max="15" step="1" value="5">
+                                    <input type="number" id="lower-progression" min="0" max="15" step="1" value="5">
+                                    <span class="rest-timer-unit">% / week</span>
+                                </div>
+                                <div class="progression-row">
+                                    <input type="range" id="lower-day-step-range" min="0" max="20" step="1" value="10">
+                                    <input type="number" id="lower-day-step" min="0" max="20" step="1" value="10">
+                                    <span class="rest-timer-unit">% / day</span>
+                                </div>
+                                <div class="progression-row">
+                                    <input type="range" id="lower-cycle-increase-range" min="0" max="30" step="1" value="10">
+                                    <input type="number" id="lower-cycle-increase" min="0" max="30" step="1" value="10">
+                                    <span class="rest-timer-unit">lbs / cycle</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="progression-row">
+                            <label for="max-week3-percentage">Max (Week 3)</label>
+                            <input type="range" id="max-week3-range" min="85" max="100" step="1" value="95">
+                            <input type="number" id="max-week3-percentage" min="85" max="100" step="1" value="95">
+                            <span class="rest-timer-unit">%</span>
+                        </div>
+                        <div class="progression-row rounding-progression-row">
+                            <label for="round-to-25">Round lift weights to nearest 2.5 lbs</label>
+                            <input type="checkbox" id="round-to-25" class="rounding-checkbox">
+                        </div>
                     </div>
-                    <div class="rest-timer-row">
-                        <label for="lower-progression">Lower body</label>
-                        <input type="range" id="lower-progression-range" min="0" max="15" step="1" value="5">
-                        <input type="number" id="lower-progression" min="0" max="15" step="1" value="5">
-                        <span class="rest-timer-unit">% / week</span>
-                    </div>
-                    <div class="rest-timer-row">
-                        <label for="upper-day-step">Upper body step</label>
-                        <input type="range" id="upper-day-step-range" min="0" max="20" step="1" value="10">
-                        <input type="number" id="upper-day-step" min="0" max="20" step="1" value="10">
-                        <span class="rest-timer-unit">% / day</span>
-                    </div>
-                    <div class="rest-timer-row">
-                        <label for="lower-day-step">Lower body step</label>
-                        <input type="range" id="lower-day-step-range" min="0" max="20" step="1" value="10">
-                        <input type="number" id="lower-day-step" min="0" max="20" step="1" value="10">
-                        <span class="rest-timer-unit">% / day</span>
-                    </div>
-                    <div class="rest-timer-row">
-                        <label for="upper-cycle-increase">Upper body cycle</label>
-                        <input type="range" id="upper-cycle-increase-range" min="0" max="30" step="1" value="5">
-                        <input type="number" id="upper-cycle-increase" min="0" max="30" step="1" value="5">
-                        <span class="rest-timer-unit">lbs / cycle</span>
-                    </div>
-                    <div class="rest-timer-row">
-                        <label for="lower-cycle-increase">Lower body cycle</label>
-                        <input type="range" id="lower-cycle-increase-range" min="0" max="30" step="1" value="10">
-                        <input type="number" id="lower-cycle-increase" min="0" max="30" step="1" value="10">
-                        <span class="rest-timer-unit">lbs / cycle</span>
-                    </div>
-                    <div class="rest-timer-row">
-                        <label for="max-week3-percentage">Max (Week 3)</label>
-                        <input type="range" id="max-week3-range" min="85" max="100" step="1" value="95">
-                        <input type="number" id="max-week3-percentage" min="85" max="100" step="1" value="95">
-                        <span class="rest-timer-unit">%</span>
-                    </div>
-                    <div class="rest-timer-row">
-                        <label for="round-to-25">Round lift weights to nearest 2.5 lbs</label>
-                        <input type="checkbox" id="round-to-25" class="rounding-checkbox">
-                    </div>
-                </div>
+                </details>
                 
                 <div class="input-group level-up-setup-hidden">
                     <label for="accessory-template">Accessory Template</label>
