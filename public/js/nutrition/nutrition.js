@@ -676,19 +676,14 @@ function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
 }
 
 /**
- * Outstanding planned macros for one slot: the day's element for that slot minus
- * the items completed or removed *in that slot* (per-slot, so the same element in
- * two slots is two independent check-offs).
+ * Planned macros for one slot: the day's element for that slot (constant target,
+ * not reduced by completed/removed items).
  */
 function calculatePlannedMealTotals(mealType, mealPlanning, dayOfWeek) {
     const mealKey = mealType.toLowerCase();
     const planned = getPlannedItemsForSlot(mealPlanning, dayOfWeek, mealKey);
     if (!planned) return null;
-    const completed = MealPlanning.getSlotCompleted(mealPlanning, dayOfWeek, mealKey);
-    const removed = MealPlanning.getSlotRemoved(mealPlanning, dayOfWeek, mealKey);
-    const active = planned.filter(item => !completed.includes(item.name) && !removed.includes(item.name));
-    if (active.length === 0) return null;
-    const totals = active.reduce((acc, item) => ({
+    const totals = planned.reduce((acc, item) => ({
         calories: acc.calories + (item.calories || 0),
         protein:  acc.protein  + (item.protein  || 0),
         carbs:    acc.carbs    + (item.carbs    || 0),
