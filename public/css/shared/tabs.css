@@ -1,0 +1,47 @@
+:root {
+    --folder-line: #4a4a52;              /* tab bar underline + content box border */
+    --folder-tab-bg: #232327;
+    --folder-tab-border: #33333a;
+    --folder-tab-text: #9a9aa6;
+    --folder-tab-hover-bg: #2d2d33;
+    --folder-tab-hover-text: #ffffff;
+    --folder-tab-active-bg: var(--background, #0f0f11);
+    --folder-tab-active-text: #ffffff;
+}
+
+.folder-tabs {           /* = strength .main-tabs */
+    display: flex; flex-wrap: nowrap; align-items: flex-end; gap: 3px;
+    padding: 8px 8px 0; border-bottom: 2px solid var(--folder-line);
+}
+
+.folder-tab {            /* = strength .main-tab */
+    margin: 0;                           /* neutralize dark-theme button margin */
+    padding: 7px 14px 5px; cursor: pointer; text-align: center;
+    background: var(--folder-tab-bg); color: var(--folder-tab-text);
+    border: 1px solid var(--folder-tab-border); border-bottom: none;
+    border-radius: 8px 8px 0 0; font-size: 0.95rem; line-height: 1.25;
+    flex: 1 0 0; min-width: 0; white-space: nowrap;
+    transition: background .15s, color .15s;
+}
+.folder-tab:hover:not(.active) { background: var(--folder-tab-hover-bg); color: var(--folder-tab-hover-text); }
+.folder-tab.active {
+    background: var(--folder-tab-active-bg); color: var(--folder-tab-active-text);
+    border-color: var(--folder-line); border-width: 2px; border-bottom: none;
+    padding: 9px 16px 7px; margin: 0 0 -2px; /* overlap the bar line */ z-index: 2;
+}
+
+.folder-tab-panel { display: none; }
+.folder-tab-panel.active { display: block; }
+
+.folder-box {            /* = strength .main-content; optional bordered area tabs open into */
+    border: 2px solid var(--folder-line); border-top: none;
+    padding: 16px 20px 20px; background: var(--folder-tab-active-bg);
+}
+
+.folder-tabs--standalone { margin-bottom: 1.5rem; }   /* onboarding stepper: no panel below */
+
+@media (max-width: 768px) {
+    .folder-tabs { flex-wrap: wrap; padding: 6px 6px 0; }
+    .folder-tab { padding: 6px 10px 4px; font-size: 0.85rem; }
+    .folder-tab.active { padding: 8px 12px 6px; }
+}

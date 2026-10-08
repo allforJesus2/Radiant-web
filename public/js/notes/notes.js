@@ -54,46 +54,17 @@
             updateDateDisplay();
             generateCalendar(); // Generate calendar on page load
             
+            RadiantTabs.init({
+                root: document.querySelector('.tabbed'),
+                onSwitch: function (name) { if (name === 'calendar') generateCalendar(); }
+            });
+            
             // Check URL hash to activate specific tab
-            const hash = window.location.hash;
-            if (hash === '#sleep') {
+            if (window.location.hash === '#sleep') {
                 // Activate sleep tab programmatically
-                switchTab('sleep');
+                RadiantTabs.switchTo('sleep');
             }
         });
-
-        // Tab switching functionality
-        function switchTab(tabName) {
-            // Hide all tab contents
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Remove active class from all tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show selected tab content
-            document.getElementById(tabName + 'Tab').classList.add('active');
-            
-            // Add active class to the corresponding tab button
-            // Try to use event.target if available (from click), otherwise find button by onclick attribute
-            let targetButton = null;
-            if (event && event.target) {
-                targetButton = event.target;
-            } else {
-                targetButton = document.querySelector(`button[onclick="switchTab('${tabName}')"]`);
-            }
-            if (targetButton) {
-                targetButton.classList.add('active');
-            }
-            
-            // If switching to calendar tab, regenerate calendar
-            if (tabName === 'calendar') {
-                generateCalendar();
-            }
-        }
 
         function updateDateDisplay() {
             const dateDisplay = document.getElementById('currentDateDisplay');
@@ -516,19 +487,7 @@
         }
 
         function switchToNotesTab() {
-            // Hide all tab contents
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Remove active class from all tab buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // Show Daily Notes tab
-            document.getElementById('notesTab').classList.add('active');
-            document.querySelector('button[onclick="switchTab(\'notes\')"]').classList.add('active');
+            RadiantTabs.switchTo('notes');
         }
 
         function previousMonth() {

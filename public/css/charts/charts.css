@@ -81,39 +81,15 @@
     overflow: hidden;
 }
 
-.tab-buttons {
-    display: flex;
-    border-bottom: 2px solid #543;
-    margin-bottom: 0;
-    flex-wrap: wrap;
+.folder-tabs {
     flex-shrink: 0;
 }
 
-.tab-btn {
-    background-color: var(--button);
-    color: var(--text);
-    border: none;
-    padding: 12px 24px;
-    cursor: pointer;
-    font-size: 16px;
-    border-radius: 5px 5px 0 0;
-    margin-right: 5px;
-}
-
-.tab-btn.active {
-    background-color: #543;
-    color: white;
-}
-
-.tab-btn:hover {
-    background-color: #543;
-}
-
-.tab-content {
+.folder-tab-panel {
     display: none;
 }
 
-.tab-content.active {
+.folder-tab-panel.active {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -550,18 +526,6 @@ button:hover {
 @media (max-width: 768px) {
     #chartsContent {
         height: calc(100dvh - 52px);
-    }
-
-    .tab-buttons {
-        margin-bottom: 0;
-    }
-
-    .tab-btn {
-        flex: 1;
-        padding: 10px 12px;
-        font-size: 14px;
-        margin-right: 4px;
-        text-align: center;
     }
 
     #dateHeader .charts-tip {

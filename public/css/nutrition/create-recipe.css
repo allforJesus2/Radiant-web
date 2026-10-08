@@ -5,44 +5,6 @@
     text-align: left;
 }
 
-.tab-container {
-    margin-bottom: 20px;
-}
-
-.tab-buttons {
-    display: flex;
-    border-bottom: 2px solid #543;
-    margin-bottom: 20px;
-}
-
-.tab-btn {
-    background-color: var(--button);
-    color: var(--text);
-    border: none;
-    padding: 12px 24px;
-    cursor: pointer;
-    font-size: 16px;
-    border-radius: 5px 5px 0 0;
-    margin-right: 5px;
-}
-
-.tab-btn.active {
-    background-color: #543;
-    color: white;
-}
-
-.tab-btn:hover {
-    background-color: #543;
-}
-
-.tab-content {
-    display: none;
-}
-
-.tab-content.active {
-    display: block;
-}
-
 .scrollable-list {
     max-height: 40vh;
     overflow-y: auto;
@@ -209,7 +171,7 @@
     background-color: var(--hover-color, #333);
 }
 
-.tab-content .scrollable-list {
+.folder-tab-panel .scrollable-list {
     max-height: 55vh;
 }
 

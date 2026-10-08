@@ -1,0 +1,312 @@
+/* Meal library (create-meal-plan.html) */
+
+        .meal-plan-builder-container {
+            padding: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .meal-plan-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .meal-plan-actions .btn {
+            min-width: 70px;
+        }
+
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+
+        .add-meal-item-section {
+            margin-bottom: 20px;
+        }
+
+        #addMealItem {
+            min-width: 70px;
+        }
+
+        /* Style text selection for grams input */
+        .grams::selection {
+            background-color: #0015ff;
+            color: white;
+        }
+
+        .daily-totals-section {
+            margin-bottom: 30px;
+        }
+
+        .daily-totals-section h4 {
+            margin: 0;
+            color: var(--text-color);
+            font-size: 1.3em;
+            padding: 15px;
+            background: var(--button);
+            border: 2px solid var(--border-color, #444);
+            border-radius: 5px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .meal-plan-items {
+            min-height: 100px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color, #444);
+            border-radius: 5px;
+            padding: 10px;
+            background: var(--background-color);
+        }
+
+        .meal-plan-item {
+            background: var(--background-color);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 5px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s;
+        }
+
+        .meal-plan-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .meal-plan-item .remove-btn {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 0.9em;
+            transition: background-color 0.2s;
+        }
+
+        .meal-plan-item .remove-btn:hover {
+            background: #c82333;
+        }
+
+        /* Autocomplete styles */
+        #autocompleteList {
+            background: var(--background-color);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 5px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: none;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        #autocompleteList div {
+            padding: 10px 15px;
+            cursor: pointer;
+            border-bottom: 1px solid var(--border-color, #444);
+            color: var(--text-color);
+            transition: background-color 0.2s;
+        }
+
+        #autocompleteList div:hover {
+            background: var(--button);
+        }
+
+        #autocompleteList div:last-child {
+            border-bottom: none;
+        }
+
+        .serving-bubble {
+            position: absolute;
+            background: var(--background-color);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 5px;
+            padding: 8px 12px;
+            font-size: 0.9em;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            animation: fadeIn 0.2s ease-in;
+            /* Make background fully opaque and ensure text contrast */
+            background-color: #000000;
+            color: #ffffff;
+            opacity: 1;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Library cards */
+        .library-card {
+            border: 1px solid var(--border-color, #444);
+            border-radius: 5px;
+            padding: 16px;
+            margin-bottom: 20px;
+            background: var(--background-color);
+        }
+
+        .library-card h3 {
+            margin-top: 0;
+        }
+
+        .meal-contents-section {
+            margin-top: 20px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-color, #444);
+        }
+
+        .library-hint {
+            font-size: 0.85em;
+            opacity: 0.8;
+            margin: 0 0 10px 0;
+        }
+
+        .library-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .library-row .food {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        select.food {
+            background: var(--background, #000);
+            color: var(--text, #fff);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 3px;
+            padding: 4px 4px;
+            font-size: 1em;
+            min-height: 32px;
+        }
+
+        select.food option {
+            background: var(--background, #000);
+            color: var(--text, #fff);
+        }
+
+        .library-error {
+            min-height: 1em;
+            margin-bottom: 10px;
+            color: #dc3545;
+            font-size: 0.85em;
+        }
+
+        .library-tags-row {
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .library-tags-row .slot-label {
+            flex: 0 0 70px;
+            font-size: 0.85em;
+            opacity: 0.85;
+        }
+
+        .meal-tag-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 10px;
+            font-size: 0.85em;
+            border: 1px solid var(--border-color, #444);
+            border-radius: 12px;
+            background: var(--input, #222);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .meal-tag-chip input {
+            accent-color: var(--button-hover, #555);
+            cursor: pointer;
+        }
+
+        .meal-tag-chip:has(input:checked) {
+            background: var(--button-hover, #555);
+        }
+
+        .template-slots {
+            margin-bottom: 8px;
+            padding: 4px;
+            border: 1px solid var(--border-color, #444);
+            border-radius: 5px;
+            background: var(--background-color);
+        }
+
+        .template-slot-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .template-slot-row .slot-label {
+            flex: 0 0 92px;
+            font-size: 0.85em;
+            color: var(--text-color);
+            opacity: 0.85;
+        }
+
+        .template-slot-row select {
+            flex: 1;
+            min-width: 0;
+            background: var(--background, #000);
+            color: var(--text, #fff);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 3px;
+            padding: 8px 12px;
+            font-size: 1em;
+            min-height: 44px;
+        }
+
+        .template-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .template-list-item {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 12px;
+            background: var(--background-color);
+            border: 1px solid var(--border-color, #444);
+            border-radius: 5px;
+        }
+
+        @media (max-width: 768px) {
+            .meal-plan-actions {
+                flex-shrink: 0;
+            }
+
+            .meal-plan-actions .btn {
+                min-width: 60px;
+                font-size: 0.9em;
+                padding: 6px 8px;
+            }
+
+            .library-card {
+                padding: 12px;
+            }
+
+            .meal-contents-section {
+                margin-top: 16px;
+                padding-top: 12px;
+            }
+        }

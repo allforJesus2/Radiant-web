@@ -804,20 +804,6 @@
             }
         }
 
-        function switchTab(tabName) {
-            document.querySelectorAll('.tab-content').forEach(function (tab) {
-                tab.classList.remove('active');
-            });
-            document.querySelectorAll('.tab-btn').forEach(function (btn) {
-                btn.classList.remove('active');
-            });
-            document.getElementById(tabName + 'Tab').classList.add('active');
-            var targetButton = document.querySelector("button[onclick=\"switchTab('" + tabName + "')\"]");
-            if (targetButton) {
-                targetButton.classList.add('active');
-            }
-        }
-
         async function editRecipe(recipeId) {
             try {
                 const db = await getDB();
@@ -905,7 +891,7 @@
                 document.getElementById('saveRecipeBtn').style.display = '';
                 document.getElementById('cancelEditBtn').style.display = '';
 
-                switchTab('create');
+                RadiantTabs.switchTo('create');
 
                 alert(
                     `Recipe "${recipe.name}" loaded for editing. Make your changes and click "Save" to update.`
@@ -988,5 +974,6 @@
             setupHeader('Create New Recipe');
             await initializeFoodList();
             loadSavedRecipes();
+            RadiantTabs.init({ root: document.querySelector('.tabbed') });
         });
         

@@ -8,6 +8,7 @@
     <script src="js/core/storage.js"></script>
     <script src="js/vendor/chart.min.js"></script>
     <script src="js/food/database-utils.js"></script>
+    <link rel="stylesheet" href="css/shared/tabs.css">
     <link rel="stylesheet" href="css/charts/charts.css">
 </head>
 <body>
@@ -43,13 +44,13 @@
 
     <div id="chartsContent" class="is-hidden">
         <div class="tab-container">
-            <div class="tab-buttons">
-                <button type="button" class="tab-btn active" data-tab="charts">Charts</button>
-                <button type="button" class="tab-btn" data-tab="dailyTotals">Daily Totals</button>
-                <button type="button" class="tab-btn" data-tab="foodTotals">Food Totals</button>
-            </div>
+            <nav class="folder-tabs" role="tablist">
+                <button type="button" class="folder-tab active" role="tab" data-tab="charts" aria-selected="true" aria-controls="chartsTab">Charts</button>
+                <button type="button" class="folder-tab" role="tab" data-tab="dailyTotals" aria-selected="false" aria-controls="dailyTotalsTab">Daily Totals</button>
+                <button type="button" class="folder-tab" role="tab" data-tab="foodTotals" aria-selected="false" aria-controls="foodTotalsTab">Food Totals</button>
+            </nav>
 
-            <div id="chartsTab" class="tab-content active">
+            <div id="chartsTab" class="folder-tab-panel active" data-panel="charts" role="tabpanel">
                 <div class="charts-toolbar">
                     <button type="button" class="chart-jump-btn" data-scroll-target="calorieChartSection">Cal</button>
                     <button type="button" class="chart-jump-btn" data-scroll-target="macroChartSection">Macros</button>
@@ -100,7 +101,7 @@
                 </div>
             </div>
 
-            <div id="dailyTotalsTab" class="tab-content">
+            <div id="dailyTotalsTab" class="folder-tab-panel" data-panel="dailyTotals" role="tabpanel">
                 <div class="tab-scroll">
                     <div class="chart-container" id="dailyTotalsSection">
                         <div class="chart-header">
@@ -145,7 +146,7 @@
                 </div>
             </div>
 
-            <div id="foodTotalsTab" class="tab-content">
+            <div id="foodTotalsTab" class="folder-tab-panel" data-panel="foodTotals" role="tabpanel">
                 <div class="tab-scroll">
                     <div class="chart-container" id="foodTotalsSection">
                         <div class="chart-header">
@@ -183,6 +184,7 @@
     </div>
 
     <script src="js/core/menu.js"></script>
+    <script src="js/core/tabs.js"></script>
     <script src="js/charts/charts.js"></script>
 </body>
 </html>

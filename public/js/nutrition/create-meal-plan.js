@@ -16,6 +16,7 @@ document.addEventListener('DOMContentLoaded', function () {
     );
     setupEventListeners();
     loadLibrary();
+    RadiantTabs.init({ root: document.querySelector('.meal-plan-builder-container'), hashSync: true });
 });
 
 function loadLibrary() {
@@ -135,9 +136,7 @@ function refreshTemplateList(mealPlanning) {
 
         var deleteBtn = document.createElement('button');
         deleteBtn.type = 'button';
-        deleteBtn.className = 'btn';
-        deleteBtn.style.backgroundColor = '#dc3545';
-        deleteBtn.style.color = 'white';
+        deleteBtn.className = 'btn btn-danger';
         deleteBtn.textContent = 'Delete';
         deleteBtn.addEventListener('click', function () {
             if (!confirm('Delete the template "' + templateName + '"? Days already using it keep their current slots.')) return;
@@ -231,10 +230,10 @@ function setLibraryError(id, message) {
     if (el) el.textContent = message || '';
 }
 
-function createElementFromInput() {
+function createElementFromPrompt() {
     setLibraryError('elementNameError', '');
-    var input = document.getElementById('newElementName');
-    var raw = input.value;
+    var raw = prompt('Enter a name for the new reusable meal:');
+    if (raw === null) return;
     var name = MealPlanning.normaliseElementName(raw);
     if (!name) {
         setLibraryError('elementNameError', MealPlanning.isReservedElementName(String(raw).trim())
@@ -252,7 +251,6 @@ function createElementFromInput() {
 
     MealPlanning.putElement(mealPlanning, name, []);
     currentElementName = name;
-    input.value = '';
     loadLibrary();
 }
 
@@ -411,17 +409,11 @@ function createTemplateFromForm() {
 }
 
 function setupEventListeners() {
-    document.getElementById('createElementBtn').addEventListener('click', createElementFromInput);
+    document.getElementById('createElementBtn').addEventListener('click', createElementFromPrompt);
     document.getElementById('renameElementBtn').addEventListener('click', renameSelectedElement);
     document.getElementById('deleteElementBtn').addEventListener('click', deleteSelectedElement);
     document.getElementById('addMealItem').addEventListener('click', addFoodToSelectedElement);
     document.getElementById('createTemplateBtn').addEventListener('click', createTemplateFromForm);
-
-    var nameInput = document.getElementById('newElementName');
-    nameInput.addEventListener('keypress', function (event) {
-        if (event.key === 'Enter') createElementFromInput();
-    });
-    nameInput.addEventListener('input', function () { setLibraryError('elementNameError', ''); });
 
     var templateInput = document.getElementById('newTemplateName');
     templateInput.addEventListener('keypress', function (event) {

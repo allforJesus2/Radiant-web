@@ -27,12 +27,15 @@ function getCurrentStep() {
 function renderProgressIndicator() {
     const currentStep = getCurrentStep();
     const progressContainer = document.querySelector('.progress-indicator');
-    
+
     if (progressContainer) {
-        progressContainer.innerHTML = NAVIGATION_MENU.map(item => {
+        progressContainer.className = 'folder-tabs folder-tabs--standalone';
+        progressContainer.setAttribute('role', 'tablist');
+        progressContainer.innerHTML = NAVIGATION_MENU.map(function (item) {
             const isActive = item.step === currentStep;
-            const activeClass = isActive ? 'active' : '';
-            return `<div class="step ${activeClass}" onclick="navigateToStep(${item.step})">${item.step}. ${item.title}</div>`;
+            return '<button type="button" role="tab" class="folder-tab' + (isActive ? ' active' : '') +
+                   '" data-step="' + item.step + '" onclick="navigateToStep(' + item.step + ')"' +
+                   ' aria-selected="' + isActive + '">' + item.step + '. ' + item.title + '</button>';
         }).join('');
     }
 }

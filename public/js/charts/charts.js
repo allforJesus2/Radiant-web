@@ -873,24 +873,6 @@ function scrollToChartSection(sectionId) {
     section.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
-function switchChartsTab(tabName) {
-    document.querySelectorAll('#chartsContent .tab-content').forEach(tab => {
-        tab.classList.remove('active');
-    });
-    document.querySelectorAll('#chartsContent .tab-btn').forEach(btn => {
-        btn.classList.remove('active');
-    });
-
-    const tabPanel = document.getElementById(tabName + 'Tab');
-    const tabButton = document.querySelector(`#chartsContent .tab-btn[data-tab="${tabName}"]`);
-    if (tabPanel) tabPanel.classList.add('active');
-    if (tabButton) tabButton.classList.add('active');
-
-    if (tabName === 'charts') {
-        handleChartsResize();
-    }
-}
-
 function handleFoodTotalsRangeChange() {
     const value = getFoodTotalsRangeValue();
 
@@ -1082,9 +1064,6 @@ function wireCustomRangeSelect(selectId, wrapId, context, onChange) {
 }
 
 function wireChartsEvents() {
-    document.querySelectorAll('#chartsContent .tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => switchChartsTab(btn.dataset.tab));
-    });
     document.querySelectorAll('.chart-jump-btn').forEach(btn => {
         btn.addEventListener('click', () => scrollToChartSection(btn.dataset.scrollTarget));
     });
@@ -1127,6 +1106,10 @@ function wireChartsEvents() {
 document.addEventListener('DOMContentLoaded', async function() {
     setupHeader('Nutrition Analysis');
     wireChartsEvents();
+    RadiantTabs.init({
+        root: document.getElementById('chartsContent'),
+        onSwitch: function (name) { if (name === 'charts') handleChartsResize(); }
+    });
     setLoadingStatus('Loading food database…', 0);
 
     try {
