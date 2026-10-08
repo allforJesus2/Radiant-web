@@ -380,13 +380,19 @@
             font-size: 0.8em;
         }
 
+        #scrollableWindow > .meal-items-container {
+            padding-top: 0;
+            padding-bottom: 0;
+            border-left: 5px solid rgba(255, 255, 255, 0.15);
+        }
+
         .meal-items-container .list-item {
-            padding-left: 10px;
-            margin-bottom: 6px;
+            padding-left: 5px;
+            margin-bottom: 10px;
         }
 
         .meal-items-container .list-item:last-child {
-            border-bottom: 5px solid rgba(255, 255, 255, 0.1);
+            border-bottom: 5px solid rgba(255, 255, 255, 0.15);
             padding-bottom: 4px;
             margin-bottom: 0px;
         }
