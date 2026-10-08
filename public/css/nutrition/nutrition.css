@@ -23,6 +23,15 @@
     flex-direction: column;
     align-items: center;
     gap: 2px;
+    width: 84px;
+    max-width: 84px;
+}
+
+.meal-header-actions .meal-plan-nav-arrow-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    margin: 0 auto;
 }
 
 .meal-header-actions .meal-plan-nav-label {
@@ -37,12 +46,6 @@
 }
 
 .meal-header-actions .meal-plan-nav + .meal-save-btn {
-    margin-left: 4px;
-    padding-left: 6px;
-    border-left: 1px solid var(--border-color);
-}
-
-.meal-header-actions .meal-save-btn + .meal-toggle-btn {
     margin-left: 4px;
     padding-left: 6px;
     border-left: 1px solid var(--border-color);

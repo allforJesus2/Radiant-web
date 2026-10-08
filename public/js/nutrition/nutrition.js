@@ -615,7 +615,7 @@ function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
         navGroup.className = 'meal-plan-nav';
 
         var arrowRow = document.createElement('span');
-        arrowRow.style.cssText = 'display:inline-flex;align-items:center;gap:2px;';
+        arrowRow.className = 'meal-plan-nav-arrow-row';
 
         var prevBtn = document.createElement('button');
         prevBtn.type = 'button';
@@ -655,16 +655,6 @@ function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
             saveMealAsElement(mealType, items);
         });
         actions.appendChild(saveBtn);
-
-        var toggleButton = mealHeaderContainer.querySelector('.meal-toggle-btn');
-        if (toggleButton) {
-            if (toggleButton.parentNode === mealHeaderContainer) {
-                mealHeaderContainer.removeChild(toggleButton);
-            }
-            actions.appendChild(toggleButton);
-        }
-
-        // The nav label is created inside the nav group above (centered over the arrows)
 
         mealHeaderContainer.appendChild(actions);
     }
@@ -811,6 +801,10 @@ function applyMealCollapseState(mealHeaderContainer, mealItemsContainer, isExpan
     if (toggleBtn) {
         toggleBtn.textContent = isExpanded ? '▼' : '▶';
         toggleBtn.style.transform = isExpanded ? 'rotate(0deg)' : 'rotate(-90deg)';
+    }
+    var actions = mealHeaderContainer && mealHeaderContainer.querySelector('.meal-header-actions');
+    if (actions) {
+        actions.style.display = isExpanded ? '' : 'none';
     }
 }
 
@@ -1561,8 +1555,9 @@ async function displayFoodItems(foodItems) {
                 });
 
                 mealHeaderContainer.appendChild(mealHeader);
-                mealHeaderContainer.appendChild(toggleButton);
                 ensureMealHeaderActions(mealHeaderContainer, mealType, canSave);
+                // Toggle button stays on the far right, outside the collapsible actions group
+                mealHeaderContainer.appendChild(toggleButton);
 
                 mealItemsContainer = document.createElement('div');
                 mealItemsContainer.className = `meal-items-container meal-items-${mealKey}`;
