@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Create Meal Plan - Radiant</title>
+    <title>Meal Library - Radiant</title>
     <link rel="stylesheet" href="css/theme/dark-theme.css">
     <link rel="stylesheet" href="css/nutrition/meal-plan.css">
 </head>
@@ -14,56 +14,71 @@
 
     <div class="container">
         <div class="meal-plan-builder-container">
-            <div class="meal-plan-name-section">
-                <select id="mealPlanName" class="food">
-                    <option value="">Create new meal plan...</option>
-                </select>
-                <input type="text" id="newMealPlanName" placeholder="New meal plan name..." class="food" style="display: none;">
-                <button type="button" class="btn" id="deleteMealPlanBtn" onclick="deleteMealPlan()" style="display: none; background-color: #dc3545; color: white;">Delete</button>
-                <div class="meal-plan-actions">
-                    <button type="button" class="btn" id="saveMealPlanBtn" onclick="saveMealPlan()">Save</button>
-                    <button type="button" class="btn" id="saveAsMealPlanBtn" onclick="saveMealPlanAsCopy()" style="display: none;">Save as new plan</button>
-                    <button type="button" class="btn" onclick="window.location.href='meal-plan.html'">Cancel</button>
-                </div>
-            </div>
 
-            <div class="add-meal-item-section">
-                <div>
+            <section class="library-section">
+                <h3>🍱 Reusable meals</h3>
+                <p class="small-text library-blurb">A reusable meal is a named list of foods. Drop any meal into any day and slot in the meal planner.</p>
+
+                <div class="library-row">
+                    <input type="text" id="newElementName" placeholder="New meal name..." class="food">
+                    <button type="button" class="btn" id="createElementBtn">Create</button>
+                </div>
+                <div id="elementNameError" class="library-error"></div>
+
+                <div class="library-row">
+                    <select id="elementSelect" class="food">
+                        <option value="">No reusable meals yet...</option>
+                    </select>
+                    <button type="button" class="btn" id="renameElementBtn">Rename</button>
+                    <button type="button" class="btn" id="deleteElementBtn" style="background-color: #dc3545; color: white;">Delete</button>
+                </div>
+
+                <div class="library-row library-tags-row">
+                    <span class="slot-label">Meal tags</span>
+                    <label class="meal-tag-chip"><input type="checkbox" data-element-tag="breakfast"> 🌅 Breakfast</label>
+                    <label class="meal-tag-chip"><input type="checkbox" data-element-tag="lunch"> ☀️ Lunch</label>
+                    <label class="meal-tag-chip"><input type="checkbox" data-element-tag="dinner"> 🌙 Dinner</label>
+                    <label class="meal-tag-chip"><input type="checkbox" data-element-tag="snack"> 🍎 Snack</label>
+                </div>
+                <p class="small-text library-blurb">Tagged meals come first when cycling the ◀ ▶ buttons on the nutrition page's meal headers.</p>
+
+                <div class="add-meal-item-section">
                     <input type="text" class="food" id="mealPlanFood" placeholder="Food name...">
                     <input class="grams" type="number" inputmode="numeric" id="mealPlanGrams" placeholder="Grams">
                     <button type="button" class="btn" id="addMealItem">Add</button>
-                    <select id="mealCategory" class="btn">
-                        <option value="breakfast">🌅 Breakfast</option>
-                        <option value="lunch">☀️ Lunch</option>
-                        <option value="dinner">🌙 Dinner</option>
-                        <option value="snack">🍎 Snack</option>
-                    </select>
                 </div>
-            </div>
 
-            <div id="autocompleteList"></div>
+                <div id="autocompleteList"></div>
 
-            <div class="meal-categories">
-                <div class="meal-category">
-                    <h4 id="breakfastHeader">🌅 Breakfast</h4>
-                    <div id="breakfastItems" class="meal-plan-items"></div>
-                </div>
-                <div class="meal-category">
-                    <h4 id="lunchHeader">☀️ Lunch</h4>
-                    <div id="lunchItems" class="meal-plan-items"></div>
-                </div>
-                <div class="meal-category">
-                    <h4 id="dinnerHeader">🌙 Dinner</h4>
-                    <div id="dinnerItems" class="meal-plan-items"></div>
-                </div>
-                <div class="meal-category">
-                    <h4 id="snackHeader">🍎 Snack</h4>
-                    <div id="snackItems" class="meal-plan-items"></div>
-                </div>
-            </div>
+                <div class="meal-plan-items" id="elementItems"></div>
 
-            <div class="daily-totals-section">
-                <h4 id="dailyTotalsHeader">📊 Daily Total</h4>
+                <div class="daily-totals-section">
+                    <h4 id="elementTotalsHeader">📊 Meal total</h4>
+                </div>
+            </section>
+
+            <section class="library-section">
+                <h3>📋 Day templates</h3>
+                <p class="small-text library-blurb">A template is a named day. Apply one from the meal planner to set all four slots at once.</p>
+
+                <div class="library-row">
+                    <input type="text" id="newTemplateName" placeholder="New template name..." class="food">
+                    <button type="button" class="btn" id="createTemplateBtn">Save template</button>
+                </div>
+                <div id="templateNameError" class="library-error"></div>
+
+                <div class="template-slots">
+                    <div class="template-slot-row"><span class="slot-label">🌅 Breakfast</span><select class="template-slot-select" data-slot="breakfast"></select></div>
+                    <div class="template-slot-row"><span class="slot-label">☀️ Lunch</span><select class="template-slot-select" data-slot="lunch"></select></div>
+                    <div class="template-slot-row"><span class="slot-label">🌙 Dinner</span><select class="template-slot-select" data-slot="dinner"></select></div>
+                    <div class="template-slot-row"><span class="slot-label">🍎 Snack</span><select class="template-slot-select" data-slot="snack"></select></div>
+                </div>
+
+                <div id="templateList" class="template-list"></div>
+            </section>
+
+            <div class="meal-plan-actions library-footer">
+                <button type="button" class="btn" onclick="window.location.href='meal-plan.html'">Open meal planner</button>
             </div>
         </div>
     </div>

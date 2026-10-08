@@ -1,3 +1,53 @@
+.meal-header-container {
+    color: var(--text-color);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.meal-header-container .meal-header {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.meal-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+}
+
+.meal-header-actions .meal-plan-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.meal-header-actions .meal-plan-nav-label {
+    font-size: 11px;
+    opacity: 0.75;
+    max-width: 84px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    align-self: center;
+    flex-shrink: 0;
+}
+
+.meal-header-actions .meal-plan-nav + .meal-save-btn {
+    margin-left: 4px;
+    padding-left: 6px;
+    border-left: 1px solid var(--border-color);
+}
+
+.meal-header-actions .meal-save-btn + .meal-toggle-btn {
+    margin-left: 4px;
+    padding-left: 6px;
+    border-left: 1px solid var(--border-color);
+}
+
 .meal-header-container .small-text {
     font-weight: normal;
     font-size: .9em;
@@ -327,13 +377,26 @@
             font-size: 0.8em;
         }
 
+        .meal-items-container .list-item {
+            padding-left: 10px;
+            margin-bottom: 6px;
+        }
+
+        .meal-items-container .list-item:last-child {
+            border-bottom: 5px solid rgba(255, 255, 255, 0.1);
+            padding-bottom: 4px;
+            margin-bottom: 0px;
+        }
+
         .meal-toggle-btn:hover,
-        .meal-save-btn:hover:not(:disabled) {
+        .meal-save-btn:hover:not(:disabled),
+        .meal-plan-nav-btn:hover {
             background: var(--button-hover, #555) !important;
         }
 
         .meal-toggle-btn,
-        .meal-save-btn {
+        .meal-save-btn,
+        .meal-plan-nav-btn {
             background: var(--button);
             color: var(--text-color);
             border: 1px solid var(--border-color);
@@ -358,6 +421,37 @@
 
         .meal-toggle-btn {
             min-width: 30px;
+        }
+
+.meal-plan-nav {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+}
+
+.meal-plan-nav-btn {
+    min-width: 26px;
+    padding: 2px 6px;
+    font-size: 11px;
+    line-height: 1;
+    height: 22px;
+}
+
+.meal-plan-nav-label {
+    font-size: 11px;
+            opacity: 0.75;
+            max-width: 84px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            align-self: center;
+        }
+
+        @media (max-width: 480px) {
+            .meal-plan-nav-label {
+                display: none;
+            }
         }
 
         /* Circular progress bar styles */

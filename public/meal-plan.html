@@ -17,7 +17,7 @@
             <div class="header-section">
                 <h2>🍽️ Meal Planning</h2>
                 <div class="header-buttons">
-                    <button type="button" class="btn" onclick="window.location.href='create-meal-plan.html'">Create/Edit Daily Meal Plan</button>
+                    <button type="button" class="btn" onclick="window.location.href='create-meal-plan.html'">Meal Library</button>
                     <button type="button" class="btn" onclick="resetMealPlanProgress()" style="background-color: #dc3545; color: white;">Reset Progress</button>
                 </div>
             </div>
@@ -27,63 +27,98 @@
                 <div class="day-column" data-day="0">
                     <h3>Sunday</h3>
                     <div class="meal-plan-selector">
-                        <select class="meal-plan-dropdown">
-                            <option value="">No meal plan</option>
-                        </select>
+                        <div class="slot-row"><span class="slot-label">🌅 Breakfast</span><select class="slot-dropdown" data-slot="breakfast"></select></div>
+                        <div class="slot-row"><span class="slot-label">☀️ Lunch</span><select class="slot-dropdown" data-slot="lunch"></select></div>
+                        <div class="slot-row"><span class="slot-label">🌙 Dinner</span><select class="slot-dropdown" data-slot="dinner"></select></div>
+                        <div class="slot-row"><span class="slot-label">🍎 Snack</span><select class="slot-dropdown" data-slot="snack"></select></div>
+                        <div class="template-row">
+                            <select class="template-dropdown"><option value="">Apply template…</option></select>
+                            <button type="button" class="btn template-apply-btn">Apply</button>
+                        </div>
                     </div>
                     <div class="day-meals" id="sunday-meals"></div>
                 </div>
                 <div class="day-column" data-day="1">
                     <h3>Monday</h3>
                     <div class="meal-plan-selector">
-                        <select class="meal-plan-dropdown">
-                            <option value="">No meal plan</option>
-                        </select>
+                        <div class="slot-row"><span class="slot-label">🌅 Breakfast</span><select class="slot-dropdown" data-slot="breakfast"></select></div>
+                        <div class="slot-row"><span class="slot-label">☀️ Lunch</span><select class="slot-dropdown" data-slot="lunch"></select></div>
+                        <div class="slot-row"><span class="slot-label">🌙 Dinner</span><select class="slot-dropdown" data-slot="dinner"></select></div>
+                        <div class="slot-row"><span class="slot-label">🍎 Snack</span><select class="slot-dropdown" data-slot="snack"></select></div>
+                        <div class="template-row">
+                            <select class="template-dropdown"><option value="">Apply template…</option></select>
+                            <button type="button" class="btn template-apply-btn">Apply</button>
+                        </div>
                     </div>
                     <div class="day-meals" id="monday-meals"></div>
                 </div>
                 <div class="day-column" data-day="2">
                     <h3>Tuesday</h3>
                     <div class="meal-plan-selector">
-                        <select class="meal-plan-dropdown">
-                            <option value="">No meal plan</option>
-                        </select>
+                        <div class="slot-row"><span class="slot-label">🌅 Breakfast</span><select class="slot-dropdown" data-slot="breakfast"></select></div>
+                        <div class="slot-row"><span class="slot-label">☀️ Lunch</span><select class="slot-dropdown" data-slot="lunch"></select></div>
+                        <div class="slot-row"><span class="slot-label">🌙 Dinner</span><select class="slot-dropdown" data-slot="dinner"></select></div>
+                        <div class="slot-row"><span class="slot-label">🍎 Snack</span><select class="slot-dropdown" data-slot="snack"></select></div>
+                        <div class="template-row">
+                            <select class="template-dropdown"><option value="">Apply template…</option></select>
+                            <button type="button" class="btn template-apply-btn">Apply</button>
+                        </div>
                     </div>
                     <div class="day-meals" id="tuesday-meals"></div>
                 </div>
                 <div class="day-column" data-day="3">
                     <h3>Wednesday</h3>
                     <div class="meal-plan-selector">
-                        <select class="meal-plan-dropdown">
-                            <option value="">No meal plan</option>
-                        </select>
+                        <div class="slot-row"><span class="slot-label">🌅 Breakfast</span><select class="slot-dropdown" data-slot="breakfast"></select></div>
+                        <div class="slot-row"><span class="slot-label">☀️ Lunch</span><select class="slot-dropdown" data-slot="lunch"></select></div>
+                        <div class="slot-row"><span class="slot-label">🌙 Dinner</span><select class="slot-dropdown" data-slot="dinner"></select></div>
+                        <div class="slot-row"><span class="slot-label">🍎 Snack</span><select class="slot-dropdown" data-slot="snack"></select></div>
+                        <div class="template-row">
+                            <select class="template-dropdown"><option value="">Apply template…</option></select>
+                            <button type="button" class="btn template-apply-btn">Apply</button>
+                        </div>
                     </div>
                     <div class="day-meals" id="wednesday-meals"></div>
                 </div>
                 <div class="day-column" data-day="4">
                     <h3>Thursday</h3>
                     <div class="meal-plan-selector">
-                        <select class="meal-plan-dropdown">
-                            <option value="">No meal plan</option>
-                        </select>
+                        <div class="slot-row"><span class="slot-label">🌅 Breakfast</span><select class="slot-dropdown" data-slot="breakfast"></select></div>
+                        <div class="slot-row"><span class="slot-label">☀️ Lunch</span><select class="slot-dropdown" data-slot="lunch"></select></div>
+                        <div class="slot-row"><span class="slot-label">🌙 Dinner</span><select class="slot-dropdown" data-slot="dinner"></select></div>
+                        <div class="slot-row"><span class="slot-label">🍎 Snack</span><select class="slot-dropdown" data-slot="snack"></select></div>
+                        <div class="template-row">
+                            <select class="template-dropdown"><option value="">Apply template…</option></select>
+                            <button type="button" class="btn template-apply-btn">Apply</button>
+                        </div>
                     </div>
                     <div class="day-meals" id="thursday-meals"></div>
                 </div>
                 <div class="day-column" data-day="5">
                     <h3>Friday</h3>
                     <div class="meal-plan-selector">
-                        <select class="meal-plan-dropdown">
-                            <option value="">No meal plan</option>
-                        </select>
+                        <div class="slot-row"><span class="slot-label">🌅 Breakfast</span><select class="slot-dropdown" data-slot="breakfast"></select></div>
+                        <div class="slot-row"><span class="slot-label">☀️ Lunch</span><select class="slot-dropdown" data-slot="lunch"></select></div>
+                        <div class="slot-row"><span class="slot-label">🌙 Dinner</span><select class="slot-dropdown" data-slot="dinner"></select></div>
+                        <div class="slot-row"><span class="slot-label">🍎 Snack</span><select class="slot-dropdown" data-slot="snack"></select></div>
+                        <div class="template-row">
+                            <select class="template-dropdown"><option value="">Apply template…</option></select>
+                            <button type="button" class="btn template-apply-btn">Apply</button>
+                        </div>
                     </div>
                     <div class="day-meals" id="friday-meals"></div>
                 </div>
                 <div class="day-column" data-day="6">
                     <h3>Saturday</h3>
                     <div class="meal-plan-selector">
-                        <select class="meal-plan-dropdown">
-                            <option value="">No meal plan</option>
-                        </select>
+                        <div class="slot-row"><span class="slot-label">🌅 Breakfast</span><select class="slot-dropdown" data-slot="breakfast"></select></div>
+                        <div class="slot-row"><span class="slot-label">☀️ Lunch</span><select class="slot-dropdown" data-slot="lunch"></select></div>
+                        <div class="slot-row"><span class="slot-label">🌙 Dinner</span><select class="slot-dropdown" data-slot="dinner"></select></div>
+                        <div class="slot-row"><span class="slot-label">🍎 Snack</span><select class="slot-dropdown" data-slot="snack"></select></div>
+                        <div class="template-row">
+                            <select class="template-dropdown"><option value="">Apply template…</option></select>
+                            <button type="button" class="btn template-apply-btn">Apply</button>
+                        </div>
                     </div>
                     <div class="day-meals" id="saturday-meals"></div>
                 </div>

@@ -16,7 +16,7 @@ const MENU_GROUPS = [
         items: [
             { text: '🍎 Nutrition', href: 'nutrition.html' },
             { text: '🍽️ Meal Plan', href: 'meal-plan.html' },
-            { text: '📝 Create Meal Plan', href: 'create-meal-plan.html' },
+            { text: '📚 Meal Library', href: 'create-meal-plan.html' },
             { text: '⏰ Meal Times', href: 'set-meal-times.html' },
             { text: '📝 Recipes', href: 'create-recipe.html' },
         ],

@@ -15,6 +15,7 @@ const RadiantStorage = {
         MEAL_TIMES: 'mealTimes',
         DYNAMIC_MEAL_CONFIG: 'dynamicMealConfig',
         MEAL_PLANNING: 'meal_planning',
+        MEAL_PLANNING_LEGACY_BACKUP: 'meal_planning_legacy_backup',
         PREFERRED_UNIT: 'preferredUnit',
         PREFER_OFFLINE: 'preferOfflineData',
         USDA_API_KEY: 'usdaFdcApiKey',
@@ -54,11 +55,25 @@ const RadiantStorage = {
         snack: { start: '14:00', end: '17:00' },
     },
 
+    /**
+     * Shape of the `meal_planning` store.
+     *
+     * mealElements: { '<display name>': { items: [ food item objects ], tags?: [ 'breakfast', ... ] } }
+     * mealPlanDays: { <dayOfWeek>: { breakfast: name|null, lunch: .., dinner: .., snack: .. } }
+     * mealTemplates: { '<display name>': { breakfast: name|null, .. } }
+     * completedMeals / removedMeals: { <dayOfWeek>: { breakfast: [name], .. } } — per slot.
+     *
+     * `mealPlans` is the pre-elements shape; it is kept read-only for a release as
+     * a backup source and migrated once into the maps above (see MealPlanning).
+     */
     DEFAULT_MEAL_PLANNING: {
-        mealPlans: {},
+        schemaVersion: 2,
+        mealElements: {},
+        mealTemplates: {},
+        mealPlanDays: {},
         completedMeals: {},
         removedMeals: {},
-        mealPlanDays: {},
+        mealPlans: {},
         lastReset: null,
     },
 
@@ -295,6 +310,14 @@ const RadiantStorage = {
 
         saveMealPlanning(mealPlanning) {
             RadiantStorage.setJSON(RadiantStorage.KEYS.MEAL_PLANNING, mealPlanning);
+        },
+
+        getMealPlanningBackup() {
+            return RadiantStorage.getJSON(RadiantStorage.KEYS.MEAL_PLANNING_LEGACY_BACKUP, null);
+        },
+
+        saveMealPlanningBackup(backup) {
+            RadiantStorage.setJSON(RadiantStorage.KEYS.MEAL_PLANNING_LEGACY_BACKUP, backup);
         },
 
         getPreferredUnit() {

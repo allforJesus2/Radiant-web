@@ -1,6 +1,8 @@
 	var today;
 	var displayFoodItemsGeneration = 0;
 	var pendingExpandMealType = null;
+	var mealPlanNavIndex = { breakfast: -1, lunch: -1, dinner: -1, snack: -1 };
+	var mealPlanNavInit = { breakfast: false, lunch: false, dinner: false, snack: false };
 
 	// Threshold (minutes) used for both deduplication and "recent food" yellow highlight
 	const RECENT_FOOD_MINUTES = 60;
@@ -325,54 +327,9 @@ function calculateMealTotals(foodItems, mealType) {
     };
 }
 
-const CUSTOM_PLAN_NAME = 'Custom';
-
-function isReservedPlanName(name) {
-    return String(name).trim().toLowerCase() === CUSTOM_PLAN_NAME.toLowerCase();
-}
-
-function ensureCustomPlanExists(mealPlanning) {
-    if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
-    var created = false;
-    if (!mealPlanning.mealPlans[CUSTOM_PLAN_NAME]) {
-        mealPlanning.mealPlans[CUSTOM_PLAN_NAME] = {
-            breakfast: [], lunch: [], dinner: [], snack: []
-        };
-        created = true;
-    }
-    return created;
-}
-
-function customPlanHasItems(plan) {
-    if (!plan) return false;
-    return ['breakfast', 'lunch', 'dinner', 'snack']
-        .some(function(k) { return plan[k] && plan[k].length > 0; });
-}
-
-function resolveEffectiveMealPlan(mealPlanning) {
-    var todayDow = new Date().getDay();
-    var assigned = mealPlanning.mealPlanDays ? mealPlanning.mealPlanDays[todayDow] : undefined;
-    if (assigned && mealPlanning.mealPlans && mealPlanning.mealPlans[assigned]) {
-        return {
-            dayMealPlan: assigned,
-            mealPlans: mealPlanning.mealPlans,
-            isCustom: assigned === CUSTOM_PLAN_NAME
-        };
-    }
-    ensureCustomPlanExists(mealPlanning);
-    var custom = mealPlanning.mealPlans[CUSTOM_PLAN_NAME];
-    if (customPlanHasItems(custom)) {
-        return {
-            dayMealPlan: CUSTOM_PLAN_NAME,
-            mealPlans: mealPlanning.mealPlans,
-            isCustom: true
-        };
-    }
-    return {
-        dayMealPlan: null,
-        mealPlans: mealPlanning.mealPlans,
-        isCustom: false
-    };
+/** Items planned in one slot, or null when the slot is empty or dangling. */
+function getPlannedItemsForSlot(mealPlanning, dayOfWeek, slot) {
+    return MealPlanning.getSlotItems(mealPlanning, dayOfWeek, slot);
 }
 
 function foodLogItemToPlanItem(item) {
@@ -396,35 +353,148 @@ function foodLogItemToPlanItem(item) {
     return planItem;
 }
 
-function saveMealToCustomPlan(mealType, foodItems) {
-    var mealKey = mealType.toLowerCase();
-    var mealItems = foodItems.filter(function(item) {
+// ---- Save a logged meal as a reusable element ----
+
+var mealSaveDialogState = null;
+
+function mealItemsMatch(a, b) {
+    if (!Array.isArray(a) || !Array.isArray(b)) return false;
+    if (a.length !== b.length) return false;
+    return a.every(function (item, index) {
+        var other = b[index];
+        return !!other &&
+            item.name === other.name &&
+            Number(item.grams) === Number(other.grams);
+    });
+}
+
+function closeMealSaveDialog() {
+    var dialog = document.getElementById('mealSaveDialog');
+    if (dialog) dialog.style.display = 'none';
+    mealSaveDialogState = null;
+    setMealSaveError('');
+}
+
+function setMealSaveError(message) {
+    var el = document.getElementById('mealSaveError');
+    if (el) el.textContent = message || '';
+}
+
+function defaultMealElementName(mealType) {
+    var now = new Date();
+    return mealType + ' · ' + (now.getMonth() + 1) + '/' + now.getDate();
+}
+
+function openMealSaveDialog(mealType, planItems) {
+    var dialog = document.getElementById('mealSaveDialog');
+    if (!dialog) return;
+
+    var mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    mealSaveDialogState = { mealType: mealType, planItems: planItems, mealPlanning: mealPlanning };
+
+    var messageEl = document.getElementById('mealSaveMessage');
+    if (messageEl) {
+        messageEl.textContent = 'Save this ' + mealType.toLowerCase() + ' (' + planItems.length +
+            ' item' + (planItems.length === 1 ? '' : 's') + ') as a reusable meal you can drop into any day and slot.';
+    }
+    var input = document.getElementById('mealSaveName');
+    if (input) input.value = defaultMealElementName(mealType);
+    setMealSaveError('');
+
+    dialog.style.display = 'flex';
+    if (input) input.focus();
+}
+
+/**
+ * Create (or reuse) the element from the dialog's name, point today's slot at it,
+ * and mark its items complete so nothing is left on screen twice.
+ */
+function submitMealSaveDialog() {
+    if (!mealSaveDialogState) return;
+    var input = document.getElementById('mealSaveName');
+    var rawName = input ? input.value : '';
+    var name = MealPlanning.normaliseElementName(rawName);
+    if (!name) {
+        setMealSaveError('Enter a name that is not a reserved word.');
+        return;
+    }
+
+    var mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    var existingKey = MealPlanning.findElementByName(mealPlanning, name);
+    if (existingKey) {
+        var existing = MealPlanning.getElement(mealPlanning, existingKey) || { items: [] };
+        var existingItems = Array.isArray(existing.items) ? existing.items : [];
+        if (!mealItemsMatch(existingItems, mealSaveDialogState.planItems)) {
+            var overwrite = confirm(
+                'A reusable meal named "' + existingKey + '" already exists with ' +
+                existingItems.length + ' item' + (existingItems.length === 1 ? '' : 's') + '.\n\n' +
+                'Replace it with the ' + mealSaveDialogState.planItems.length + ' item' +
+                (mealSaveDialogState.planItems.length === 1 ? '' : 's') + ' you just logged?'
+            );
+            if (!overwrite) return;
+        }
+        name = MealPlanning.putElement(mealPlanning, existingKey, mealSaveDialogState.planItems) || existingKey;
+    } else {
+        name = MealPlanning.putElement(mealPlanning, name, mealSaveDialogState.planItems);
+        if (!name) {
+            setMealSaveError('Enter a name that is not a reserved word.');
+            return;
+        }
+    }
+    MealPlanning.addElementTag(mealPlanning, name, mealSaveDialogState.mealType.toLowerCase());
+
+    var slot = mealSaveDialogState.mealType.toLowerCase();
+    var todayDayOfWeek = new Date().getDay();
+    MealPlanning.setDaySlot(mealPlanning, todayDayOfWeek, slot, name);
+    mealSaveDialogState.planItems.forEach(function (item) {
+        MealPlanning.addSlotCompleted(mealPlanning, todayDayOfWeek, slot, item.name);
+    });
+    MealPlanning.save(mealPlanning);
+
+    var savedMealType = mealSaveDialogState.mealType;
+    closeMealSaveDialog();
+
+    var foodLog = RadiantStorage.nutrition.getFoodLog();
+    displayFoodItems(foodLog[today] || []);
+    flashMealSaveSuccess(savedMealType);
+}
+
+function initMealSaveDialog() {
+    var dialog = document.getElementById('mealSaveDialog');
+    if (!dialog || dialog.dataset.wired === 'true') return;
+    dialog.dataset.wired = 'true';
+
+    var confirmBtn = document.getElementById('mealSaveConfirm');
+    if (confirmBtn) confirmBtn.addEventListener('click', submitMealSaveDialog);
+
+    var cancelBtn = document.getElementById('mealSaveCancel');
+    if (cancelBtn) cancelBtn.addEventListener('click', closeMealSaveDialog);
+
+    dialog.addEventListener('click', function (e) {
+        if (e.target === dialog) closeMealSaveDialog();
+    });
+
+    var input = document.getElementById('mealSaveName');
+    if (input) {
+        input.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                submitMealSaveDialog();
+            }
+        });
+        input.addEventListener('input', function () {
+            setMealSaveError('');
+        });
+    }
+}
+
+/** Entry point behind the per-meal Save button. */
+function saveMealAsElement(mealType, foodItems) {
+    var mealItems = foodItems.filter(function (item) {
         return getMealType(item.timeAdded) === mealType;
     });
     if (mealItems.length === 0) return;
-
-    var mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-    if (!mealPlanning.completedMeals) mealPlanning.completedMeals = {};
-    if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
-    if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
-    ensureCustomPlanExists(mealPlanning);
-
-    var todayDayOfWeek = new Date().getDay();
-    var planItems = mealItems.map(foodLogItemToPlanItem);
-    mealPlanning.mealPlans[CUSTOM_PLAN_NAME][mealKey] = planItems;
-
-    if (!mealPlanning.completedMeals[todayDayOfWeek]) {
-        mealPlanning.completedMeals[todayDayOfWeek] = [];
-    }
-    planItems.forEach(function(pi) {
-        if (!mealPlanning.completedMeals[todayDayOfWeek].includes(pi.name)) {
-            mealPlanning.completedMeals[todayDayOfWeek].push(pi.name);
-        }
-    });
-
-    RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
-    displayFoodItems(foodItems);
-    flashMealSaveSuccess(mealType);
+    openMealSaveDialog(mealType, mealItems.map(foodLogItemToPlanItem));
 }
 
 var mealSaveFlashTimers = {};
@@ -449,6 +519,91 @@ function flashMealSaveSuccess(mealType) {
     }, 2000);
 }
 
+function mealPlanElementCycle(mp, slot) {
+    return MealPlanning.orderElementsForTag(mp, slot);
+}
+
+function initMealPlanNavForSlot(slot) {
+    if (mealPlanNavInit[slot]) return;
+    mealPlanNavInit[slot] = true;
+    var mp = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    var names = mealPlanElementCycle(mp, slot);
+    var assigned = MealPlanning.getDaySlots(mp, new Date().getDay())[slot];
+    mealPlanNavIndex[slot] = -1;
+    if (!assigned) return;
+    for (var i = 0; i < names.length; i++) {
+        if (names[i].toLowerCase() === assigned.toLowerCase()) {
+            mealPlanNavIndex[slot] = i;
+            return;
+        }
+    }
+}
+
+function applyElementToToday(slot, elementName) {
+    var mp = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    var key = elementName ? MealPlanning.findElementByName(mp, elementName) : null;
+    var element = key ? MealPlanning.getElement(mp, key) : null;
+    var assign = element && Array.isArray(element.items) && element.items.length > 0 ? key : null;
+    var todayDayOfWeek = new Date().getDay();
+    MealPlanning.setDaySlot(mp, todayDayOfWeek, slot, assign);
+    if (mp.completedMeals && mp.completedMeals[todayDayOfWeek]) delete mp.completedMeals[todayDayOfWeek][slot];
+    if (mp.removedMeals && mp.removedMeals[todayDayOfWeek]) delete mp.removedMeals[todayDayOfWeek][slot];
+    MealPlanning.save(mp);
+    var foodLog = RadiantStorage.nutrition.getFoodLog();
+    displayFoodItems(foodLog[today] || []);
+}
+
+function cycleMealPlanSlot(mealType, delta) {
+    var slot = mealType.toLowerCase();
+    var mp = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    var names = mealPlanElementCycle(mp, slot);
+    if (names.length === 0) return;
+    initMealPlanNavForSlot(slot);
+    var idx = mealPlanNavIndex[slot];
+    var next;
+    if (delta > 0) {
+        next = idx === -1 ? 0 : (idx + 1) % names.length;
+    } else {
+        next = idx === -1 ? names.length - 1 : (idx - 1 + names.length) % names.length;
+    }
+    mealPlanNavIndex[slot] = next;
+    applyElementToToday(slot, names[next]);
+}
+
+function ensureMealHeaderNavLabel(actions) {
+    var navGroup = actions.querySelector('.meal-plan-nav');
+    if (!navGroup) return null;
+    var label = navGroup.querySelector('.meal-plan-nav-label');
+    if (label) return label;
+    label = document.createElement('span');
+    label.className = 'meal-plan-nav-label';
+    navGroup.insertBefore(label, navGroup.firstChild);
+    return label;
+}
+
+function updateMealPlanNavControls(actions, mealType) {
+    var navGroup = actions.querySelector('.meal-plan-nav');
+    if (!navGroup) return;
+    var slot = mealType.toLowerCase();
+    var mp = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    var names = mealPlanElementCycle(mp, slot);
+    initMealPlanNavForSlot(slot);
+    var label = navGroup.querySelector('.meal-plan-nav-label');
+    if (names.length === 0) {
+        navGroup.style.display = 'none';
+        if (label) label.style.display = 'none';
+        return;
+    }
+    navGroup.style.display = '';
+    if (label) label.style.display = '';
+    var idx = mealPlanNavIndex[slot];
+    if (label) label.textContent = idx >= 0 ? names[idx] : '';
+    var prevBtn = navGroup.querySelector('.meal-plan-nav-prev');
+    var nextBtn = navGroup.querySelector('.meal-plan-nav-next');
+    if (prevBtn) prevBtn.title = 'Previous saved meal: ' + (idx <= 0 ? names[names.length - 1] : names[idx - 1]);
+    if (nextBtn) nextBtn.title = 'Next saved meal: ' + (idx < 0 || idx >= names.length - 1 ? names[0] : names[idx + 1]);
+}
+
 function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
     var actions = mealHeaderContainer.querySelector('.meal-header-actions');
     if (!actions) {
@@ -456,14 +611,48 @@ function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
         actions.className = 'meal-header-actions';
         actions.style.cssText = 'display:flex;gap:4px;align-items:flex-start;flex-shrink:0;';
 
+        var navGroup = document.createElement('span');
+        navGroup.className = 'meal-plan-nav';
+
+        var arrowRow = document.createElement('span');
+        arrowRow.style.cssText = 'display:inline-flex;align-items:center;gap:2px;';
+
+        var prevBtn = document.createElement('button');
+        prevBtn.type = 'button';
+        prevBtn.className = 'meal-plan-nav-btn meal-plan-nav-prev';
+        prevBtn.textContent = '◀';
+        prevBtn.title = 'Previous saved meal';
+        prevBtn.addEventListener('click', function () {
+            cycleMealPlanSlot(mealType, -1);
+        });
+
+        var nextBtn = document.createElement('button');
+        nextBtn.type = 'button';
+        nextBtn.className = 'meal-plan-nav-btn meal-plan-nav-next';
+        nextBtn.textContent = '▶';
+        nextBtn.title = 'Next saved meal';
+        nextBtn.addEventListener('click', function () {
+            cycleMealPlanSlot(mealType, 1);
+        });
+
+        arrowRow.appendChild(prevBtn);
+        arrowRow.appendChild(nextBtn);
+
+        var navLabel = document.createElement('span');
+        navLabel.className = 'meal-plan-nav-label';
+        navGroup.appendChild(navLabel);
+        navGroup.appendChild(arrowRow);
+
+        actions.appendChild(navGroup);
+
         var saveBtn = document.createElement('button');
         saveBtn.className = 'meal-save-btn';
         saveBtn.textContent = 'Save';
-        saveBtn.title = 'Save to Custom plan';
+        saveBtn.title = 'Save as a reusable meal';
         saveBtn.addEventListener('click', function() {
             var foodLog = RadiantStorage.nutrition.getFoodLog();
             var items = foodLog[today] || [];
-            saveMealToCustomPlan(mealType, items);
+            saveMealAsElement(mealType, items);
         });
         actions.appendChild(saveBtn);
 
@@ -474,6 +663,8 @@ function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
             }
             actions.appendChild(toggleButton);
         }
+
+        // The nav label is created inside the nav group above (centered over the arrows)
 
         mealHeaderContainer.appendChild(actions);
     }
@@ -490,14 +681,22 @@ function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
             saveButton.disabled = !canSave;
         }
     }
+
+    updateMealPlanNavControls(actions, mealType);
 }
 
-function calculatePlannedMealTotals(mealType, mealPlans, dayMealPlan, completedMeals, removedMeals) {
-    if (!dayMealPlan || !mealPlans || !mealPlans[dayMealPlan]) return null;
+/**
+ * Outstanding planned macros for one slot: the day's element for that slot minus
+ * the items completed or removed *in that slot* (per-slot, so the same element in
+ * two slots is two independent check-offs).
+ */
+function calculatePlannedMealTotals(mealType, mealPlanning, dayOfWeek) {
     const mealKey = mealType.toLowerCase();
-    const planned = mealPlans[dayMealPlan][mealKey];
-    if (!planned || planned.length === 0) return null;
-    const active = planned.filter(item => !completedMeals.includes(item.name) && !removedMeals.includes(item.name));
+    const planned = getPlannedItemsForSlot(mealPlanning, dayOfWeek, mealKey);
+    if (!planned) return null;
+    const completed = MealPlanning.getSlotCompleted(mealPlanning, dayOfWeek, mealKey);
+    const removed = MealPlanning.getSlotRemoved(mealPlanning, dayOfWeek, mealKey);
+    const active = planned.filter(item => !completed.includes(item.name) && !removed.includes(item.name));
     if (active.length === 0) return null;
     const totals = active.reduce((acc, item) => ({
         calories: acc.calories + (item.calories || 0),
@@ -1210,7 +1409,7 @@ function patchFoodLogDomAfterEnrich(scrollableWindow, foodItems, enrichedList) {
     });
 }
 
-function buildMealHeaderHtml(emoji, mealType, timeRange, loggedTotals, plannedTotals) {
+function buildMealHeaderHtml(mealType, timeRange, loggedTotals, plannedTotals) {
     let macroLine;
     if (plannedTotals) {
         macroLine =
@@ -1226,31 +1425,23 @@ function buildMealHeaderHtml(emoji, mealType, timeRange, loggedTotals, plannedTo
             `Fat ${loggedTotals.fat}g`;
     }
     return (
-        '<span>' + escapeHtml(emoji) + ' ' + escapeHtml(mealType) + ' ' + escapeHtml(timeRange) + '</span>' +
+        '<span>' + escapeHtml(mealType) + ' ' + escapeHtml(timeRange) + '</span>' +
         '<br><span class="small-text">' + macroLine + '</span>'
     );
 }
 
 function updateMealHeaderCaloriesFromEnriched(scrollableWindow, enrichedList) {
-    var emojiMap = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snack: '🍎' };
     var todayDayOfWeek = new Date().getDay();
-    var mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-    if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
-    var effective = resolveEffectiveMealPlan(mealPlanning);
-    var dayMealPlan = effective.dayMealPlan;
-    var mealPlans = effective.mealPlans;
-    var completedMeals = (mealPlanning.completedMeals || {})[todayDayOfWeek] || [];
-    var removedMeals = (mealPlanning.removedMeals || {})[todayDayOfWeek] || [];
+    var mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
     scrollableWindow.querySelectorAll('.meal-header-container[data-meal]').forEach(function(container) {
         var mealType = container.dataset.meal;
         if (!mealType) return;
         var mealTotals = calculateMealTotals(enrichedList, mealType);
-        var plannedTotals = calculatePlannedMealTotals(mealType, mealPlans, dayMealPlan, completedMeals, removedMeals);
+        var plannedTotals = calculatePlannedMealTotals(mealType, mealPlanning, todayDayOfWeek);
         var mealHeader = container.querySelector('.meal-header');
         if (!mealHeader) return;
         var timeRange = getMealTimeRange(mealType);
-        var emoji = emojiMap[mealType] || '';
-        mealHeader.innerHTML = buildMealHeaderHtml(emoji, mealType, timeRange, mealTotals, plannedTotals);
+        mealHeader.innerHTML = buildMealHeaderHtml(mealType, timeRange, mealTotals, plannedTotals);
     });
 }
 
@@ -1281,19 +1472,7 @@ async function displayFoodItems(foodItems) {
 
     // Check for meal plan items for today
     const todayDayOfWeek = new Date().getDay();
-    const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-    
-    if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
-    if (!mealPlanning.completedMeals) mealPlanning.completedMeals = {};
-    if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
-    if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
-    if (!mealPlanning.lastReset) mealPlanning.lastReset = null;
-
-    const effective = resolveEffectiveMealPlan(mealPlanning);
-    const dayMealPlan = effective.dayMealPlan;
-    const mealPlans = effective.mealPlans;
-    const completedMeals = mealPlanning.completedMeals[todayDayOfWeek] || [];
-    const removedMeals = mealPlanning.removedMeals[todayDayOfWeek] || [];
+    const mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
 
     // Filter items based on selected meal
     let itemsToDisplay = foodItems;
@@ -1309,14 +1488,13 @@ async function displayFoodItems(foodItems) {
 
         // Build a set of meal keys that should be visible this render
         const visibleMeals = new Set();
+        const hasAnyElements = Object.keys((mealPlanning && mealPlanning.mealElements) || {}).length > 0;
 
         mealOrder.forEach(mealType => {
             const hasRegularItems = meals[mealType].length > 0;
-            const hasPlannedItems = dayMealPlan && mealPlans[dayMealPlan] &&
-                                  mealPlans[dayMealPlan][mealType.toLowerCase()] &&
-                                  mealPlans[dayMealPlan][mealType.toLowerCase()].length > 0;
             const shouldShowSection = mealType === 'Breakfast' || mealType === 'Lunch' || mealType === 'Dinner' ||
-                                     hasRegularItems || hasPlannedItems;
+                                     hasRegularItems || hasPlannedItemsFor(mealType, mealPlanning, todayDayOfWeek) ||
+                                     (mealType === 'Snack' && hasAnyElements);
             if (shouldShowSection) visibleMeals.add(mealType);
         });
 
@@ -1339,9 +1517,8 @@ async function displayFoodItems(foodItems) {
             const mealKey = mealType.toLowerCase();
             const mealTotals = calculateMealTotals(quickList, mealType);
             const timeRange = getMealTimeRange(mealType);
-            const emoji = { Breakfast: '🌅', Lunch: '☀️', Dinner: '🌙', Snack: '🍎' }[mealType] || '';
-            const plannedTotals = calculatePlannedMealTotals(mealType, mealPlans, dayMealPlan, completedMeals, removedMeals);
-            const headerText = buildMealHeaderHtml(emoji, mealType, timeRange, mealTotals, plannedTotals);
+            const plannedTotals = calculatePlannedMealTotals(mealType, mealPlanning, todayDayOfWeek);
+            const headerText = buildMealHeaderHtml(mealType, timeRange, mealTotals, plannedTotals);
 
             // Reuse existing header container if present, otherwise create it
             let mealHeaderContainer = scrollableWindow.querySelector(`.meal-header-container[data-meal="${mealType}"]`);
@@ -1363,7 +1540,7 @@ async function displayFoodItems(foodItems) {
                 mealHeaderContainer.dataset.meal = mealType;
                 mealHeaderContainer.style.cssText =
                     'display:flex;justify-content:space-between;align-items:flex-start;' +
-                    'background-color:var(--background-color);padding:6px 10px;margin-top:8px;' +
+                    'background-color:var(--background-color);padding:6px 10px 6px 0;margin-top:8px;' +
                     'border-bottom:1px solid var(--border-color);font-weight:bold;' +
                     'font-size:14px;opacity:0.8;';
 
@@ -1410,12 +1587,14 @@ async function displayFoodItems(foodItems) {
                 displayFoodItem(item, foodItems, itemFragment, foodInput, gramsInput, viewForItem(item));
             });
 
-            if (hasPlannedItemsFor(mealType, dayMealPlan, mealPlans, completedMeals, removedMeals)) {
-                const plannedItems = mealPlans[dayMealPlan][mealKey];
+            if (hasPlannedItemsFor(mealType, mealPlanning, todayDayOfWeek)) {
+                const plannedItems = getPlannedItemsForSlot(mealPlanning, todayDayOfWeek, mealKey);
+                const slotCompleted = MealPlanning.getSlotCompleted(mealPlanning, todayDayOfWeek, mealKey);
+                const slotRemoved = MealPlanning.getSlotRemoved(mealPlanning, todayDayOfWeek, mealKey);
                 plannedItems
-                    .filter(item => !completedMeals.includes(item.name) && !removedMeals.includes(item.name))
+                    .filter(item => !slotCompleted.includes(item.name) && !slotRemoved.includes(item.name))
                     .forEach(function(item) {
-                        displayPlannedMealItem(item, itemFragment, foodInput, gramsInput, completedMeals);
+                        displayPlannedMealItem(item, itemFragment, foodInput, gramsInput, mealKey);
                     });
             }
 
@@ -1464,10 +1643,8 @@ async function displayFoodItems(foodItems) {
 }
 
 // Helper extracted to keep displayFoodItems readable
-function hasPlannedItemsFor(mealType, dayMealPlan, mealPlans, completedMeals, removedMeals) {
-    return dayMealPlan && mealPlans[dayMealPlan] &&
-           mealPlans[dayMealPlan][mealType.toLowerCase()] &&
-           mealPlans[dayMealPlan][mealType.toLowerCase()].length > 0;
+function hasPlannedItemsFor(mealType, mealPlanning, dayOfWeek) {
+    return !!getPlannedItemsForSlot(mealPlanning, dayOfWeek, mealType.toLowerCase());
 }
 
 // ---- Undo deletion stack (max 3 entries, 10-second auto-dismiss) ----
@@ -2154,7 +2331,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
     scrollableWindow.appendChild(listItem);
 }
 
-function displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, completedMeals) {
+function displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, slot) {
     var listItem = document.createElement('div');
     listItem.className = 'list-item planned-meal-item';
     listItem.style.opacity = '0.6';
@@ -2175,48 +2352,36 @@ function displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, c
     
     removeButton.addEventListener('click', function(e) {
         e.stopPropagation();
-        removePlannedMealItem(item);
+        removePlannedMealItem(item, slot);
     });
 
     // Add click handler to apply the planned item
     listItem.addEventListener('click', function(e) {
         e.stopPropagation();
-        applyPlannedMealItem(item);
+        applyPlannedMealItem(item, slot);
     });
 
     listItem.appendChild(removeButton);
     scrollableWindow.appendChild(listItem);
 }
 
-function removePlannedMealItem(item) {
+function removePlannedMealItem(item, slot) {
     const todayDayOfWeek = new Date().getDay();
-    
-    // Add to removed meals for this day
-    const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-    
-    // Ensure all required properties exist
-    if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
-    if (!mealPlanning.completedMeals) mealPlanning.completedMeals = {};
-    if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
-    if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
-    if (!mealPlanning.lastReset) mealPlanning.lastReset = null;
-    
-    if (!mealPlanning.removedMeals[todayDayOfWeek]) {
-        mealPlanning.removedMeals[todayDayOfWeek] = [];
-    }
-    
-    if (!mealPlanning.removedMeals[todayDayOfWeek].includes(item.name)) {
-        mealPlanning.removedMeals[todayDayOfWeek].push(item.name);
+    const mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+
+    // Removal is per slot, so the same food at another slot is untouched.
+    const removed = MealPlanning.addSlotRemoved(mealPlanning, todayDayOfWeek, slot, item.name);
+    if (removed.indexOf(item.name) !== -1) {
         RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
     }
-    
+
     // Refresh the display
     const foodLog = RadiantStorage.nutrition.getFoodLog();
     const foodItems = foodLog[today] || [];
     displayFoodItems(foodItems);
 }
 
-function applyPlannedMealItem(item) {
+function applyPlannedMealItem(item, slot) {
     const todayDayOfWeek = new Date().getDay();
     
     // Add the planned item to the food log
@@ -2246,25 +2411,11 @@ function applyPlannedMealItem(item) {
     foodLog[today].push(foodItem);
     RadiantStorage.nutrition.saveFoodLog(foodLog);
     
-    // Add to completed meals for this day
-    const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-    
-    // Ensure all required properties exist
-    if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
-    if (!mealPlanning.completedMeals) mealPlanning.completedMeals = {};
-    if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
-    if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
-    if (!mealPlanning.lastReset) mealPlanning.lastReset = null;
-    
-    if (!mealPlanning.completedMeals[todayDayOfWeek]) {
-        mealPlanning.completedMeals[todayDayOfWeek] = [];
-    }
-    
-    if (!mealPlanning.completedMeals[todayDayOfWeek].includes(item.name)) {
-        mealPlanning.completedMeals[todayDayOfWeek].push(item.name);
-        RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
-    }
-    
+    // Mark complete in this slot only — the same element in another slot stays open.
+    const mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    MealPlanning.addSlotCompleted(mealPlanning, todayDayOfWeek, slot, item.name);
+    RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
+
     // Refresh the display
     displayFoodItems(foodLog[today]);
 }
@@ -2292,12 +2443,7 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 	checkProfileCompletion();
 	migrateOldMealPlanData();
-	(function initCustomMealPlan() {
-		var mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-		if (ensureCustomPlanExists(mealPlanning)) {
-			RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
-		}
-	})();
+	initMealSaveDialog();
 	initOffsetDialog();
 	initUndoButton();
 	initNutrientDetailModal();
@@ -2315,6 +2461,28 @@ document.addEventListener('DOMContentLoaded', async function() {
 	updateScrollableWindowHeight();
 	window.addEventListener('resize', updateScrollableWindowHeight);
 	window.addEventListener('pagehide', persistMealCollapsePreference);
+
+	var scanBtn = document.getElementById('scanBarcodeBtn');
+	if (scanBtn) {
+		var updateScanButtonIcon = function(inputEl) {
+			var hasText = inputEl && String(inputEl.value || '').trim().length > 0;
+			scanBtn.textContent = hasText ? '🔍' : '📷';
+			scanBtn.title = hasText ? 'Search food name' : 'Scan barcode';
+		};
+		if (foodInput) {
+			foodInput.addEventListener('input', function() {
+				updateScanButtonIcon(this);
+			});
+		}
+		scanBtn.addEventListener('click', function() {
+			var query = foodInput ? String(foodInput.value || '').trim() : '';
+			if (query && typeof openFoodNameSearch === 'function') {
+				openFoodNameSearch(query, pushScannerFoodItem);
+			} else if (typeof openBarcodeScanner === 'function') {
+				openBarcodeScanner(pushScannerFoodItem);
+			}
+		});
+	}
 
 	if (foodInput) {
 		foodInput.addEventListener('focus', function() {
@@ -2363,27 +2531,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 		setupHeader();
 		startHintCycle();
 
-		var scanBtn = document.getElementById('scanBarcodeBtn');
-		if (scanBtn) {
-			var updateScanButtonIcon = function(inputEl) {
-				var hasText = inputEl && String(inputEl.value || '').trim().length > 0;
-				scanBtn.textContent = hasText ? '🔍' : '📷';
-				scanBtn.title = hasText ? 'Search food name' : 'Scan barcode';
-			};
-			if (foodInput) {
-				foodInput.addEventListener('input', function() {
-					updateScanButtonIcon(this);
-				});
-			}
-			scanBtn.addEventListener('click', function() {
-				var query = foodInput ? String(foodInput.value || '').trim() : '';
-				if (query && typeof openFoodNameSearch === 'function') {
-					openFoodNameSearch(query, pushScannerFoodItem);
-				} else if (typeof openBarcodeScanner === 'function') {
-					openBarcodeScanner(pushScannerFoodItem);
-				}
-			});
-		}
 	} catch (err) {
 		console.error('nutrition page init', err);
 	}
@@ -2513,60 +2660,15 @@ document.addEventListener('DOMContentLoaded', async function() {
 		console.log('Weekly meal plan progress has been reset for the new week.');
 	}
 
+	// One-shot migration into the element/template shape. The legacy per-key
+	// import runs first (inside the same version-guarded pass).
 	function migrateOldMealPlanData() {
-		const hasOldData = RadiantStorage.nutrition.getLegacyKey('mealPlans') ||
-			RadiantStorage.nutrition.getLegacyKey('lastMealPlanReset') ||
-			RadiantStorage.nutrition.getLegacyKey('mealPlan_day_0') ||
-			RadiantStorage.nutrition.getLegacyKey('completedMeals_day_0') ||
-			RadiantStorage.nutrition.getLegacyKey('removedMeals_day_0');
-
-		if (hasOldData) {
-			console.log('Migrating old meal plan data to new consolidated structure...');
-
-			let mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-
-			const oldMealPlans = RadiantStorage.nutrition.getLegacyJSON('mealPlans', {});
-			if (Object.keys(oldMealPlans).length > 0) {
-				mealPlanning.mealPlans = { ...mealPlanning.mealPlans, ...oldMealPlans };
+		try {
+			if (MealPlanning.migrateToElements()) {
+				console.log('Meal plan data migrated to reusable meals and day templates.');
 			}
-
-			for (let day = 0; day < 7; day++) {
-				const dayMealPlan = RadiantStorage.nutrition.getLegacyKey(`mealPlan_day_${day}`);
-				if (dayMealPlan) {
-					mealPlanning.mealPlanDays[day] = dayMealPlan;
-				}
-			}
-
-			for (let day = 0; day < 7; day++) {
-				const completedMeals = RadiantStorage.nutrition.getLegacyJSON(`completedMeals_day_${day}`, []);
-				if (completedMeals.length > 0) {
-					mealPlanning.completedMeals[day] = completedMeals;
-				}
-			}
-
-			for (let day = 0; day < 7; day++) {
-				const removedMeals = RadiantStorage.nutrition.getLegacyJSON(`removedMeals_day_${day}`, []);
-				if (removedMeals.length > 0) {
-					mealPlanning.removedMeals[day] = removedMeals;
-				}
-			}
-
-			const lastReset = RadiantStorage.nutrition.getLegacyKey('lastMealPlanReset');
-			if (lastReset) {
-				mealPlanning.lastReset = lastReset;
-			}
-
-			RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
-
-			RadiantStorage.nutrition.removeLegacyKey('mealPlans');
-			RadiantStorage.nutrition.removeLegacyKey('lastMealPlanReset');
-			for (let day = 0; day < 7; day++) {
-				RadiantStorage.nutrition.removeLegacyKey(`mealPlan_day_${day}`);
-				RadiantStorage.nutrition.removeLegacyKey(`completedMeals_day_${day}`);
-				RadiantStorage.nutrition.removeLegacyKey(`removedMeals_day_${day}`);
-			}
-
-			console.log('Migration completed successfully!');
+		} catch (err) {
+			console.error('meal plan migration failed', err);
 		}
 	}
 	
