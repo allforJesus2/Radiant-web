@@ -9,6 +9,12 @@
       type: 'SET_OFFLINE_PREFERENCE',
       preferOffline: preferOffline,
     });
+    // Re-push the persisted reverted cache (if any) so the SW restores it
+    // after a restart. null makes the SW fall back to its own CACHE_NAME.
+    controller.postMessage({
+      type: 'SET_ACTIVE_CACHE',
+      cacheName: RadiantStorage.settings.getActiveCacheName(),
+    });
   }
 
   // If the SW is already controlling this page, push immediately.

@@ -18,6 +18,7 @@ const RadiantStorage = {
         MEAL_PLANNING_LEGACY_BACKUP: 'meal_planning_legacy_backup',
         PREFERRED_UNIT: 'preferredUnit',
         PREFER_OFFLINE: 'preferOfflineData',
+        RADIANT_ACTIVE_CACHE: 'radiantActiveCacheName',
         USDA_API_KEY: 'usdaFdcApiKey',
         BARCODE_SOURCE: 'barcodeLookupSource',
         DAILY_NOTES: 'dailyNotes',
@@ -399,11 +400,25 @@ const RadiantStorage = {
 
     settings: {
         getPreferOffline() {
-            return RadiantStorage.getRaw(RadiantStorage.KEYS.PREFER_OFFLINE) === 'true';
+            // Absent key means offline-first (the default). Only an explicit
+            // 'false' (user opting into "always check for updates") is online.
+            return RadiantStorage.getRaw(RadiantStorage.KEYS.PREFER_OFFLINE) !== 'false';
         },
 
         setPreferOffline(checked) {
             RadiantStorage.setRaw(RadiantStorage.KEYS.PREFER_OFFLINE, String(checked));
+        },
+
+        getActiveCacheName() {
+            return RadiantStorage.getRaw(RadiantStorage.KEYS.RADIANT_ACTIVE_CACHE);
+        },
+
+        setActiveCacheName(name) {
+            if (name) {
+                RadiantStorage.setRaw(RadiantStorage.KEYS.RADIANT_ACTIVE_CACHE, name);
+            } else {
+                RadiantStorage.remove(RadiantStorage.KEYS.RADIANT_ACTIVE_CACHE);
+            }
         },
 
         getUsdaApiKey() {

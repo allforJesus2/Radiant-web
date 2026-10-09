@@ -202,6 +202,35 @@
 			color: #ddd;
 		}
 
+		/* ── offline / updates note ────────────────────────────────────── */
+		.offline-note {
+			font-size: 13px;
+			color: #6f6a61;
+			margin: 0 0 18px;
+		}
+
+		.updates-note {
+			display: block;
+			font-size: 12px;
+			color: #6f6a61;
+			margin-top: 4px;
+		}
+
+		.check-updates {
+			display: inline-block;
+			color: #6f6a61;
+			font-size: 13px;
+			text-decoration: underline;
+			text-underline-offset: 3px;
+			cursor: pointer;
+			margin: 0 0 18px;
+			transition: color 0.25s ease;
+		}
+
+		.check-updates:hover {
+			color: var(--gold);
+		}
+
 		/* ── contact link ─────────────────────────────────────────────── */
 		.contact-link {
 			position: absolute;
@@ -239,6 +268,7 @@
 	<script src="js/core/storage.js"></script>
 	<script src="js/core/announcements.js"></script>
 	<script src="js/core/offline-preference.js"></script>
+	<script src="js/core/sw-update.js"></script>
 </head>
 <body>
 	<canvas id="bg" aria-hidden="true"></canvas>
@@ -260,6 +290,77 @@
 			<button class="btn rise" style="animation-delay:.65s" onclick="window.location.href='charts.html'"><span class="btn-icon">📊</span><span class="btn-label">Analysis</span></button>
 			<button class="btn rise" style="animation-delay:.71s" onclick="window.location.href='settings.html'"><span class="btn-icon">⚙️</span><span class="btn-label">Settings</span></button>
 		</nav>
+
+		<p class="offline-note rise" id="offlineNote">Offline — Radiant works completely offline. No internet needed.</p>
+
+		<a href="javascript:void(0)" id="checkForUpdates" class="check-updates rise" style="animation-delay:.75s">Check for updates</a>
+
+		<script>
+			(function () {
+				const note = document.getElementById('offlineNote');
+				if (note && !RadiantStorage.settings.getPreferOffline()) {
+					const span = document.createElement('span');
+					span.className = 'updates-note';
+					span.textContent = 'Auto check for updates enabled in settings.';
+					note.appendChild(span);
+				}
+
+				function waitForSettle(worker) {
+					return new Promise((resolve) => {
+						if (
+							!worker ||
+							worker.state === 'installed' ||
+							worker.state === 'activated' ||
+							worker.state === 'redundant'
+						) {
+							resolve(worker);
+							return;
+						}
+						worker.addEventListener('statechange', function onStateChange() {
+							if (
+								worker.state === 'installed' ||
+								worker.state === 'activated' ||
+								worker.state === 'redundant'
+							) {
+								worker.removeEventListener('statechange', onStateChange);
+								resolve(worker);
+							}
+						});
+					});
+				}
+
+				document.getElementById('checkForUpdates').addEventListener('click', async function () {
+					if (!('serviceWorker' in navigator)) {
+						alert('This browser does not support service workers.');
+						return;
+					}
+					try {
+						const registration = await navigator.serviceWorker.ready;
+
+						// A downloaded-but-not-installed update is already waiting.
+						if (registration.waiting) {
+							RadiantSWUpdate.promptForUpdate(registration.waiting);
+							return;
+						}
+
+						// Force an update check; the new worker installs and
+						// waits, then the user confirms before it downloads
+						// and takes over.
+						await registration.update();
+						const worker = await waitForSettle(registration.installing || registration.waiting);
+						if (worker && navigator.serviceWorker.controller) {
+							RadiantSWUpdate.promptForUpdate(worker);
+						} else if (worker) {
+							alert('Update downloaded. Reload the page to switch to it.');
+						} else {
+							alert("You're up to date.");
+						}
+					} catch (e) {
+						alert('Could not check for updates. Check your internet connection.');
+					}
+				});
+			})();
+		</script>
 
 		<!-- Contact link -->
 		<a href="mailto:caoilid@gmail.com?subject=Contact from Radiant Web" class="contact-link" title="Send a message">
@@ -329,39 +430,18 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/service-worker.js')
       .then(registration => {
         console.log('ServiceWorker registration successful');
-
-        // Listen for new service worker installation
-        registration.addEventListener('updatefound', () => {
-          const newWorker = registration.installing;
-          
-          newWorker.addEventListener('statechange', () => {
-            // When the new service worker is installed
-            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              // Show update notification to user
-              if (confirm('New version available! Would you like to update?')) {
-                // Send skip waiting message
-                newWorker.postMessage({ type: 'skipWaiting' });
-                // Reload the page
-                window.location.reload();
-              }
-            }
-          });
-        });
+        // No auto prompt: a newer worker installs and waits silently. The
+        // user triggers the update via "Check for updates" (home) or
+        // "Update to latest" (settings), which confirms before downloading.
       })
       .catch(error => {
         console.error('ServiceWorker registration failed:', error);
       });
   });
-  
-  // Handle service worker updates
-  let refreshing = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!refreshing) {
-      refreshing = true;
-      window.location.reload();
-    }
-  });
-  
+
+  // Reloading after an update is driven by RadiantSWUpdate (sw-update.js),
+  // which reloads only when *this* tab confirmed the update. First installs
+  // and cross-tab updates never force-reload this page.
 }
 	</script>
 

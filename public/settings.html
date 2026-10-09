@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="css/theme/dark-theme.css">
     <script src="js/core/storage.js"></script>
     <script src="js/core/offline-preference.js"></script>
+    <script src="js/core/sw-update.js"></script>
     <script src="js/food/database-utils.js"></script>
     <script src="js/food/fdc-import.js"></script>
 </head>
@@ -57,9 +58,20 @@
         <div style="margin: 20px 0;">
             <label style="display: flex; align-items: center; gap: 10px; font-size: 18px;">
                 <input type="checkbox" id="preferOfflineData" style="transform: scale(1.5);">
-                <span>Always use offline data (faster loading)</span>
+                <span>Always check for updates</span>
             </label>
-            <p class="small-text">When enabled, the app will use cached data instead of fetching from the internet, making it faster but potentially showing older content.</p>
+            <p class="small-text">When enabled, the app checks for new versions and fetches fresh data whenever you're online. Off by default — Radiant normally loads from its saved offline copy. Updates always ask for your confirmation before downloading.</p>
+        </div>
+
+        <h2>App version</h2>
+
+        <div style="margin: 20px 0;">
+            <p id="appVersionStatus" class="small-text">Checking for updates…</p>
+            <div style="display: flex; flex-wrap: wrap; gap: 10px;">
+                <button type="button" class="btn" id="updateToLatest" style="display: none;">Update to latest</button>
+                <button type="button" class="btn" id="switchToPrevious" style="display: none;">Switch to previous version</button>
+                <button type="button" class="btn" id="switchBackToLatest" style="display: none;">Switch back to latest</button>
+            </div>
         </div>
 
         <h2>Data Management</h2>

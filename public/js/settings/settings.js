@@ -19,33 +19,107 @@
             document.getElementById('storageSize').textContent = formattedSize;
         }
 
-        // Load and handle offline preference setting
+        // Load and handle offline preference setting.
+        // The checkbox means "Always check for updates": checked → network-first
+        // (preferOffline=false), unchecked → offline/cached (preferOffline=true).
         document.addEventListener('DOMContentLoaded', function() {
             const preferOfflineCheckbox = document.getElementById('preferOfflineData');
             
             // Load current setting from localStorage
             const currentSetting = RadiantStorage.settings.getPreferOffline();
-            preferOfflineCheckbox.checked = currentSetting;
+            preferOfflineCheckbox.checked = !currentSetting;
             
             // Save setting when checkbox changes and push to service worker
             preferOfflineCheckbox.addEventListener('change', function() {
                 const checked = this.checked;
-                RadiantStorage.settings.setPreferOffline(checked);
+                const preferOffline = !checked;
+                RadiantStorage.settings.setPreferOffline(preferOffline);
 
                 // Notify the active service worker immediately so it picks up
                 // the new preference without waiting for a page reload.
                 if (navigator.serviceWorker && navigator.serviceWorker.controller) {
                     navigator.serviceWorker.controller.postMessage({
                         type: 'SET_OFFLINE_PREFERENCE',
-                        preferOffline: checked,
+                        preferOffline: preferOffline,
                     });
                 }
 
                 const message = checked
-                    ? 'Offline mode enabled! The app will now use cached data for faster loading.'
-                    : 'Online mode enabled! The app will now fetch fresh data from the internet.';
+                    ? 'The app will now check for updates whenever you\'re online.'
+                    : 'The app will now load from its saved offline copy by default.';
                 alert(message);
             });
+
+            // ── App version: update / revert controls ─────────────────────
+            const updateLatestBtn = document.getElementById('updateToLatest');
+            const switchPreviousBtn = document.getElementById('switchToPrevious');
+            const switchLatestBtn = document.getElementById('switchBackToLatest');
+            const appVersionStatusEl = document.getElementById('appVersionStatus');
+
+            async function refreshAppVersionUi() {
+                if (!appVersionStatusEl) return;
+                let registration = null;
+                let info = null;
+                try {
+                    registration = await RadiantSWUpdate.getRegistration();
+                    info = await RadiantSWUpdate.getVersionInfo();
+                } catch (e) {
+                    appVersionStatusEl.textContent = 'Service worker information unavailable.';
+                    return;
+                }
+                const hasWaiting = !!(registration && registration.waiting);
+                const reverted = !!(
+                    info.previousCacheName &&
+                    info.activeCacheName === info.previousCacheName
+                );
+
+                if (updateLatestBtn) {
+                    updateLatestBtn.style.display = hasWaiting ? 'inline-block' : 'none';
+                    updateLatestBtn.onclick = function () {
+                        const worker = registration && registration.waiting;
+                        if (!worker) {
+                            alert('No pending update found.');
+                            return;
+                        }
+                        // On accept, sw-update.js reloads on controllerchange.
+                        RadiantSWUpdate.promptForUpdate(worker);
+                    };
+                }
+                if (switchPreviousBtn) {
+                    switchPreviousBtn.style.display =
+                        info.hasPrevious && !reverted ? 'inline-block' : 'none';
+                    switchPreviousBtn.onclick = async function () {
+                        if (
+                            !confirm(
+                                'Switch back to the previous app version? Your data is not affected.'
+                            )
+                        ) {
+                            return;
+                        }
+                        await RadiantSWUpdate.revert();
+                        location.reload();
+                    };
+                }
+                if (switchLatestBtn) {
+                    switchLatestBtn.style.display = reverted ? 'inline-block' : 'none';
+                    switchLatestBtn.onclick = async function () {
+                        if (!confirm('Switch back to the latest app version?')) return;
+                        await RadiantSWUpdate.useLatest();
+                        location.reload();
+                    };
+                }
+
+                if (reverted) {
+                    appVersionStatusEl.textContent =
+                        'Currently serving the previous app version.';
+                } else if (hasWaiting) {
+                    appVersionStatusEl.textContent =
+                        'A new version is available but not installed yet. Use "Update to latest" to download it.';
+                } else {
+                    appVersionStatusEl.textContent = 'You are on the latest available version.';
+                }
+            }
+            refreshAppVersionUi();
 
             // Initialize storage size display
             updateStorageSize();

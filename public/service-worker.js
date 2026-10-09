@@ -4,8 +4,9 @@
 // their next page load.
 // Note: on localhost the SW is a no-op (IS_DEV below), so you never need to
 // bump this during local development. The default deployed strategy is
-// network-first; cache-first only kicks in when the user enables "offline
-// only" in settings.
+// offline/cache-first; network-first is only used when the user enables
+// "always check for updates" in settings. Updates are always confirmed by
+// the user before any new files are downloaded and take over.
 const CACHE_VERSION = 'vbc02716';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
 
@@ -53,6 +54,7 @@ const FILES_TO_CACHE = [
   'js/core/page-shell.js',
   'js/core/menu.js',
   'js/core/offline-preference.js',
+  'js/core/sw-update.js',
   'js/core/onboarding.js',
   'js/onboarding/navigation.js',
   'js/onboarding/profile.js',
@@ -98,13 +100,36 @@ const FILES_TO_CACHE = [
   'workout/gzcl.html',
 ];
 
-// In-memory offline preference flag.
-// Reset to false when the SW restarts, but pages push the current value via
+// In-memory offline preference flag. Defaults to true (offline-first).
+// Reset when the SW restarts, but pages push the current value via
 // SET_OFFLINE_PREFERENCE on every load (see offline-preference.js).
-let preferOffline = false;
+let preferOffline = true;
 
-// Install: cache all app-shell files using scope-relative URLs so the paths
-// work regardless of whether the app is hosted at / or a subdirectory.
+// The cache the SW currently serves from. Defaults to CACHE_NAME; it is
+// pointed at the previous version's cache when the user reverts.
+let activeCacheName = CACHE_NAME;
+
+// The single most recent previous-version cache kept alive for reverting,
+// or null when there is nothing to revert to.
+let previousCacheName = null;
+
+// Pre-cache every app-shell file into CACHE_NAME using scope-relative URLs
+// so the paths work whether the app is hosted at / or a subdirectory.
+function precacheAll() {
+  return caches.open(CACHE_NAME).then((cache) => {
+    const scope = self.registration.scope;
+    const urls = FILES_TO_CACHE.map((f) => scope + f);
+    console.log('[SW] Caching', urls.length, 'files at scope:', scope);
+    // addAll fetches & caches all URLs; if any fetch fails the whole
+    // install fails (no silent swallowing) so we know when it breaks.
+    return cache.addAll(urls);
+  });
+}
+
+// Install: on first-ever install, pre-cache everything and take control.
+// On an update, install only — do NOT pre-cache and do NOT skipWaiting.
+// The new worker waits until the user confirms in the page, which posts
+// skipWaiting; only then are the new files downloaded and taken over.
 // On localhost (IS_DEV) skip pre-caching entirely — just activate immediately.
 self.addEventListener('install', (event) => {
   if (IS_DEV) {
@@ -112,41 +137,51 @@ self.addEventListener('install', (event) => {
     self.skipWaiting();
     return;
   }
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      const scope = self.registration.scope;
-      const urls = FILES_TO_CACHE.map((f) => scope + f);
-      console.log('[SW] Caching', urls.length, 'files at scope:', scope);
-      // addAll fetches & caches all URLs; if any fetch fails the whole
-      // install fails (no silent swallowing) so we know when it breaks.
-      return cache.addAll(urls);
-    }).then(() => {
-      console.log('[SW] Install complete, skipping waiting');
-      return self.skipWaiting();
-    })
-    // No .catch() here — let install fail loudly if caching fails so it
-    // is visible in DevTools instead of silently serving an empty cache.
-  );
+  if (!self.registration.active) {
+    event.waitUntil(
+      precacheAll().then(() => {
+        console.log('[SW] Install complete, skipping waiting');
+        return self.skipWaiting();
+      })
+      // No .catch() here — let install fail loudly if caching fails so it
+      // is visible in DevTools instead of silently serving an empty cache.
+    );
+  }
 });
 
-// Activate: remove stale caches and claim all open tabs immediately.
+// Activate: remove stale caches and claim all open tabs immediately. Keep
+// CACHE_NAME plus the single most recent other cache (for reverting) and
+// delete everything older.
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     Promise.all([
       self.clients.claim(),
-      caches.keys().then((cacheNames) =>
-        Promise.all(
-          cacheNames
-            .filter((name) => name !== CACHE_NAME)
-            .map((name) => {
-              console.log('[SW] Removing old cache:', name);
-              return caches.delete(name);
-            })
-        )
-      ),
+      caches.keys().then((cacheNames) => {
+        const others = cacheNames.filter((name) => name !== CACHE_NAME);
+        // caches.keys() returns names in creation order, so the last other
+        // cache is the most recent previous version.
+        previousCacheName = others.length > 0 ? others[others.length - 1] : null;
+        const toDelete = others.filter((name) => name !== previousCacheName);
+        return Promise.all(
+          toDelete.map((name) => {
+            console.log('[SW] Removing old cache:', name);
+            return caches.delete(name);
+          })
+        );
+      }),
     ])
   );
 });
+
+// Reply to GET_VERSION_INFO / REVERT / USE_LATEST on the caller's port.
+function replyVersionInfo(port) {
+  port.postMessage({
+    version: CACHE_VERSION,
+    previousCacheName: previousCacheName,
+    activeCacheName: activeCacheName,
+    hasPrevious: !!previousCacheName,
+  });
+}
 
 // Messages from pages.
 self.addEventListener('message', (event) => {
@@ -159,16 +194,69 @@ self.addEventListener('message', (event) => {
     return;
   }
 
-  // Support both string and object forms of skipWaiting.
+  // Restore the persisted reverted cache (SET_ACTIVE_CACHE re-pushed on every
+  // page load). Validate the name still exists; otherwise fall back to latest.
+  if (event.data.type === 'SET_ACTIVE_CACHE') {
+    const name = event.data.cacheName;
+    if (name && typeof name === 'string') {
+      caches.keys().then((keys) => {
+        activeCacheName = keys.indexOf(name) !== -1 ? name : CACHE_NAME;
+        console.log('[SW] activeCacheName set to', activeCacheName);
+      });
+    } else {
+      activeCacheName = CACHE_NAME;
+    }
+    return;
+  }
+
+  // Support both string and object forms of skipWaiting. On a confirmed
+  // update the new CACHE_NAME has no entries yet — download them now, then
+  // take over.
   if (event.data === 'skipWaiting' || event.data.type === 'skipWaiting') {
-    self.skipWaiting();
+    event.waitUntil(
+      caches.open(CACHE_NAME).then((cache) =>
+        cache.keys().then((keys) => {
+          if (keys.length > 0) return null;
+          return precacheAll();
+        })
+      ).then(() => {
+        self.skipWaiting();
+      })
+    );
+    return;
+  }
+
+  const port = event.ports && event.ports[0];
+  if (!port) return;
+
+  if (event.data.type === 'GET_VERSION_INFO') {
+    replyVersionInfo(port);
+    return;
+  }
+
+  if (event.data.type === 'REVERT') {
+    if (previousCacheName) {
+      activeCacheName = previousCacheName;
+      console.log('[SW] Reverted to cache:', activeCacheName);
+    }
+    replyVersionInfo(port);
+    return;
+  }
+
+  if (event.data.type === 'USE_LATEST') {
+    activeCacheName = CACHE_NAME;
+    console.log('[SW] Using latest cache:', activeCacheName);
+    replyVersionInfo(port);
+    return;
   }
 });
 
-// Fetch: two strategies controlled by the in-memory preferOffline flag.
+// Fetch: three strategies controlled by the in-memory state.
+//   reverted (activeCacheName !== CACHE_NAME) → cache-first from the previous
+//     version's cache; network responses are never written into it.
 //   preferOffline=true  → cache-first  (fast, works fully offline)
-//   preferOffline=false → network-first with cache fallback (default; always
-//                         serves fresh content when online, cached when not)
+//   preferOffline=false → network-first with cache fallback (used when the
+//     user enables "always check for updates")
 // On localhost (IS_DEV) all requests pass straight through to the network.
 self.addEventListener('fetch', (event) => {
   // Only handle GET requests.
@@ -186,6 +274,17 @@ self.addEventListener('fetch', (event) => {
 
   if (url.origin !== self.location.origin) {
     event.respondWith(fetch(event.request));
+    return;
+  }
+
+  // Reverted: serve the previous version, cache-first, in every mode.
+  if (activeCacheName !== CACHE_NAME) {
+    event.respondWith(
+      caches.open(activeCacheName)
+        .then((cache) => cache.match(event.request))
+        .then((cached) => cached || fetch(event.request))
+        .catch(() => caches.match(event.request))
+    );
     return;
   }
 
