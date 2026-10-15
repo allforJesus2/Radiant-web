@@ -1657,13 +1657,16 @@ function clearDeletionStack() {
 
 function renderUndoButton() {
     const btn = document.getElementById('undoBtn');
+    const installBtn = document.getElementById('installAppBtn');
     if (!btn) return;
     if (deletionStack.length === 0) {
         btn.style.display = 'none';
+        if (installBtn) installBtn.style.display = '';
         startHintCycle();   // resume hints once undo button goes away
     } else {
         btn.style.display = 'block';
         btn.textContent = `↩ Undo deletion (${deletionStack.length})`;
+        if (installBtn) installBtn.style.display = 'none';
         pauseHints();       // hide hints while undo button is visible
     }
 }

@@ -7,9 +7,13 @@
     <title>Set Meal Times</title>
 </head>
 <body>
+    <header id="dateHeader"></header>
+
+    <!-- Blur overlay for menu popup -->
+    <div class="blur-overlay" id="blurOverlay"></div>
+
     <div class="container">
         <header>
-            <h1>Configure Meal Times</h1>
             <p>Set your preferred time windows for breakfast, lunch, and dinner.</p>
         </header>
 
@@ -499,6 +503,7 @@
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
+            setupHeader('⏰ Set Meal Times');
             loadMealTimes();
             document.getElementById('dynamicMealsToggle').addEventListener('change', () => { toggleDynamicUI(); updatePreview(); });
             // Add event listeners for time inputs
@@ -512,5 +517,7 @@
             document.getElementById('resetToDefaults').addEventListener('click', resetToDefaults);
         });
     </script>
+    <script src="js/core/menu.js"></script>
+
 </body>
 </html> 

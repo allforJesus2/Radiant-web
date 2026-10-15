@@ -120,7 +120,7 @@
             return date.toISOString().split('T')[0];
         }
 
-        function loadNotesForDate(date) {
+        async function loadNotesForDate(date) {
             const dateKey = getDateKey(date);
             let savedNotes = '';
             
@@ -137,7 +137,7 @@
             
             
             document.getElementById('notesTextarea').value = savedNotes;
-            updateDailySummary(date);
+            await updateDailySummary(date);
             loadSleepDataForDate(date);
         }
 
@@ -165,7 +165,7 @@
             calculateSleepDuration();
         }
 
-        function updateDailySummary(date) {
+        async function updateDailySummary(date) {
             const dateKey = getDateKey(date);
             
             // Get food data from foodLog (lowercase)
@@ -184,12 +184,37 @@
                         let totalCarbs = 0;
                         let totalFat = 0;
                         
-                        dayData.forEach(item => {
-                            totalCalories += parseFloat(item.calories) || 0;
-                            totalProtein += parseFloat(item.protein) || 0;
-                            totalCarbs += parseFloat(item.carbs) || 0;
-                            totalFat += parseFloat(item.fat) || 0;
-                        });
+                        // Ensure nutrition cache is loaded
+                        if (typeof loadFoodNamesAndCache === 'function' && nutritionCache.size === 0) {
+                            await loadFoodNamesAndCache();
+                        }
+                        
+                        for (const item of dayData) {
+                            let calories = parseFloat(item.calories) || 0;
+                            let protein = parseFloat(item.protein) || 0;
+                            let carbs = parseFloat(item.carbs) || 0;
+                            let fat = parseFloat(item.fat) || 0;
+                            
+                            // If item has fdc_id but no macros (deleted during migration), calculate from cache
+                            if ((calories === 0 && protein === 0 && carbs === 0 && fat === 0) && item.fdc_id != null) {
+                                const per100 = nutritionCache.get(Number(item.fdc_id));
+                                if (per100) {
+                                    const grams = parseFloat(item.grams) || 0;
+                                    if (grams > 0) {
+                                        const factor = grams / 100;
+                                        calories = per100.calories * factor;
+                                        protein = per100.protein * factor;
+                                        carbs = per100.carbs * factor;
+                                        fat = per100.fat * factor;
+                                    }
+                                }
+                            }
+                            
+                            totalCalories += calories;
+                            totalProtein += protein;
+                            totalCarbs += carbs;
+                            totalFat += fat;
+                        }
                         
                         foodSummary.textContent = `${Math.round(totalCalories)} cal | ${Math.round(totalProtein)}g protein | ${Math.round(totalCarbs)}g carbs | ${Math.round(totalFat)}g fat`;
                     } else {
@@ -317,7 +342,7 @@
             }
         }
 
-        function saveSleepData() {
+        async function saveSleepData() {
             if (!isToday(currentSelectedDate)) {
                 alert('You can only edit sleep data for today\'s date.');
                 return;
@@ -351,7 +376,7 @@
                     saveBtn.style.backgroundColor = '';
                 }, 1000);
             }
-            updateDailySummary(currentSelectedDate);
+            await updateDailySummary(currentSelectedDate);
         }
 
         function saveNotes() {
@@ -600,25 +625,25 @@
             closeDatePicker();
         }
 
-        function previousDay() {
+        async function previousDay() {
             const previousDate = new Date(currentSelectedDate);
             previousDate.setDate(previousDate.getDate() - 1);
             currentSelectedDate = previousDate;
-            loadNotesForDate(currentSelectedDate);
+            await loadNotesForDate(currentSelectedDate);
             updateDateDisplay();
         }
 
-        function nextDay() {
+        async function nextDay() {
             const nextDate = new Date(currentSelectedDate);
             nextDate.setDate(nextDate.getDate() + 1);
             currentSelectedDate = nextDate;
-            loadNotesForDate(currentSelectedDate);
+            await loadNotesForDate(currentSelectedDate);
             updateDateDisplay();
         }
 
-        function returnToToday() {
+        async function returnToToday() {
             currentSelectedDate = new Date();
-            loadNotesForDate(currentSelectedDate);
+            await loadNotesForDate(currentSelectedDate);
             updateDateDisplay();
         }
 
