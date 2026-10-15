@@ -2253,7 +2253,7 @@ function displayFoodItem(item, allFoodItems, scrollableWindow, foodInput, gramsI
     listItem.appendChild(itemActions);
 
     var toggleButton = document.createElement('button');
-    toggleButton.className = 'toggle-actions-btn';
+    toggleButton.className = 'btn toggle-actions-btn';
     toggleButton.setAttribute('aria-label', 'Toggle actions');
     toggleButton.addEventListener('click', function(e) {
         e.stopPropagation();

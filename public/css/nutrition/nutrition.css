@@ -387,18 +387,8 @@
             right: 5px;
             top: 50%;
             transform: translateY(-50%);
-            background: var(--button);
-            border: none;
-            border-radius: 4px;
             font-size: 1em;
-            cursor: pointer;
-            padding: 2px 6px;
             line-height: 1;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-        }
-
-        .toggle-actions-btn:hover {
-            opacity: 1;
         }
 
         .toggle-actions-btn::after {
