@@ -13,7 +13,7 @@
  */
 const MealPlanning = {
     /** Bump when the `meal_planning` shape changes; guards the one-shot migration. */
-    SCHEMA_VERSION: 2,
+    SCHEMA_VERSION: 3,
 
     CATEGORIES: ['breakfast', 'lunch', 'dinner', 'snack'],
     CATEGORY_EMOJIS: {
@@ -143,21 +143,19 @@ const MealPlanning = {
     },
 
     /**
-     * Element names for one slot's carousel: names tagged with `tag` first
-     * (name-sorted), then the rest (name-sorted). Untagged meals stay reachable.
+     * Element names for one slot's carousel: only elements carrying the matching
+     * tag, name-sorted.
      */
     orderElementsForTag(mealPlanning, tag) {
         var tagWanted = String(tag == null ? '' : tag).trim().toLowerCase();
         var names = this.listElementNames(mealPlanning);
         var tagged = [];
-        var rest = [];
         names.forEach(function (name) {
             var element = mealPlanning.mealElements[name] || {};
-            var tags = element.tags || [];
-            if (Array.isArray(tags) && tags.indexOf(tagWanted) !== -1) tagged.push(name);
-            else rest.push(name);
+            var tags = Array.isArray(element.tags) ? element.tags : [];
+            if (tags.indexOf(tagWanted) !== -1) tagged.push(name);
         });
-        return tagged.concat(rest);
+        return tagged;
     },
 
     listTemplateNames(mealPlanning) {
@@ -518,6 +516,26 @@ const MealPlanning = {
                 // Quota/serialisation failure must not block the migration itself.
             }
         }
+
+        // Backfill: tag existing elements by their day-slot assignment
+        this.CATEGORIES.forEach(function (category) {
+            Object.keys(mealPlanning.mealPlanDays).forEach(function (dow) {
+                var slots = self.getDaySlots(mealPlanning, dow);
+                var elementName = slots[category];
+                if (elementName) {
+                    var key = self.findElementByName(mealPlanning, elementName);
+                    if (key) {
+                        var element = mealPlanning.mealElements[key];
+                        if (element) {
+                            if (!Array.isArray(element.tags)) element.tags = [];
+                            if (element.tags.indexOf(category) === -1) {
+                                element.tags.push(category);
+                            }
+                        }
+                    }
+                }
+            });
+        });
 
         RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
         return true;
