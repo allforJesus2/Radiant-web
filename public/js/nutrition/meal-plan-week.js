@@ -5,42 +5,9 @@ document.addEventListener('DOMContentLoaded', function () {
     // Re-read after migration so the module-level object never writes pre-migration data back.
     mealPlanning = MealPlanning.ensureDefaults(MealPlanning.load());
     setupHeader('🍽️ Meal Planning');
-    checkAndResetDailyProgress();
     loadWeekMealPlans();
     setupEventListeners();
 });
-
-function checkAndResetDailyProgress() {
-    const userTime = RadiantStorage.profile.getUserTime() || '01:00';
-    const currentDate = new Date();
-
-    if (!mealPlanning.lastReset) {
-        mealPlanning.lastReset = MealPlanning.getWeekStart(currentDate).toISOString();
-        MealPlanning.save(mealPlanning);
-        return;
-    }
-
-    if (MealPlanning.shouldResetWeekly(userTime, mealPlanning.lastReset, currentDate)) {
-        resetAllCheckmarks();
-        mealPlanning.lastReset = MealPlanning.getWeekStart(currentDate).toISOString();
-        MealPlanning.save(mealPlanning);
-        loadWeekMealPlans();
-    }
-}
-
-function resetAllCheckmarks() {
-    mealPlanning.completedMeals = {};
-    mealPlanning.removedMeals = {};
-    MealPlanning.save(mealPlanning);
-}
-
-function resetMealPlanProgress() {
-    if (confirm('Are you sure you want to reset all meal plan progress? This will clear all completed and removed meals for the entire week.')) {
-        resetAllCheckmarks();
-        loadWeekMealPlans();
-        alert('Meal plan progress has been reset successfully!');
-    }
-}
 
 /** Every element is offered in every slot; the slot only supplies presentation. */
 function fillElementOptions(select) {
@@ -106,21 +73,16 @@ function displayDayMeals(dayMealsContainer, dayOfWeek) {
         if (items.length === 0) return;
         hasAnySlot = true;
 
-        const completedItems = MealPlanning.getSlotCompleted(mealPlanning, dayOfWeek, category);
-        const removedItems = MealPlanning.getSlotRemoved(mealPlanning, dayOfWeek, category);
-
         let categoryTotalCalories = 0;
         let categoryTotalProtein = 0;
         let categoryTotalCarbs = 0;
         let categoryTotalFat = 0;
 
         items.forEach(function (item) {
-            if (!removedItems.includes(item.name)) {
-                categoryTotalCalories += item.calories || 0;
-                categoryTotalProtein += item.protein || 0;
-                categoryTotalCarbs += item.carbs || 0;
-                categoryTotalFat += item.fat || 0;
-            }
+            categoryTotalCalories += item.calories || 0;
+            categoryTotalProtein += item.protein || 0;
+            categoryTotalCarbs += item.carbs || 0;
+            categoryTotalFat += item.fat || 0;
         });
 
         const categoryHeader = document.createElement('div');
@@ -144,11 +106,6 @@ function displayDayMeals(dayMealsContainer, dayOfWeek) {
         items.forEach(function (item) {
             const mealItem = document.createElement('div');
             mealItem.className = 'meal-item';
-            const isCompleted = completedItems.includes(item.name);
-            const isRemoved = removedItems.includes(item.name);
-
-            if (isCompleted) mealItem.classList.add('completed');
-            else if (isRemoved) mealItem.classList.add('removed');
 
             const mealEmoji = typeof getFoodEmoji === 'function' ? getFoodEmoji(item.name) : '';
 
@@ -161,18 +118,6 @@ function displayDayMeals(dayMealsContainer, dayOfWeek) {
             detail.appendChild(document.createElement('br'));
             detail.appendChild(smallText);
             mealItem.appendChild(detail);
-
-            const checkBtn = document.createElement('button');
-            checkBtn.className = 'check-btn ' + (isCompleted ? 'completed' : '');
-            checkBtn.textContent = isCompleted ? '✓' : (isRemoved ? '❌' : '○');
-            if (isCompleted) {
-                checkBtn.addEventListener('click', function () {
-                    uncheckMealItem(item.name, dayOfWeek, category, checkBtn);
-                });
-            } else {
-                checkBtn.disabled = true;
-            }
-            mealItem.appendChild(checkBtn);
 
             dayMealsContainer.appendChild(mealItem);
         });
@@ -199,18 +144,6 @@ function displayDayMeals(dayMealsContainer, dayOfWeek) {
         dailyTotals.style.fontSize = '0.9em';
         dayMealsContainer.appendChild(dailyTotals);
     }
-}
-
-function uncheckMealItem(foodName, dayOfWeek, slot, button) {
-    if (!MealPlanning.removeSlotCompleted(mealPlanning, dayOfWeek, slot, foodName)) return;
-    const mealItem = button.parentElement;
-    // Replacing the button also drops its click handler.
-    const reset = button.cloneNode(true);
-    reset.className = 'check-btn';
-    reset.textContent = '○';
-    reset.disabled = true;
-    mealItem.replaceChild(reset, button);
-    mealItem.classList.remove('completed');
 }
 
 function setupEventListeners() {

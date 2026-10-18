@@ -62,7 +62,7 @@ const RadiantStorage = {
      * mealElements: { '<display name>': { items: [ food item objects ], tags?: [ 'breakfast', ... ] } }
      * mealPlanDays: { <dayOfWeek>: { breakfast: name|null, lunch: .., dinner: .., snack: .. } }
      * mealTemplates: { '<display name>': { breakfast: name|null, .. } }
-     * completedMeals / removedMeals: { <dayOfWeek>: { breakfast: [name], .. } } — per slot.
+     * removedMeals: { <dayOfWeek>: { breakfast: [name], .. } } — per-slot skip state.
      *
      * `mealPlans` is the pre-elements shape; it is kept read-only for a release as
      * a backup source and migrated once into the maps above (see MealPlanning).
@@ -72,10 +72,8 @@ const RadiantStorage = {
         mealElements: {},
         mealTemplates: {},
         mealPlanDays: {},
-        completedMeals: {},
         removedMeals: {},
         mealPlans: {},
-        lastReset: null,
     },
 
     getRaw(key) {

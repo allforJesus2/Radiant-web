@@ -406,8 +406,7 @@ function openMealSaveDialog(mealType, planItems) {
 }
 
 /**
- * Create (or reuse) the element from the dialog's name, point today's slot at it,
- * and mark its items complete so nothing is left on screen twice.
+ * Create (or reuse) the element from the dialog's name and point today's slot at it.
  */
 function submitMealSaveDialog() {
     if (!mealSaveDialogState) return;
@@ -446,9 +445,6 @@ function submitMealSaveDialog() {
     var slot = mealSaveDialogState.mealType.toLowerCase();
     var todayDayOfWeek = new Date().getDay();
     MealPlanning.setDaySlot(mealPlanning, todayDayOfWeek, slot, name);
-    mealSaveDialogState.planItems.forEach(function (item) {
-        MealPlanning.addSlotCompleted(mealPlanning, todayDayOfWeek, slot, item.name);
-    });
     MealPlanning.save(mealPlanning);
 
     var savedMealType = mealSaveDialogState.mealType;
@@ -546,8 +542,6 @@ function applyElementToToday(slot, elementName) {
     var assign = element && Array.isArray(element.items) && element.items.length > 0 ? key : null;
     var todayDayOfWeek = new Date().getDay();
     MealPlanning.setDaySlot(mp, todayDayOfWeek, slot, assign);
-    if (mp.completedMeals && mp.completedMeals[todayDayOfWeek]) delete mp.completedMeals[todayDayOfWeek][slot];
-    if (mp.removedMeals && mp.removedMeals[todayDayOfWeek]) delete mp.removedMeals[todayDayOfWeek][slot];
     MealPlanning.save(mp);
     var foodLog = RadiantStorage.nutrition.getFoodLog();
     displayFoodItems(foodLog[today] || []);
@@ -1578,11 +1572,15 @@ async function displayFoodItems(foodItems) {
             });
 
             if (hasPlannedItemsFor(mealType, mealPlanning, todayDayOfWeek)) {
-                const plannedItems = getPlannedItemsForSlot(mealPlanning, todayDayOfWeek, mealKey);
-                const slotCompleted = MealPlanning.getSlotCompleted(mealPlanning, todayDayOfWeek, mealKey);
+                // Hide planned items whose name is already logged within this
+                // meal's category (per slot — logging at lunch never hides the
+                // same element's dinner quick-add), or was explicitly skipped
+                // via the ❌ button; deleting the logged row brings it back.
+                const loggedNames = meals[mealType].map(i => i.name);
                 const slotRemoved = MealPlanning.getSlotRemoved(mealPlanning, todayDayOfWeek, mealKey);
+                const plannedItems = getPlannedItemsForSlot(mealPlanning, todayDayOfWeek, mealKey);
                 plannedItems
-                    .filter(item => !slotCompleted.includes(item.name) && !slotRemoved.includes(item.name))
+                    .filter(item => loggedNames.indexOf(item.name) === -1 && slotRemoved.indexOf(item.name) === -1)
                     .forEach(function(item) {
                         displayPlannedMealItem(item, itemFragment, foodInput, gramsInput, mealKey);
                     });
@@ -2330,19 +2328,19 @@ function displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, s
     listItem.style.opacity = '0.6';
     listItem.style.backgroundColor = 'rgba(255, 255, 200, 0.15)';
     listItem.style.cursor = 'pointer'; // Make it clear it's clickable
-    
+
     var plannedEmoji = getFoodEmoji(item.name);
     listItem.innerHTML =
         (plannedEmoji ? escapeHtml(plannedEmoji) + ' ' : '') + escapeHtml(item.name) +
         '<br><span class="small-text">' + formatGramsDisplay(item.grams) + 'g, Calories ' + item.calories +
         ', Protein ' + item.protein + 'g, Carbs ' + item.carbs + 'g, Fat ' + item.fat + 'g</span>';
 
-    // Add red X button for removal
+    // Add red X button for removal (skips this planned item for the day)
     var removeButton = document.createElement('button');
     removeButton.textContent = '❌';
     removeButton.className = 'delete-btn';
     removeButton.style.float = 'right';
-    
+
     removeButton.addEventListener('click', function(e) {
         e.stopPropagation();
         removePlannedMealItem(item, slot);
@@ -2362,7 +2360,7 @@ function removePlannedMealItem(item, slot) {
     const todayDayOfWeek = new Date().getDay();
     const mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
 
-    // Removal is per slot, so the same food at another slot is untouched.
+    // Removal is per slot, so the same food at another slot stays visible.
     const removed = MealPlanning.addSlotRemoved(mealPlanning, todayDayOfWeek, slot, item.name);
     if (removed.indexOf(item.name) !== -1) {
         RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
@@ -2375,8 +2373,6 @@ function removePlannedMealItem(item, slot) {
 }
 
 function applyPlannedMealItem(item, slot) {
-    const todayDayOfWeek = new Date().getDay();
-    
     // Add the planned item to the food log
     const foodLog = RadiantStorage.nutrition.getFoodLog();
     if (!foodLog[today]) {
@@ -2403,11 +2399,6 @@ function applyPlannedMealItem(item, slot) {
 
     foodLog[today].push(foodItem);
     RadiantStorage.nutrition.saveFoodLog(foodLog);
-    
-    // Mark complete in this slot only — the same element in another slot stays open.
-    const mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
-    MealPlanning.addSlotCompleted(mealPlanning, todayDayOfWeek, slot, item.name);
-    RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
 
     // Refresh the display
     displayFoodItems(foodLog[today]);
@@ -2512,8 +2503,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 		if (warmEl) warmEl.textContent = msg || '';
 	}
 
-	checkAndResetDailyProgress();
-
 	var foodLog = RadiantStorage.nutrition.getFoodLog();
 	var foodItems = foodLog[today] || [];
 
@@ -2565,93 +2554,6 @@ document.addEventListener('DOMContentLoaded', async function() {
 		}
 	}, 0);
 });
-
-	// Weekly meal plan progress reset functions
-	function checkAndResetDailyProgress() {
-		const userTime = RadiantStorage.profile.getUserTime() || '01:00'; // Default to 1:00 AM
-		const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-		const currentDate = new Date();
-
-		if (!mealPlanning.lastReset) {
-			const weekStart = getWeekStart(currentDate);
-			mealPlanning.lastReset = weekStart.toISOString();
-			RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
-			return false;
-		}
-
-		if (shouldResetWeekly(userTime, mealPlanning.lastReset, currentDate)) {
-			resetAllCheckmarks();
-			const updated = RadiantStorage.nutrition.getMealPlanning();
-			updated.lastReset = getWeekStart(currentDate).toISOString();
-			RadiantStorage.nutrition.saveMealPlanning(updated);
-			return true;
-		}
-		return false;
-	}
-
-	function getWeekStart(date) {
-		// Get the start of the week (Sunday)
-		const d = new Date(date);
-		const day = d.getDay(); // 0 = Sunday, 1 = Monday, etc.
-		const diff = d.getDate() - day; // Days to subtract to get to Sunday
-		const weekStart = new Date(d.setDate(diff));
-		weekStart.setHours(0, 0, 0, 0);
-		return weekStart;
-	}
-
-	function shouldResetWeekly(userTime, lastResetDateString, currentDate) {
-		if (!lastResetDateString) {
-			return false;
-		}
-
-		// Parse userTime (format: "HH:MM")
-		const [userHour, userMinute] = userTime.split(':').map(Number);
-		const userTimeInMinutes = userHour * 60 + userMinute;
-		
-		// Get current time
-		const currentHour = currentDate.getHours();
-		const currentMinute = currentDate.getMinutes();
-		const currentTimeInMinutes = currentHour * 60 + currentMinute;
-		
-		// Get the start of the current week (Sunday)
-		const currentWeekStart = getWeekStart(currentDate);
-		
-		// Parse last reset date
-		let lastResetDate;
-		try {
-			lastResetDate = new Date(lastResetDateString);
-		} catch (e) {
-			// If parsing fails, treat as old format and reset
-			return true;
-		}
-		
-		// Get the start of the week for the last reset
-		const lastResetWeekStart = getWeekStart(lastResetDate);
-		
-		// Check if we're in a new week
-		if (currentWeekStart.getTime() > lastResetWeekStart.getTime()) {
-			// We're in a new week
-			const currentDay = currentDate.getDay(); // 0 = Sunday
-			
-			// If it's Sunday, only reset if we're past the userTime
-			if (currentDay === 0) {
-				return currentTimeInMinutes >= userTimeInMinutes;
-			}
-			// If it's any other day (Monday-Saturday), reset because we're past Sunday userTime
-			return true;
-		}
-		
-		return false;
-	}
-
-	function resetAllCheckmarks() {
-		// Clear completed and removed meals for all days of the week
-		const mealPlanning = RadiantStorage.nutrition.getMealPlanning();
-		mealPlanning.completedMeals = {};
-		mealPlanning.removedMeals = {};
-		RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
-		console.log('Weekly meal plan progress has been reset for the new week.');
-	}
 
 	// One-shot migration into the element/template shape. The legacy per-key
 	// import runs first (inside the same version-guarded pass).

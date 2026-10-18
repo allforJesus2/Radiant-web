@@ -167,7 +167,7 @@ function loadScript(relativePath, context) {
     }
 })();
 
-// --- MealPlanning: elements, templates, per-slot completion, migration ---
+// --- MealPlanning: elements, templates, migration ---
 (function testMealPlanning() {
     function makeLocalStorage() {
         const store = {};
@@ -271,28 +271,6 @@ function loadScript(relativePath, context) {
         assert.strictEqual(MP.getDaySlots(mp, 1).breakfast, 'Morning Oats');
     })();
 
-    // -- per-slot completion is independent --
-    (function testPerSlotCompletion() {
-        const ctx = makeContext();
-        const MP = ctx.MealPlanning;
-        const mp = MP.ensureDefaults({});
-
-        MP.putElement(mp, 'Rice Bowl', [food('Rice', 200, 260)]);
-        MP.setDaySlot(mp, 2, 'lunch', 'Rice Bowl');
-        MP.setDaySlot(mp, 2, 'dinner', 'Rice Bowl');
-
-        MP.addSlotCompleted(mp, 2, 'lunch', 'Rice');
-        sameList(MP.getSlotCompleted(mp, 2, 'lunch'), ['Rice']);
-        sameList(MP.getSlotCompleted(mp, 2, 'dinner'), [],
-            'completing Rice at lunch must not complete Rice at dinner');
-        MP.addSlotRemoved(mp, 2, 'dinner', 'Rice');
-        sameList(MP.getSlotRemoved(mp, 2, 'lunch'), []);
-        sameList(MP.getSlotRemoved(mp, 2, 'dinner'), ['Rice']);
-
-        assert.strictEqual(MP.removeSlotCompleted(mp, 2, 'lunch', 'Rice'), true);
-        assert.strictEqual(MP.removeSlotCompleted(mp, 2, 'lunch', 'Rice'), false);
-    })();
-
     // -- templates --
     (function testTemplates() {
         const ctx = makeContext();
@@ -352,7 +330,6 @@ function loadScript(relativePath, context) {
         const mp = ctx.RadiantStorage.nutrition.getMealPlanning();
 
         assert.strictEqual(mp.schemaVersion, MP.SCHEMA_VERSION);
-        assert.strictEqual(mp.lastReset, '2024-01-01T00:00:00.000Z');
         assert.ok(mp.mealElements['Lean Day · Breakfast'], 'elements named "Plan · Slot"');
         assert.ok(mp.mealElements['Lean Day · Lunch']);
         assert.ok(mp.mealElements['Heavy Day · Dinner']);
@@ -371,11 +348,11 @@ function loadScript(relativePath, context) {
         sameList(MP.listTemplateNames(mp), ['Heavy Day', 'Lean Day']);
         assert.strictEqual(MP.getTemplate(mp, 'Lean Day').lunch, 'Lean Day · Lunch');
 
-        // Completion is attributed to the slot whose element holds the item.
-        sameList(MP.getSlotCompleted(mp, 1, 'breakfast'), ['Oats']);
-        sameList(MP.getSlotCompleted(mp, 1, 'lunch'), []);
-        sameList(MP.getSlotRemoved(mp, 5, 'lunch'), ['Rice Bowl']);
-        sameList(MP.getSlotRemoved(mp, 5, 'dinner'), []);
+        // The completed/reset progression fields are purged from the new state;
+        // removedMeals is kept (per-slot skip state) and reset to the new shape.
+        assert.strictEqual(mp.completedMeals, undefined);
+        assert.strictEqual(mp.lastReset, undefined);
+        sameList(mp.removedMeals, {});
 
         // The untouched original is kept as a backup, and migration runs once.
         const backup = ctx.RadiantStorage.nutrition.getMealPlanningBackup();
@@ -398,10 +375,11 @@ function loadScript(relativePath, context) {
 
         assert.strictEqual(MP.migrateToElements(), true);
         const mp = ctx.RadiantStorage.nutrition.getMealPlanning();
-        assert.strictEqual(mp.lastReset, '2024-02-02T00:00:00.000Z');
+        assert.strictEqual(mp.lastReset, undefined, 'legacy reset value is not carried over');
         assert.strictEqual(MP.getDaySlots(mp, 1).breakfast, 'Lean Day · Breakfast');
-        sameList(MP.getSlotCompleted(mp, 1, 'breakfast'), ['Oats']);
         assert.strictEqual(ctx.localStorage.getItem('mealPlans'), null, 'legacy keys removed');
+        assert.strictEqual(ctx.localStorage.getItem('completedMeals_day_1'), null, 'legacy completion key removed');
+        assert.strictEqual(ctx.localStorage.getItem('lastMealPlanReset'), null, 'legacy reset key removed');
     })();
 
     // -- an empty profile migrates without errors --

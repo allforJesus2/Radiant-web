@@ -412,7 +412,9 @@
                         return;
                     }
 
-                    RadiantStorage.importAll(parsed.localStorage);
+                    // `localStorage` here is the backup envelope's data field (see RadiantStorage.backup),
+                    // not the browser API — route it through RadiantStorage.
+                    RadiantStorage.importAll(parsed['localStorage']);
 
                     if (parsed.scannedFoods.length > 0) {
                         if (typeof importScannedFoods !== 'function') {

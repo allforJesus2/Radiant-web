@@ -8,8 +8,7 @@
  *   element name or null. Any element may fill any slot.
  * - A **template** is a named day: the same four-slot shape as `mealPlanDays`.
  *
- * completedMeals / removedMeals are per slot, so completing "Rice" at lunch never
- * marks "Rice" at dinner complete.
+ * removedMeals are per slot, so skipping "Rice" at lunch never hides "Rice" at dinner.
  */
 const MealPlanning = {
     /** Bump when the `meal_planning` shape changes; guards the one-shot migration. */
@@ -52,11 +51,11 @@ const MealPlanning = {
         if (!mealPlanning) mealPlanning = {};
         if (!mealPlanning.mealElements) mealPlanning.mealElements = {};
         if (!mealPlanning.mealTemplates) mealPlanning.mealTemplates = {};
-        if (!mealPlanning.completedMeals) mealPlanning.completedMeals = {};
-        if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
         if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
         if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
-        if (!mealPlanning.lastReset) mealPlanning.lastReset = null;
+        if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
+        delete mealPlanning.completedMeals;
+        delete mealPlanning.lastReset;
         return mealPlanning;
     },
 
@@ -202,13 +201,6 @@ const MealPlanning = {
         return element.items;
     },
 
-    getSlotCompleted(mealPlanning, dayOfWeek, category) {
-        var completed = (mealPlanning && mealPlanning.completedMeals) || {};
-        var day = completed[dayOfWeek];
-        var list = day && day[category];
-        return Array.isArray(list) ? list : [];
-    },
-
     getSlotRemoved(mealPlanning, dayOfWeek, category) {
         var removed = (mealPlanning && mealPlanning.removedMeals) || {};
         var day = removed[dayOfWeek];
@@ -216,27 +208,7 @@ const MealPlanning = {
         return Array.isArray(list) ? list : [];
     },
 
-    /** Mark an item complete in one slot only. */
-    addSlotCompleted(mealPlanning, dayOfWeek, category, itemName) {
-        this.ensureDefaults(mealPlanning);
-        if (!mealPlanning.completedMeals[dayOfWeek]) mealPlanning.completedMeals[dayOfWeek] = {};
-        if (!Array.isArray(mealPlanning.completedMeals[dayOfWeek][category])) {
-            mealPlanning.completedMeals[dayOfWeek][category] = [];
-        }
-        var list = mealPlanning.completedMeals[dayOfWeek][category];
-        if (list.indexOf(itemName) === -1) list.push(itemName);
-        return list;
-    },
-
-    removeSlotCompleted(mealPlanning, dayOfWeek, category, itemName) {
-        var list = this.getSlotCompleted(mealPlanning, dayOfWeek, category);
-        var index = list.indexOf(itemName);
-        if (index === -1) return false;
-        list.splice(index, 1);
-        this.save(mealPlanning);
-        return true;
-    },
-
+    /** Skip an item in one slot only. */
     addSlotRemoved(mealPlanning, dayOfWeek, category, itemName) {
         this.ensureDefaults(mealPlanning);
         if (!mealPlanning.removedMeals[dayOfWeek]) mealPlanning.removedMeals[dayOfWeek] = {};
@@ -427,7 +399,7 @@ const MealPlanning = {
 
     /**
      * One-shot conversion of the old plan shape (plan-name per day, flat per-day
-     * completion lists) into elements + templates + per-slot completion.
+     * completion lists) into elements + templates + per-slot planning.
      *
      * A backup of the untouched original is written first and the old `mealPlans`
      * field is left in place, so nothing is lost if the result looks wrong.
@@ -442,15 +414,12 @@ const MealPlanning = {
 
         var legacyPlans = mealPlanning.mealPlans || {};
         var self = this;
-        var legacyCompleted = mealPlanning.completedMeals || {};
-        var legacyRemoved = mealPlanning.removedMeals || {};
         // Legacy day assignments are plan names; capture them before the reset.
         var legacyDays = mealPlanning.mealPlanDays || {};
 
         mealPlanning.mealElements = {};
         mealPlanning.mealTemplates = {};
         mealPlanning.mealPlanDays = {};
-        mealPlanning.completedMeals = {};
         mealPlanning.removedMeals = {};
 
         var planNames = Object.keys(legacyPlans);
@@ -482,30 +451,6 @@ const MealPlanning = {
             daySlots[day] = Object.assign({}, slots);
         }
         mealPlanning.mealPlanDays = daySlots;
-
-        for (var d = 0; d < 7; d++) {
-            var slotsForDay = daySlots[d];
-            var completedNames = Array.isArray(legacyCompleted[d]) ? legacyCompleted[d] : [];
-            var removedNames = Array.isArray(legacyRemoved[d]) ? legacyRemoved[d] : [];
-            var completedBySlot = {};
-            var removedBySlot = {};
-            self.CATEGORIES.forEach(function (category) {
-                var elementName = slotsForDay[category];
-                var element = elementName ? mealPlanning.mealElements[elementName] : null;
-                var itemNames = element && Array.isArray(element.items)
-                    ? element.items.map(function (item) { return item && item.name; })
-                    : [];
-                // A name can occur in more than one slot; attribute it to each.
-                completedBySlot[category] = completedNames.filter(function (name) {
-                    return itemNames.indexOf(name) !== -1;
-                });
-                removedBySlot[category] = removedNames.filter(function (name) {
-                    return itemNames.indexOf(name) !== -1;
-                });
-            });
-            mealPlanning.completedMeals[d] = completedBySlot;
-            mealPlanning.removedMeals[d] = removedBySlot;
-        }
 
         mealPlanning.schemaVersion = this.SCHEMA_VERSION;
 
@@ -552,7 +497,9 @@ const MealPlanning = {
     /**
      * Fold the pre-consolidation per-key storage (`mealPlans`, `mealPlan_day_3`,
      * `completedMeals_day_3`, ...) into the consolidated object, then drop the
-     * legacy keys. Idempotent: legacy keys are removed once consumed.
+     * legacy keys. Legacy progression keys are detected (so they are removed)
+     * but their values are discarded. Idempotent: legacy keys are removed once
+     * consumed.
      */
     importLegacyKeys(mealPlanning) {
         var hasOldData = RadiantStorage.nutrition.getLegacyKey('mealPlans') ||
@@ -574,20 +521,7 @@ const MealPlanning = {
         for (var day = 0; day < 7; day++) {
             var dayMealPlan = RadiantStorage.nutrition.getLegacyKey('mealPlan_day_' + day);
             if (dayMealPlan) mealPlanning.mealPlanDays[day] = dayMealPlan;
-
-            var completedMeals = RadiantStorage.nutrition.getLegacyJSON('completedMeals_day_' + day, []);
-            if (Array.isArray(completedMeals) && completedMeals.length > 0) {
-                mealPlanning.completedMeals[day] = completedMeals;
-            }
-
-            var removedMeals = RadiantStorage.nutrition.getLegacyJSON('removedMeals_day_' + day, []);
-            if (Array.isArray(removedMeals) && removedMeals.length > 0) {
-                mealPlanning.removedMeals[day] = removedMeals;
-            }
         }
-
-        var lastReset = RadiantStorage.nutrition.getLegacyKey('lastMealPlanReset');
-        if (lastReset) mealPlanning.lastReset = lastReset;
 
         RadiantStorage.nutrition.removeLegacyKey('mealPlans');
         RadiantStorage.nutrition.removeLegacyKey('lastMealPlanReset');
@@ -613,38 +547,5 @@ const MealPlanning = {
     formatTotalsSpan(calories, protein, carbs, fat) {
         return '<span style="font-size: 0.8em; color: #888;">Total: ' +
             this.formatTotals(calories, protein, carbs, fat) + '</span>';
-    },
-
-    getWeekStart(date) {
-        const d = new Date(date);
-        const day = d.getDay();
-        const diff = d.getDate() - day;
-        const weekStart = new Date(d.setDate(diff));
-        weekStart.setHours(0, 0, 0, 0);
-        return weekStart;
-    },
-
-    shouldResetWeekly(userTime, lastResetDateString, currentDate) {
-        if (!lastResetDateString) return false;
-
-        const parts = userTime.split(':').map(Number);
-        const userTimeInMinutes = parts[0] * 60 + parts[1];
-        const currentTimeInMinutes = currentDate.getHours() * 60 + currentDate.getMinutes();
-        const currentWeekStart = this.getWeekStart(currentDate);
-
-        let lastResetDate;
-        try {
-            lastResetDate = new Date(lastResetDateString);
-        } catch (_) {
-            return true;
-        }
-
-        const lastResetWeekStart = this.getWeekStart(lastResetDate);
-        if (currentWeekStart.getTime() <= lastResetWeekStart.getTime()) return false;
-
-        if (currentDate.getDay() === 0) {
-            return currentTimeInMinutes >= userTimeInMinutes;
-        }
-        return true;
     },
 };
