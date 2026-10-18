@@ -16,6 +16,7 @@ const RadiantStorage = {
         DYNAMIC_MEAL_CONFIG: 'dynamicMealConfig',
         MEAL_PLANNING: 'meal_planning',
         MEAL_PLANNING_LEGACY_BACKUP: 'meal_planning_legacy_backup',
+        MEAL_PLAN_DAY_COUNT: 'mealPlanDayCount',
         PREFERRED_UNIT: 'preferredUnit',
         PREFER_OFFLINE: 'preferOfflineData',
         RADIANT_ACTIVE_CACHE: 'radiantActiveCacheName',
@@ -56,22 +57,28 @@ const RadiantStorage = {
         snack: { start: '14:00', end: '17:00' },
     },
 
+    DEFAULT_MEAL_PLAN_DAY_COUNT: 3,
+
     /**
      * Shape of the `meal_planning` store.
      *
      * mealElements: { '<display name>': { items: [ food item objects ], tags?: [ 'breakfast', ... ] } }
-     * mealPlanDays: { <dayOfWeek>: { breakfast: name|null, lunch: .., dinner: .., snack: .. } }
+     * mealPlanDays: [ { breakfast: name|null, lunch: .., dinner: .., snack: .. }, ... ] — the
+     *                rotation array. Index 0 is "Day 1" (today's column); a calendar date maps
+     *                to that index by offset from the app's canonical today, wrapping around
+     *                `mealPlanDays.length` (see MealPlanning).
      * mealTemplates: { '<display name>': { breakfast: name|null, .. } }
-     * removedMeals: { <dayOfWeek>: { breakfast: [name], .. } } — per-slot skip state.
+     * removedMeals: { breakfast: [name], .. } — current-day skip state, flat per slot (no date
+     *                keys); cleared whenever the app's canonical today rolls over.
      *
      * `mealPlans` is the pre-elements shape; it is kept read-only for a release as
      * a backup source and migrated once into the maps above (see MealPlanning).
      */
     DEFAULT_MEAL_PLANNING: {
-        schemaVersion: 2,
+        schemaVersion: 4,
         mealElements: {},
         mealTemplates: {},
-        mealPlanDays: {},
+        mealPlanDays: [],
         removedMeals: {},
         mealPlans: {},
     },
@@ -317,6 +324,17 @@ const RadiantStorage = {
 
         saveMealPlanningBackup(backup) {
             RadiantStorage.setJSON(RadiantStorage.KEYS.MEAL_PLANNING_LEGACY_BACKUP, backup);
+        },
+
+        getMealPlanDayCount() {
+            const raw = parseInt(RadiantStorage.getRaw(RadiantStorage.KEYS.MEAL_PLAN_DAY_COUNT), 10);
+            if (isNaN(raw)) return RadiantStorage.DEFAULT_MEAL_PLAN_DAY_COUNT;
+            return Math.max(1, Math.min(14, raw));
+        },
+
+        setMealPlanDayCount(n) {
+            const count = Math.max(1, Math.min(14, Math.round(Number(n)) || RadiantStorage.DEFAULT_MEAL_PLAN_DAY_COUNT));
+            RadiantStorage.setRaw(RadiantStorage.KEYS.MEAL_PLAN_DAY_COUNT, String(count));
         },
 
         getPreferredUnit() {

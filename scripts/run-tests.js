@@ -240,9 +240,9 @@ function loadScript(relativePath, context) {
 
         MP.putElement(mp, 'Oats Bowl', [food('Oats', 60, 150)]);
         MP.putElement(mp, 'Toast', [food('Toast', 40, 100)]);
+        MP.setDaySlot(mp, 0, 'breakfast', 'Oats Bowl');
         MP.setDaySlot(mp, 1, 'breakfast', 'Oats Bowl');
-        MP.setDaySlot(mp, 3, 'breakfast', 'Oats Bowl');
-        MP.setDaySlot(mp, 5, 'snack', 'Oats Bowl');
+        MP.setDaySlot(mp, 2, 'snack', 'Oats Bowl');
         MP.putTemplate(mp, 'Lean Day', { breakfast: 'Oats Bowl', snack: 'Oats Bowl' });
 
         const referrers = MP.countElementReferences(mp, 'Oats Bowl');
@@ -251,10 +251,10 @@ function loadScript(relativePath, context) {
 
         assert.strictEqual(MP.renameElement(mp, 'Oats Bowl', 'Morning Oats'), 'Morning Oats');
         assert.strictEqual(MP.getElement(mp, 'Oats Bowl'), null);
-        for (const dow of [1, 3, 5]) {
-            assert.ok(MP.getSlotItems(mp, dow, 'breakfast') || MP.getSlotItems(mp, dow, 'snack'),
-                'day ' + dow + ' must still resolve an element');
-            const slots = MP.getDaySlots(mp, dow);
+        for (const index of [0, 1, 2]) {
+            assert.ok(MP.getSlotItems(mp, index, 'breakfast') || MP.getSlotItems(mp, index, 'snack'),
+                'day ' + index + ' must still resolve an element');
+            const slots = MP.getDaySlots(mp, index);
             assert.ok(slots.breakfast === 'Morning Oats' || slots.snack === 'Morning Oats');
         }
         assert.strictEqual(MP.getTemplate(mp, 'Lean Day').breakfast, 'Morning Oats');
@@ -286,7 +286,7 @@ function loadScript(relativePath, context) {
             dinner: 'Empty Meal',
         });
 
-        const slots = MP.applyTemplate(mp, 4, 'Lean Day');
+        const slots = MP.applyTemplate(mp, 2, 'Lean Day');
         assert.strictEqual(slots.breakfast, 'Oats Bowl');
         assert.strictEqual(slots.lunch, 'Curry');
         assert.strictEqual(slots.dinner, null, 'an element with no items is skipped');
@@ -322,6 +322,13 @@ function loadScript(relativePath, context) {
             completedMeals: { 1: ['Oats'] },
             removedMeals: { 5: ['Rice Bowl'] },
             lastReset: '2024-01-01T00:00:00.000Z',
+            // Element-based data already written by a v3 user must survive.
+            mealElements: {
+                'Existing Meal': { items: [food('Eggs', 50, 80)] },
+            },
+            mealTemplates: {
+                'Existing Tpl': { breakfast: 'Existing Meal', lunch: null, dinner: null, snack: null },
+            },
         };
         const ctx = makeContext({ meal_planning: JSON.stringify(legacy) });
         const MP = ctx.MealPlanning;
@@ -333,23 +340,25 @@ function loadScript(relativePath, context) {
         assert.ok(mp.mealElements['Lean Day · Breakfast'], 'elements named "Plan · Slot"');
         assert.ok(mp.mealElements['Lean Day · Lunch']);
         assert.ok(mp.mealElements['Heavy Day · Dinner']);
-        assert.strictEqual(Object.keys(mp.mealElements).length, 5, 'only non-empty slots make elements');
+        assert.strictEqual(Object.keys(mp.mealElements).length, 6, 'legacy slots + kept reusable element');
+        assert.ok(Array.isArray(mp.mealElements['Lean Day · Breakfast'].tags) &&
+            mp.mealElements['Lean Day · Breakfast'].tags.indexOf('breakfast') !== -1,
+            'migrated elements are tagged by slot');
 
-        // Both assigned days resolve to all four slots.
-        const monday = MP.getDaySlots(mp, 1);
-        assert.strictEqual(monday.breakfast, 'Lean Day · Breakfast');
-        assert.strictEqual(monday.lunch, 'Lean Day · Lunch');
-        assert.strictEqual(monday.dinner, null);
-        assert.strictEqual(monday.snack, null);
-        assert.strictEqual(MP.getDaySlots(mp, 5).dinner, 'Heavy Day · Dinner');
-        sameList(MP.getDaySlots(mp, 3), MP.emptyDay());
+        // The rotation starts as empty days at the default day count; the old
+        // weekday assignments are discarded entirely.
+        assert.ok(Array.isArray(mp.mealPlanDays), 'rotation is an array');
+        assert.strictEqual(mp.mealPlanDays.length, 3, 'seeded at the default day count');
+        sameList(mp.mealPlanDays[0], MP.emptyDay(), 'no weekday assignment survives');
+        sameList(mp.mealPlanDays[2], MP.emptyDay());
 
-        // A registered template per plan.
-        sameList(MP.listTemplateNames(mp), ['Heavy Day', 'Lean Day']);
+        // Reusable assets survive: kept elements/templates plus legacy-plan folds.
+        assert.ok(mp.mealElements['Existing Meal'], 'v3 element kept');
+        sameList(MP.listTemplateNames(mp), ['Existing Tpl', 'Heavy Day', 'Lean Day']);
         assert.strictEqual(MP.getTemplate(mp, 'Lean Day').lunch, 'Lean Day · Lunch');
 
         // The completed/reset progression fields are purged from the new state;
-        // removedMeals is kept (per-slot skip state) and reset to the new shape.
+        // removedMeals is reset to the flat, current-day-only shape.
         assert.strictEqual(mp.completedMeals, undefined);
         assert.strictEqual(mp.lastReset, undefined);
         sameList(mp.removedMeals, {});
@@ -376,10 +385,84 @@ function loadScript(relativePath, context) {
         assert.strictEqual(MP.migrateToElements(), true);
         const mp = ctx.RadiantStorage.nutrition.getMealPlanning();
         assert.strictEqual(mp.lastReset, undefined, 'legacy reset value is not carried over');
-        assert.strictEqual(MP.getDaySlots(mp, 1).breakfast, 'Lean Day · Breakfast');
+        assert.ok(Array.isArray(mp.mealPlanDays), 'rotation is an array');
+        assert.strictEqual(mp.mealPlanDays.length, 3);
+        assert.strictEqual(mp.mealPlanDays[0].breakfast, null, 'legacy day assignment is discarded');
+        assert.ok(mp.mealElements['Lean Day · Breakfast'], 'reusable meal was folded in from mealPlans');
+        assert.strictEqual(MP.getTemplate(mp, 'Lean Day').breakfast, 'Lean Day · Breakfast');
         assert.strictEqual(ctx.localStorage.getItem('mealPlans'), null, 'legacy keys removed');
         assert.strictEqual(ctx.localStorage.getItem('completedMeals_day_1'), null, 'legacy completion key removed');
         assert.strictEqual(ctx.localStorage.getItem('lastMealPlanReset'), null, 'legacy reset key removed');
+    })();
+
+    // -- rotation index math is pure and wraps at N --
+    (function testRotationIndexMath() {
+        const ctx = makeContext();
+        const MP = ctx.MealPlanning;
+        const mp = MP.ensureDefaults({});
+        MP.setDayCount(mp, 3);
+
+        const base = MP.rotationIndexForDateKey(mp, '2026-01-01');
+        assert.ok(base >= 0 && base <= 2, 'index within range');
+        assert.strictEqual(MP.rotationIndexForDateKey(mp, '2026-01-01'), base, 'same date → same index');
+        assert.strictEqual(MP.localDayNumber('2026-01-02'), MP.localDayNumber('2026-01-01') + 1,
+            'consecutive calendar days advance by one');
+        assert.strictEqual(MP.rotationIndexForDateKey(mp, '2026-01-02'), (base + 1) % 3, 'next day advances');
+        assert.strictEqual(MP.rotationIndexForDateKey(mp, '2026-01-07'), base, 'wraps at N boundaries');
+        assert.strictEqual(MP.rotationIndexForDateKey(mp, '2025-12-31'), (base + 2) % 3, 'wraps backwards');
+
+        // No plan at all → -1 (not an index).
+        assert.strictEqual(MP.rotationIndexForDateKey(MP.ensureDefaults({}), '2026-01-01'), -1);
+
+        // A single-day plan maps every date to 0.
+        MP.setDayCount(mp, 1);
+        assert.strictEqual(MP.rotationIndexForDateKey(mp, '2026-03-15'), 0);
+    })();
+
+    // -- day count resizes the rotation array --
+    (function testSetDayCount() {
+        const ctx = makeContext();
+        const MP = ctx.MealPlanning;
+        const mp = MP.ensureDefaults({});
+        MP.putElement(mp, 'A', [food('A', 10, 100)]);
+        MP.setDaySlot(mp, 0, 'breakfast', 'A');
+        assert.strictEqual(MP.getDayCount(mp), 1, 'setDaySlot pads to index+1');
+
+        MP.setDayCount(mp, 5);
+        assert.strictEqual(MP.getDayCount(mp), 5, 'grows');
+        sameList(mp.mealPlanDays[4], MP.emptyDay(), 'padding uses emptyDay');
+        assert.strictEqual(mp.mealPlanDays[0].breakfast, 'A', 'existing assignment survives growth');
+
+        MP.setDayCount(mp, 2);
+        assert.strictEqual(MP.getDayCount(mp), 2, 'truncates the tail');
+        assert.strictEqual(mp.mealPlanDays[1].breakfast, null);
+
+        MP.setDayCount(mp, 50);
+        assert.strictEqual(MP.getDayCount(mp), 14, 'clamped to the hard cap');
+
+        MP.setDayCount(mp, 0);
+        assert.strictEqual(MP.getDayCount(mp), 0, 'can be emptied');
+        assert.strictEqual(MP.rotationIndexForDateKey(mp, '2026-01-01'), -1, 'empty plan has no index');
+    })();
+
+    // -- removed state is flat per slot, current day only --
+    (function testRemovedMealsFlat() {
+        const ctx = makeContext();
+        const MP = ctx.MealPlanning;
+        const mp = MP.ensureDefaults({});
+        MP.addSlotRemoved(mp, 'lunch', 'Rice');
+        MP.addSlotRemoved(mp, 'lunch', 'Rice');
+        MP.addSlotRemoved(mp, 'lunch', 'Beans');
+        sameList(MP.getSlotRemoved(mp, 'lunch'), ['Rice', 'Beans'], 'dedupes and preserves order');
+        sameList(MP.getSlotRemoved(mp, 'dinner'), [], 'other slot untouched');
+
+        MP.addSlotRemoved(mp, 'dinner', 'Rice');
+        sameList(MP.getSlotRemoved(mp, 'dinner'), ['Rice'], 'skips are per slot');
+
+        MP.clearRemovedMeals(mp);
+        sameList(MP.getSlotRemoved(mp, 'lunch'), [], 'rolled over → cleared');
+        sameList(MP.getSlotRemoved(mp, 'dinner'), [], 'rolled over → cleared');
+        sameList(mp.removedMeals, {});
     })();
 
     // -- an empty profile migrates without errors --
@@ -390,6 +473,9 @@ function loadScript(relativePath, context) {
         const mp = ctx.RadiantStorage.nutrition.getMealPlanning();
         sameList(MP.listElementNames(mp), []);
         sameList(MP.listTemplateNames(mp), []);
+        assert.strictEqual(mp.schemaVersion, MP.SCHEMA_VERSION);
+        assert.ok(Array.isArray(mp.mealPlanDays) && mp.mealPlanDays.length === 3,
+            'fresh profiles get the default rotation length');
         assert.strictEqual(ctx.RadiantStorage.nutrition.getMealPlanningBackup(), null);
     })();
 })();

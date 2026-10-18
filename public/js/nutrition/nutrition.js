@@ -35,6 +35,13 @@
 		if (key === today) return;
 		today = key;
 		RadiantStorage.nutrition.setToday(today);
+		// Yesterday's meal-plan skips never apply today — the skip map is flat
+		// per slot and only ever holds the current day's state.
+		try {
+			MealPlanning.clearRemovedMeals(MealPlanning.load());
+		} catch (e) {
+			// A broken meal-planning store must not block the date rollover.
+		}
 		var foodLog = RadiantStorage.nutrition.getFoodLog();
 		displayFoodItems(foodLog[today] || []);
 		if (typeof setupHeader === 'function') setupHeader();
@@ -327,9 +334,9 @@ function calculateMealTotals(foodItems, mealType) {
     };
 }
 
-/** Items planned in one slot, or null when the slot is empty or dangling. */
-function getPlannedItemsForSlot(mealPlanning, dayOfWeek, slot) {
-    return MealPlanning.getSlotItems(mealPlanning, dayOfWeek, slot);
+/** Items planned in one rotation slot, or null when the slot is empty or dangling. */
+function getPlannedItemsForSlot(mealPlanning, index, slot) {
+    return MealPlanning.getSlotItems(mealPlanning, index, slot);
 }
 
 function foodLogItemToPlanItem(item) {
@@ -443,8 +450,8 @@ function submitMealSaveDialog() {
     MealPlanning.addElementTag(mealPlanning, name, mealSaveDialogState.mealType.toLowerCase());
 
     var slot = mealSaveDialogState.mealType.toLowerCase();
-    var todayDayOfWeek = new Date().getDay();
-    MealPlanning.setDaySlot(mealPlanning, todayDayOfWeek, slot, name);
+    var todayIndex = MealPlanning.rotationIndexForDateKey(mealPlanning, MealPlanning.getTodayDateKey());
+    if (todayIndex > -1) MealPlanning.setDaySlot(mealPlanning, todayIndex, slot, name);
     MealPlanning.save(mealPlanning);
 
     var savedMealType = mealSaveDialogState.mealType;
@@ -524,7 +531,7 @@ function initMealPlanNavForSlot(slot) {
     mealPlanNavInit[slot] = true;
     var mp = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
     var names = mealPlanElementCycle(mp, slot);
-    var assigned = MealPlanning.getDaySlots(mp, new Date().getDay())[slot];
+    var assigned = MealPlanning.getDaySlots(mp, MealPlanning.rotationIndexForDateKey(mp, MealPlanning.getTodayDateKey()))[slot];
     mealPlanNavIndex[slot] = -1;
     if (!assigned) return;
     for (var i = 0; i < names.length; i++) {
@@ -540,8 +547,8 @@ function applyElementToToday(slot, elementName) {
     var key = elementName ? MealPlanning.findElementByName(mp, elementName) : null;
     var element = key ? MealPlanning.getElement(mp, key) : null;
     var assign = element && Array.isArray(element.items) && element.items.length > 0 ? key : null;
-    var todayDayOfWeek = new Date().getDay();
-    MealPlanning.setDaySlot(mp, todayDayOfWeek, slot, assign);
+    var todayIndex = MealPlanning.rotationIndexForDateKey(mp, MealPlanning.getTodayDateKey());
+    if (todayIndex > -1) MealPlanning.setDaySlot(mp, todayIndex, slot, assign);
     MealPlanning.save(mp);
     var foodLog = RadiantStorage.nutrition.getFoodLog();
     displayFoodItems(foodLog[today] || []);
@@ -673,9 +680,9 @@ function ensureMealHeaderActions(mealHeaderContainer, mealType, canSave) {
  * Planned macros for one slot: the day's element for that slot (constant target,
  * not reduced by completed/removed items).
  */
-function calculatePlannedMealTotals(mealType, mealPlanning, dayOfWeek) {
+function calculatePlannedMealTotals(mealType, mealPlanning, index) {
     const mealKey = mealType.toLowerCase();
-    const planned = getPlannedItemsForSlot(mealPlanning, dayOfWeek, mealKey);
+    const planned = getPlannedItemsForSlot(mealPlanning, index, mealKey);
     if (!planned) return null;
     const totals = planned.reduce((acc, item) => ({
         calories: acc.calories + (item.calories || 0),
@@ -1414,13 +1421,13 @@ function buildMealHeaderHtml(mealType, timeRange, loggedTotals, plannedTotals) {
 }
 
 function updateMealHeaderCaloriesFromEnriched(scrollableWindow, enrichedList) {
-    var todayDayOfWeek = new Date().getDay();
     var mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    var todayIndex = MealPlanning.rotationIndexForDateKey(mealPlanning, MealPlanning.getTodayDateKey());
     scrollableWindow.querySelectorAll('.meal-header-container[data-meal]').forEach(function(container) {
         var mealType = container.dataset.meal;
         if (!mealType) return;
         var mealTotals = calculateMealTotals(enrichedList, mealType);
-        var plannedTotals = calculatePlannedMealTotals(mealType, mealPlanning, todayDayOfWeek);
+        var plannedTotals = calculatePlannedMealTotals(mealType, mealPlanning, todayIndex);
         var mealHeader = container.querySelector('.meal-header');
         if (!mealHeader) return;
         var timeRange = getMealTimeRange(mealType);
@@ -1453,9 +1460,9 @@ async function displayFoodItems(foodItems) {
         if (el) collapseState[m] = el.style.display;
     });
 
-    // Check for meal plan items for today
-    const todayDayOfWeek = new Date().getDay();
+    // Check for meal plan items for today's rotation slot
     const mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
+    const todayIndex = MealPlanning.rotationIndexForDateKey(mealPlanning, MealPlanning.getTodayDateKey());
 
     // Filter items based on selected meal
     let itemsToDisplay = foodItems;
@@ -1476,7 +1483,7 @@ async function displayFoodItems(foodItems) {
         mealOrder.forEach(mealType => {
             const hasRegularItems = meals[mealType].length > 0;
             const shouldShowSection = mealType === 'Breakfast' || mealType === 'Lunch' || mealType === 'Dinner' ||
-                                     hasRegularItems || hasPlannedItemsFor(mealType, mealPlanning, todayDayOfWeek) ||
+                                     hasRegularItems || hasPlannedItemsFor(mealType, mealPlanning, todayIndex) ||
                                      (mealType === 'Snack' && hasAnyElements);
             if (shouldShowSection) visibleMeals.add(mealType);
         });
@@ -1500,7 +1507,7 @@ async function displayFoodItems(foodItems) {
             const mealKey = mealType.toLowerCase();
             const mealTotals = calculateMealTotals(quickList, mealType);
             const timeRange = getMealTimeRange(mealType);
-            const plannedTotals = calculatePlannedMealTotals(mealType, mealPlanning, todayDayOfWeek);
+            const plannedTotals = calculatePlannedMealTotals(mealType, mealPlanning, todayIndex);
             const headerText = buildMealHeaderHtml(mealType, timeRange, mealTotals, plannedTotals);
 
             // Reuse existing header container if present, otherwise create it
@@ -1571,14 +1578,14 @@ async function displayFoodItems(foodItems) {
                 displayFoodItem(item, foodItems, itemFragment, foodInput, gramsInput, viewForItem(item));
             });
 
-            if (hasPlannedItemsFor(mealType, mealPlanning, todayDayOfWeek)) {
+            if (hasPlannedItemsFor(mealType, mealPlanning, todayIndex) && !isMealCategoryExpired(mealKey)) {
                 // Hide planned items whose name is already logged within this
                 // meal's category (per slot — logging at lunch never hides the
                 // same element's dinner quick-add), or was explicitly skipped
                 // via the ❌ button; deleting the logged row brings it back.
                 const loggedNames = meals[mealType].map(i => i.name);
-                const slotRemoved = MealPlanning.getSlotRemoved(mealPlanning, todayDayOfWeek, mealKey);
-                const plannedItems = getPlannedItemsForSlot(mealPlanning, todayDayOfWeek, mealKey);
+                const slotRemoved = MealPlanning.getSlotRemoved(mealPlanning, mealKey);
+                const plannedItems = getPlannedItemsForSlot(mealPlanning, todayIndex, mealKey);
                 plannedItems
                     .filter(item => loggedNames.indexOf(item.name) === -1 && slotRemoved.indexOf(item.name) === -1)
                     .forEach(function(item) {
@@ -1631,8 +1638,33 @@ async function displayFoodItems(foodItems) {
 }
 
 // Helper extracted to keep displayFoodItems readable
-function hasPlannedItemsFor(mealType, mealPlanning, dayOfWeek) {
-    return !!getPlannedItemsForSlot(mealPlanning, dayOfWeek, mealType.toLowerCase());
+function hasPlannedItemsFor(mealType, mealPlanning, index) {
+    return !!getPlannedItemsForSlot(mealPlanning, index, mealType.toLowerCase());
+}
+
+/**
+ * True once the category's meal window has fully passed (now >= window end).
+ * Mirrors `getMealTimeRange`'s resolution: saved times, overridden by the
+ * dynamic config when enabled; snack falls back to the default window because
+ * the dynamic model only computes breakfast/lunch/dinner.
+ */
+function isMealCategoryExpired(category) {
+    var savedMealTimes = RadiantStorage.nutrition.getMealTimes();
+    var dynamicConfig = RadiantStorage.nutrition.getDynamicMealConfig();
+    var mealTimes = savedMealTimes;
+    if (dynamicConfig && dynamicConfig.enabled) {
+        var dyn = computeDynamicMealTimesForDate(RadiantStorage.nutrition.getToday(), dynamicConfig);
+        if (dyn) mealTimes = dyn;
+    }
+    var range = mealTimes && mealTimes[category];
+    if (!range || !range.end) {
+        var fallback = RadiantStorage.DEFAULT_MEAL_TIMES[category];
+        if (fallback && fallback.end) range = fallback;
+    }
+    if (!range || !range.end) return false;
+    var now = new Date();
+    var nowMinutes = now.getHours() * 60 + now.getMinutes();
+    return timeToMinutes(range.end) <= nowMinutes;
 }
 
 // ---- Undo deletion stack (max 3 entries, 10-second auto-dismiss) ----
@@ -2357,11 +2389,10 @@ function displayPlannedMealItem(item, scrollableWindow, foodInput, gramsInput, s
 }
 
 function removePlannedMealItem(item, slot) {
-    const todayDayOfWeek = new Date().getDay();
     const mealPlanning = MealPlanning.ensureDefaults(RadiantStorage.nutrition.getMealPlanning());
 
-    // Removal is per slot, so the same food at another slot stays visible.
-    const removed = MealPlanning.addSlotRemoved(mealPlanning, todayDayOfWeek, slot, item.name);
+    // Removal is per slot (today only), so the same food at another slot stays visible.
+    const removed = MealPlanning.addSlotRemoved(mealPlanning, slot, item.name);
     if (removed.indexOf(item.name) !== -1) {
         RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
     }

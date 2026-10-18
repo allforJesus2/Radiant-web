@@ -13,8 +13,20 @@
 
         .header-buttons {
             display: flex;
-            gap: 10px;
+            gap: 8px;
             align-items: center;
+        }
+
+        .header-buttons .btn {
+            flex-shrink: 0;
+        }
+
+        .day-count-label {
+            font-size: 0.9em;
+            color: var(--text-color);
+            min-width: 56px;
+            text-align: center;
+            white-space: nowrap;
         }
 
         .week-scroll-container {
@@ -24,7 +36,7 @@
 
         .week-grid {
             display: grid;
-            grid-template-columns: repeat(7, 250px);
+            grid-template-columns: repeat(var(--day-count, 3), 400px);
             gap: 10px;
             min-width: fit-content;
         }
@@ -78,6 +90,18 @@
             margin-bottom: 0;
         }
 
+        .slot-edit-link {
+            flex-shrink: 0;
+            font-size: 0.9em;
+            text-decoration: none;
+            opacity: 0.7;
+            cursor: pointer;
+        }
+
+        .slot-edit-link:hover {
+            opacity: 1;
+        }
+
         .template-row {
             display: flex;
             align-items: center;
@@ -102,6 +126,20 @@
             font-style: italic;
         }
 
+        .edit-element-link {
+            margin-left: 6px;
+            font-style: normal;
+            text-decoration: none;
+            font-size: 0.85em;
+            opacity: 0.7;
+            cursor: pointer;
+        }
+
+        .edit-element-link:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
         .small-text {
             font-size: 0.85em;
             opacity: 0.8;
@@ -120,3 +158,5 @@
             opacity: 0.7;
             position: relative;
         }
+
+        

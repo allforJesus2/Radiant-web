@@ -5,7 +5,7 @@ document.addEventListener('DOMContentLoaded', function () {
     // Re-read after migration so the module-level object never writes pre-migration data back.
     mealPlanning = MealPlanning.ensureDefaults(MealPlanning.load());
     setupHeader('🍽️ Meal Planning');
-    loadWeekMealPlans();
+    renderDayColumns();
     setupEventListeners();
 });
 
@@ -24,40 +24,136 @@ function fillElementOptions(select) {
     });
 }
 
-function loadWeekMealPlans() {
-    mealPlanning = MealPlanning.ensureDefaults(MealPlanning.load());
-
-    for (let i = 0; i < 7; i++) {
-        const dayColumn = document.querySelector('[data-day="' + i + '"]');
-        if (!dayColumn) continue;
-        const dayMeals = dayColumn.querySelector('.day-meals');
-        const slots = MealPlanning.getDaySlots(mealPlanning, i);
-
-        dayColumn.querySelectorAll('.slot-dropdown').forEach(function (dropdown) {
-            fillElementOptions(dropdown);
-            dropdown.value = slots[dropdown.dataset.slot] || '';
-        });
-
-        const templateDropdown = dayColumn.querySelector('.template-dropdown');
-        if (templateDropdown) {
-            templateDropdown.innerHTML = '<option value="">Apply template…</option>';
-            MealPlanning.listTemplateNames(mealPlanning).forEach(function (templateName) {
-                const option = document.createElement('option');
-                option.value = templateName;
-                option.textContent = templateName;
-                templateDropdown.appendChild(option);
-            });
-        }
-
-        displayDayMeals(dayMeals, i);
+/** Local-midnight date for a "YYYY-MM-DD" key (matches storage's en-CA dates). */
+function dateFromKey(dateKey) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey));
+    if (match) {
+        return new Date(parseInt(match[1], 10), parseInt(match[2], 10) - 1, parseInt(match[3], 10));
     }
+    const parsed = new Date(dateKey);
+    return isNaN(parsed.getTime()) ? new Date() : parsed;
 }
 
-function displayDayMeals(dayMealsContainer, dayOfWeek) {
+/** Local-midnight date `i` days after `date`. */
+function addLocalDays(date, i) {
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate() + i);
+}
+
+function dateKeyOf(date) {
+    return date.toLocaleDateString('en-CA');
+}
+
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function formatColumnDate(date) {
+    return WEEKDAY_SHORT[date.getDay()] + ' ' + (date.getMonth() + 1) + '/' + date.getDate();
+}
+
+function buildColumn(i, date, dateKey) {
+    const column = document.createElement('div');
+    column.className = 'day-column';
+    column.dataset.date = dateKey;
+
+    const h3 = document.createElement('h3');
+    h3.textContent = 'Day ' + (i + 1) + ' · ' + formatColumnDate(date) + (i === 0 ? ' (Today)' : '');
+    column.appendChild(h3);
+
+    const selector = document.createElement('div');
+    selector.className = 'meal-plan-selector';
+
+    MealPlanning.CATEGORIES.forEach(function (category) {
+        const row = document.createElement('div');
+        row.className = 'slot-row';
+        const label = document.createElement('span');
+        label.className = 'slot-label';
+        label.textContent = MealPlanning.CATEGORY_EMOJIS[category] + ' ' +
+            category.charAt(0).toUpperCase() + category.slice(1);
+        const dropdown = document.createElement('select');
+        dropdown.className = 'slot-dropdown';
+        dropdown.dataset.slot = category;
+        row.appendChild(label);
+        row.appendChild(dropdown);
+        const editLink = document.createElement('a');
+        editLink.className = 'slot-edit-link';
+        editLink.href = 'create-meal-plan.html#meals';
+        editLink.title = 'Edit reusable meals';
+        editLink.textContent = '✏️';
+        row.appendChild(editLink);
+        selector.appendChild(row);
+    });
+
+    const templateRow = document.createElement('div');
+    templateRow.className = 'template-row';
+    const templateDropdown = document.createElement('select');
+    templateDropdown.className = 'template-dropdown';
+    templateDropdown.innerHTML = '<option value="">Apply template…</option>';
+    MealPlanning.listTemplateNames(mealPlanning).forEach(function (templateName) {
+        const option = document.createElement('option');
+        option.value = templateName;
+        option.textContent = templateName;
+        templateDropdown.appendChild(option);
+    });
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.className = 'btn template-apply-btn';
+    applyBtn.textContent = 'Apply';
+    templateRow.appendChild(templateDropdown);
+    templateRow.appendChild(applyBtn);
+    selector.appendChild(templateRow);
+    column.appendChild(selector);
+
+    const dayMeals = document.createElement('div');
+    dayMeals.className = 'day-meals';
+    column.appendChild(dayMeals);
+
+    return column;
+}
+
+/** Rotation index for a column, recomputed at event time (the array may resize). */
+function rotationIndexForColumn(column) {
+    mealPlanning = MealPlanning.ensureDefaults(MealPlanning.load());
+    return MealPlanning.rotationIndexForDateKey(mealPlanning, column.dataset.date);
+}
+
+function renderDayColumns() {
+    mealPlanning = MealPlanning.ensureDefaults(MealPlanning.load());
+    const n = RadiantStorage.nutrition.getMealPlanDayCount();
+    const grid = document.querySelector('.week-grid');
+    if (!grid) return;
+    grid.style.setProperty('--day-count', String(n));
+    grid.innerHTML = '';
+
+    const today = dateFromKey(MealPlanning.getTodayDateKey());
+
+    for (let i = 0; i < n; i++) {
+        const date = addLocalDays(today, i);
+        const dateKey = dateKeyOf(date);
+        const column = buildColumn(i, date, dateKey);
+        grid.appendChild(column);
+
+        const slots = MealPlanning.getDaySlots(mealPlanning, MealPlanning.rotationIndexForDateKey(mealPlanning, dateKey));
+        column.querySelectorAll('.slot-dropdown').forEach(function (dropdown) {
+            fillElementOptions(dropdown);
+            dropdown.value = slots[dropdown.dataset.slot] || '';
+            const editLink = dropdown.parentElement.querySelector('.slot-edit-link');
+            if (!editLink) return;
+            const value = dropdown.value;
+            editLink.href = 'create-meal-plan.html' +
+                (value ? '?element=' + encodeURIComponent(value) : '') + '#meals';
+        });
+
+        displayDayMeals(column.querySelector('.day-meals'),
+            MealPlanning.rotationIndexForDateKey(mealPlanning, dateKey));
+    }
+
+    updateDayCountLabel();
+}
+
+function displayDayMeals(dayMealsContainer, index) {
     if (!dayMealsContainer) return;
     dayMealsContainer.innerHTML = '';
 
-    const slots = MealPlanning.getDaySlots(mealPlanning, dayOfWeek);
+    const slots = MealPlanning.getDaySlots(mealPlanning, index);
 
     let dailyTotalCalories = 0;
     let dailyTotalProtein = 0;
@@ -95,7 +191,13 @@ function displayDayMeals(dayMealsContainer, dayOfWeek) {
         if (elementName) {
             const nameEl = document.createElement('div');
             nameEl.className = 'small-text slot-element-name';
-            nameEl.textContent = elementName;
+            nameEl.appendChild(document.createTextNode(elementName));
+            const editLink = document.createElement('a');
+            editLink.className = 'edit-element-link';
+            editLink.href = 'create-meal-plan.html#meals';
+            editLink.title = 'Edit in library';
+            editLink.textContent = '✏️';
+            nameEl.appendChild(editLink);
             categoryHeader.appendChild(nameEl);
         }
         categoryHeader.style.marginTop = '10px';
@@ -146,31 +248,58 @@ function displayDayMeals(dayMealsContainer, dayOfWeek) {
     }
 }
 
+function updateDayCountLabel() {
+    const label = document.getElementById('dayCountLabel');
+    if (!label) return;
+    const n = RadiantStorage.nutrition.getMealPlanDayCount();
+    label.textContent = n + ' day' + (n === 1 ? '' : 's');
+}
+
+function changeDayCount(delta) {
+    const current = RadiantStorage.nutrition.getMealPlanDayCount();
+    const next = Math.max(1, Math.min(14, current + delta));
+    if (next === current) return;
+    RadiantStorage.nutrition.setMealPlanDayCount(next);
+    mealPlanning = MealPlanning.ensureDefaults(MealPlanning.load());
+    MealPlanning.setDayCount(mealPlanning, next);
+    renderDayColumns();
+}
+
 function setupEventListeners() {
-    document.querySelectorAll('.slot-dropdown').forEach(function (dropdown) {
-        dropdown.addEventListener('change', function () {
-            const dayColumn = this.closest('.day-column');
-            const dayIndex = parseInt(dayColumn.dataset.day, 10);
-            const slot = this.dataset.slot;
-            const dayMeals = dayColumn.querySelector('.day-meals');
+    const grid = document.querySelector('.week-grid');
+    if (!grid) return;
 
-            MealPlanning.setDaySlot(mealPlanning, dayIndex, slot, this.value || null);
-            displayDayMeals(dayMeals, dayIndex);
-        });
+    // Columns regenerate (and the array may resize), so delegation on the grid
+    // replaces one-shot bindings over node lists captured at DOMContentLoaded.
+    grid.addEventListener('change', function (e) {
+        const dropdown = e.target.closest('.slot-dropdown');
+        if (!dropdown) return;
+        const column = dropdown.closest('.day-column');
+        if (!column) return;
+        const index = rotationIndexForColumn(column);
+        const slot = dropdown.dataset.slot;
+        MealPlanning.setDaySlot(mealPlanning, index, slot, dropdown.value || null);
+        displayDayMeals(column.querySelector('.day-meals'), index);
     });
 
-    document.querySelectorAll('.template-apply-btn').forEach(function (button) {
-        button.addEventListener('click', function () {
-            const dayColumn = this.closest('.day-column');
-            const dayIndex = parseInt(dayColumn.dataset.day, 10);
-            const templateDropdown = dayColumn.querySelector('.template-dropdown');
-            const templateName = templateDropdown ? templateDropdown.value : '';
-            if (!templateName) {
-                alert('Pick a template first.');
-                return;
-            }
-            MealPlanning.applyTemplate(mealPlanning, dayIndex, templateName);
-            loadWeekMealPlans();
-        });
+    grid.addEventListener('click', function (e) {
+        const button = e.target.closest('.template-apply-btn');
+        if (!button) return;
+        const column = button.closest('.day-column');
+        if (!column) return;
+        const templateDropdown = column.querySelector('.template-dropdown');
+        const templateName = templateDropdown ? templateDropdown.value : '';
+        if (!templateName) {
+            alert('Pick a template first.');
+            return;
+        }
+        const index = rotationIndexForColumn(column);
+        MealPlanning.applyTemplate(mealPlanning, index, templateName);
+        renderDayColumns();
     });
+
+    const minus = document.getElementById('dayCountMinus');
+    const plus = document.getElementById('dayCountPlus');
+    if (minus) minus.addEventListener('click', function () { changeDayCount(-1); });
+    if (plus) plus.addEventListener('click', function () { changeDayCount(1); });
 }

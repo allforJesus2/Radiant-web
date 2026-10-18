@@ -6,13 +6,25 @@
  *   display name (there is no separate id — the key *is* the name).
  * - A **day** is exactly four slots (breakfast/lunch/dinner/snack), each holding one
  *   element name or null. Any element may fill any slot.
- * - A **template** is a named day: the same four-slot shape as `mealPlanDays`.
+ * - `mealPlanDays` is the plan's rotation **array**: index 0 = "Day 1" (today's
+ *   column). Today always maps to index 0 via `rotationIndexForDateKey`; each
+ *   later calendar date maps to the next entry (wrapping) by offset from today.
+ * - A **template** is a named day: the same four-slot shape as a rotation entry.
  *
- * removedMeals are per slot, so skipping "Rice" at lunch never hides "Rice" at dinner.
+ * removedMeals are per slot (flat, current-day only), so skipping "Rice" at lunch
+ * never hides "Rice" at dinner; the app's day rollover clears the whole map.
  */
 const MealPlanning = {
     /** Bump when the `meal_planning` shape changes; guards the one-shot migration. */
-    SCHEMA_VERSION: 3,
+    SCHEMA_VERSION: 4,
+
+    /** Fixed epoch for `localDayNumber`, in whole days since this local midnight. */
+    ROTATION_EPOCH_YEAR: 1970,
+    ROTATION_EPOCH_MONTH: 0, // January
+    ROTATION_EPOCH_DAY: 1,
+
+    /** Hard cap on the rotation length (matches the persisted day-count clamp). */
+    MAX_DAY_COUNT: 14,
 
     CATEGORIES: ['breakfast', 'lunch', 'dinner', 'snack'],
     CATEGORY_EMOJIS: {
@@ -51,9 +63,15 @@ const MealPlanning = {
         if (!mealPlanning) mealPlanning = {};
         if (!mealPlanning.mealElements) mealPlanning.mealElements = {};
         if (!mealPlanning.mealTemplates) mealPlanning.mealTemplates = {};
-        if (!mealPlanning.mealPlanDays) mealPlanning.mealPlanDays = {};
+        if (!Array.isArray(mealPlanning.mealPlanDays)) {
+            // Legacy weekday-keyed object or missing: the rotation array starts empty;
+            // migration seeds it with the persisted day count.
+            mealPlanning.mealPlanDays = [];
+        }
         if (!mealPlanning.mealPlans) mealPlanning.mealPlans = {};
-        if (!mealPlanning.removedMeals) mealPlanning.removedMeals = {};
+        if (!mealPlanning.removedMeals || typeof mealPlanning.removedMeals !== 'object') {
+            mealPlanning.removedMeals = {};
+        }
         delete mealPlanning.completedMeals;
         delete mealPlanning.lastReset;
         return mealPlanning;
@@ -164,16 +182,84 @@ const MealPlanning = {
         });
     },
 
-    // ---- slots -----------------------------------------------------------
+    // ---- rotation --------------------------------------------------------
 
-    emptyDay() {
-        return { breakfast: null, lunch: null, dinner: null, snack: null };
+    /**
+     * Whole local days between the fixed epoch and the local midnight of `dateKey`.
+     * Both instants are local midnights, so consecutive dates differ by exactly one
+     * day and `Math.round` absorbs any DST skew. A pure function of the date string:
+     * deterministic across sessions on the same device.
+     */
+    localDayNumber(dateKey) {
+        var match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateKey));
+        var year, month, day;
+        if (match) {
+            year = parseInt(match[1], 10);
+            month = parseInt(match[2], 10) - 1;
+            day = parseInt(match[3], 10);
+        } else {
+            var parsed = new Date(dateKey);
+            if (isNaN(parsed.getTime())) return 0;
+            year = parsed.getFullYear();
+            month = parsed.getMonth();
+            day = parsed.getDate();
+        }
+        var midnight = new Date(year, month, day);
+        var epoch = new Date(this.ROTATION_EPOCH_YEAR, this.ROTATION_EPOCH_MONTH, this.ROTATION_EPOCH_DAY);
+        return Math.round((midnight.getTime() - epoch.getTime()) / 86400000);
     },
 
-    /** Normalised (4-slot, string-or-null) view of one day's assignment. */
-    getDaySlots(mealPlanning, dayOfWeek) {
-        var days = (mealPlanning && mealPlanning.mealPlanDays) || {};
-        var raw = days[dayOfWeek];
+    /** Positive modulo: the result is always in [0, n). */
+    positiveMod(a, n) {
+        return ((a % n) + n) % n;
+    },
+
+    /** The app's canonical today (already rolls over on the nutrition page). */
+    getTodayDateKey() {
+        return RadiantStorage.nutrition.getToday() ||
+            new Date().toLocaleDateString('en-CA');
+    },
+
+    /** Current rotation length (number of day plans). */
+    getDayCount(mealPlanning) {
+        var days = (mealPlanning && mealPlanning.mealPlanDays) || [];
+        return Array.isArray(days) ? days.length : 0;
+    },
+
+    /**
+     * Resize the rotation array: pad with empty days or truncate the tail.
+     * Clamped to 0..14. Returns the new length.
+     */
+    setDayCount(mealPlanning, n) {
+        this.ensureDefaults(mealPlanning);
+        n = Math.max(0, Math.min(this.MAX_DAY_COUNT, Math.round(Number(n)) || 0));
+        var days = Array.isArray(mealPlanning.mealPlanDays) ? mealPlanning.mealPlanDays : [];
+        var self = this;
+        days = days.map(function (entry) {
+            return self.normaliseDay(entry);
+        });
+        while (days.length < n) days.push(this.emptyDay());
+        days.length = Math.min(days.length, n);
+        mealPlanning.mealPlanDays = days;
+        this.save(mealPlanning);
+        return days.length;
+    },
+
+    /**
+     * Rotation index for a calendar date: `(localDayNumber(dateKey) -
+     * localDayNumber(today)) mod N`, so today always maps to index 0 ("Day 1")
+     * and a resize of the rotation never re-phases existing days. Returns -1
+     * when there is no plan at all (N === 0).
+     */
+    rotationIndexForDateKey(mealPlanning, dateKey) {
+        var n = this.getDayCount(mealPlanning);
+        if (n === 0) return -1;
+        var today = this.getTodayDateKey();
+        return this.positiveMod(this.localDayNumber(dateKey) - this.localDayNumber(today), n);
+    },
+
+    /** Normalised (4-slot, string-or-null) view of one rotation entry. */
+    normaliseDay(raw) {
         var slots = this.emptyDay();
         if (!raw || typeof raw !== 'object') return slots;
         this.CATEGORIES.forEach(function (category) {
@@ -183,41 +269,69 @@ const MealPlanning = {
         return slots;
     },
 
-    /** Point one slot at an element (or null to clear it) and save once. */
-    setDaySlot(mealPlanning, dayOfWeek, category, elementName) {
+    // ---- slots -----------------------------------------------------------
+
+    emptyDay() {
+        return { breakfast: null, lunch: null, dinner: null, snack: null };
+    },
+
+    /** Normalised (4-slot, string-or-null) view of one rotation entry by index. */
+    getDaySlots(mealPlanning, index) {
+        var days = (mealPlanning && mealPlanning.mealPlanDays) || [];
+        var raw = Array.isArray(days) ? days[Number(index)] : null;
+        return this.normaliseDay(raw);
+    },
+
+    /** Point one slot of a rotation entry at an element (or null) and save once. */
+    setDaySlot(mealPlanning, index, category, elementName) {
         this.ensureDefaults(mealPlanning);
-        var slots = this.getDaySlots(mealPlanning, dayOfWeek);
+        index = Number(index);
+        if (!isFinite(index) || index < 0) return null;
+        var days = Array.isArray(mealPlanning.mealPlanDays) ? mealPlanning.mealPlanDays : [];
+        while (days.length <= index) days.push(this.emptyDay());
+        var slots = this.getDaySlots(mealPlanning, index);
         slots[category] = elementName || null;
-        mealPlanning.mealPlanDays[dayOfWeek] = slots;
+        days[index] = slots;
+        mealPlanning.mealPlanDays = days;
         this.save(mealPlanning);
         return slots;
     },
 
     /** Items planned in one slot, or null when the slot is empty/dangling. */
-    getSlotItems(mealPlanning, dayOfWeek, category) {
-        var slots = this.getDaySlots(mealPlanning, dayOfWeek);
+    getSlotItems(mealPlanning, index, category) {
+        var slots = this.getDaySlots(mealPlanning, index);
         var element = this.getElement(mealPlanning, slots[category]);
         if (!element || !Array.isArray(element.items) || element.items.length === 0) return null;
         return element.items;
     },
 
-    getSlotRemoved(mealPlanning, dayOfWeek, category) {
+    // ---- removed state (current day only, flat per slot) -----------------
+
+    getSlotRemoved(mealPlanning, category) {
         var removed = (mealPlanning && mealPlanning.removedMeals) || {};
-        var day = removed[dayOfWeek];
-        var list = day && day[category];
+        var list = removed[category];
         return Array.isArray(list) ? list : [];
     },
 
-    /** Skip an item in one slot only. */
-    addSlotRemoved(mealPlanning, dayOfWeek, category, itemName) {
+    /** Skip an item in one slot only. Mutation only — callers save. */
+    addSlotRemoved(mealPlanning, category, itemName) {
         this.ensureDefaults(mealPlanning);
-        if (!mealPlanning.removedMeals[dayOfWeek]) mealPlanning.removedMeals[dayOfWeek] = {};
-        if (!Array.isArray(mealPlanning.removedMeals[dayOfWeek][category])) {
-            mealPlanning.removedMeals[dayOfWeek][category] = [];
+        if (!mealPlanning.removedMeals || typeof mealPlanning.removedMeals !== 'object') {
+            mealPlanning.removedMeals = {};
         }
-        var list = mealPlanning.removedMeals[dayOfWeek][category];
+        if (!Array.isArray(mealPlanning.removedMeals[category])) {
+            mealPlanning.removedMeals[category] = [];
+        }
+        var list = mealPlanning.removedMeals[category];
         if (list.indexOf(itemName) === -1) list.push(itemName);
         return list;
+    },
+
+    /** Drop all skip state when the calendar day rolls over. Saves once. */
+    clearRemovedMeals(mealPlanning) {
+        this.ensureDefaults(mealPlanning);
+        mealPlanning.removedMeals = {};
+        this.save(mealPlanning);
     },
 
     // ---- elements --------------------------------------------------------
@@ -256,12 +370,13 @@ const MealPlanning = {
         var key = this.findElementByName(mealPlanning, name);
         if (!key) return { days: 0, templates: 0, total: 0 };
         var self = this;
-        var days = Object.keys((mealPlanning && mealPlanning.mealPlanDays) || {}).filter(function (dow) {
-            var slots = self.getDaySlots(mealPlanning, dow);
-            return self.CATEGORIES.some(function (category) {
-                return slots[category] === key;
+        var days = (Array.isArray(mealPlanning.mealPlanDays) ? mealPlanning.mealPlanDays : [])
+            .filter(function (entry, index) {
+                var slots = self.getDaySlots(mealPlanning, index);
+                return self.CATEGORIES.some(function (category) {
+                    return slots[category] === key;
+                });
             });
-        });
         var templates = Object.keys((mealPlanning && mealPlanning.mealTemplates) || {}).filter(function (name2) {
             var template = mealPlanning.mealTemplates[name2];
             if (!template) return false;
@@ -289,13 +404,14 @@ const MealPlanning = {
         mealPlanning.mealElements[newKey] = element;
 
         var self = this;
-        Object.keys(mealPlanning.mealPlanDays).forEach(function (dow) {
-            var slots = self.getDaySlots(mealPlanning, dow);
+        var days = Array.isArray(mealPlanning.mealPlanDays) ? mealPlanning.mealPlanDays : [];
+        for (var i = 0; i < days.length; i++) {
+            var slots = self.getDaySlots(mealPlanning, i);
             self.CATEGORIES.forEach(function (category) {
                 if (slots[category] === oldKey) slots[category] = newKey;
             });
-            mealPlanning.mealPlanDays[dow] = slots;
-        });
+            days[i] = slots;
+        }
         Object.keys(mealPlanning.mealTemplates).forEach(function (templateName) {
             var template = self.emptyDay();
             var raw = mealPlanning.mealTemplates[templateName] || {};
@@ -372,13 +488,15 @@ const MealPlanning = {
     },
 
     /**
-     * Copy a template's four slots onto a day. Slots holding an element with no
-     * items are cleared rather than assigned (a placeholder renders nothing).
+     * Copy a template's four slots onto a rotation entry. Slots holding an element
+     * with no items are cleared rather than assigned (a placeholder renders nothing).
      */
-    applyTemplate(mealPlanning, dayOfWeek, templateName) {
+    applyTemplate(mealPlanning, index, templateName) {
         var template = this.getTemplate(mealPlanning, templateName);
         if (!template) return null;
         this.ensureDefaults(mealPlanning);
+        index = Number(index);
+        if (!isFinite(index) || index < 0) return null;
         var self = this;
         var slots = this.emptyDay();
         this.CATEGORIES.forEach(function (category) {
@@ -390,7 +508,10 @@ const MealPlanning = {
             }
             slots[category] = self.findElementByName(mealPlanning, name);
         });
-        mealPlanning.mealPlanDays[dayOfWeek] = slots;
+        var days = Array.isArray(mealPlanning.mealPlanDays) ? mealPlanning.mealPlanDays : [];
+        while (days.length <= index) days.push(this.emptyDay());
+        days[index] = slots;
+        mealPlanning.mealPlanDays = days;
         this.save(mealPlanning);
         return slots;
     },
@@ -398,8 +519,12 @@ const MealPlanning = {
     // ---- migration -------------------------------------------------------
 
     /**
-     * One-shot conversion of the old plan shape (plan-name per day, flat per-day
-     * completion lists) into elements + templates + per-slot planning.
+     * One-shot conversion into the rotation shape.
+     *
+     * Reusable meals (`mealElements`) and templates (`mealTemplates`) are kept;
+     * legacy weekday-keyed `mealPlanDays` assignments and dow-keyed `removedMeals`
+     * are discarded. Legacy `mealPlans` still fold into elements/templates so the
+     * pre-elements reusable meals survive.
      *
      * A backup of the untouched original is written first and the old `mealPlans`
      * field is left in place, so nothing is lost if the result looks wrong.
@@ -414,17 +539,20 @@ const MealPlanning = {
 
         var legacyPlans = mealPlanning.mealPlans || {};
         var self = this;
-        // Legacy day assignments are plan names; capture them before the reset.
-        var legacyDays = mealPlanning.mealPlanDays || {};
 
-        mealPlanning.mealElements = {};
-        mealPlanning.mealTemplates = {};
-        mealPlanning.mealPlanDays = {};
+        // Keep existing reusable assets; reset the rotation shape entirely.
+        mealPlanning.mealElements = (mealPlanning.mealElements && typeof mealPlanning.mealElements === 'object')
+            ? mealPlanning.mealElements : {};
+        mealPlanning.mealTemplates = (mealPlanning.mealTemplates && typeof mealPlanning.mealTemplates === 'object')
+            ? mealPlanning.mealTemplates : {};
         mealPlanning.removedMeals = {};
 
-        var planNames = Object.keys(legacyPlans);
-        var perSlotForPlan = {};
+        // Fresh rotation at the persisted day count, all-empty.
+        var count = RadiantStorage.nutrition.getMealPlanDayCount();
+        mealPlanning.mealPlanDays = [];
+        for (var i = 0; i < count; i++) mealPlanning.mealPlanDays.push(this.emptyDay());
 
+        var planNames = Object.keys(legacyPlans);
         planNames.forEach(function (planName) {
             var plan = legacyPlans[planName];
             if (!plan || typeof plan !== 'object') return;
@@ -433,24 +561,16 @@ const MealPlanning = {
                 var items = Array.isArray(plan[category]) ? plan[category] : [];
                 if (items.length === 0) return;
                 var elementName = self.migrationElementName(planName, category);
-                mealPlanning.mealElements[elementName] = { items: JSON.parse(JSON.stringify(items)) };
+                mealPlanning.mealElements[elementName] = {
+                    items: JSON.parse(JSON.stringify(items)),
+                    tags: [category],
+                };
                 slots[category] = elementName;
             });
-            perSlotForPlan[planName] = slots;
             if (!self.isReservedElementName(planName)) {
                 mealPlanning.mealTemplates[planName] = slots;
             }
         });
-
-        var daySlots = {};
-        for (var day = 0; day < 7; day++) {
-            var assigned = legacyDays[day];
-            var slots = Object.prototype.hasOwnProperty.call(perSlotForPlan, assigned)
-                ? perSlotForPlan[assigned]
-                : this.emptyDay();
-            daySlots[day] = Object.assign({}, slots);
-        }
-        mealPlanning.mealPlanDays = daySlots;
 
         mealPlanning.schemaVersion = this.SCHEMA_VERSION;
 
@@ -462,10 +582,12 @@ const MealPlanning = {
             }
         }
 
-        // Backfill: tag existing elements by their day-slot assignment
+        // Backfill: tag existing elements by their rotation-slot assignment. The
+        // fresh array holds only empty days, so this stays a no-op for new plans
+        // but keeps one consistent tagging pass for any future shape.
         this.CATEGORIES.forEach(function (category) {
-            Object.keys(mealPlanning.mealPlanDays).forEach(function (dow) {
-                var slots = self.getDaySlots(mealPlanning, dow);
+            for (var day = 0; day < mealPlanning.mealPlanDays.length; day++) {
+                var slots = self.getDaySlots(mealPlanning, day);
                 var elementName = slots[category];
                 if (elementName) {
                     var key = self.findElementByName(mealPlanning, elementName);
@@ -479,7 +601,7 @@ const MealPlanning = {
                         }
                     }
                 }
-            });
+            }
         });
 
         RadiantStorage.nutrition.saveMealPlanning(mealPlanning);
@@ -497,8 +619,9 @@ const MealPlanning = {
     /**
      * Fold the pre-consolidation per-key storage (`mealPlans`, `mealPlan_day_3`,
      * `completedMeals_day_3`, ...) into the consolidated object, then drop the
-     * legacy keys. Legacy progression keys are detected (so they are removed)
-     * but their values are discarded. Idempotent: legacy keys are removed once
+     * legacy keys. Legacy per-day assignments and progression values are detected
+     * (so they are removed) but their values are discarded — the rotation array
+     * never inherits the weekday shape. Idempotent: legacy keys are removed once
      * consumed.
      */
     importLegacyKeys(mealPlanning) {
@@ -516,11 +639,6 @@ const MealPlanning = {
             Object.keys(oldMealPlans).forEach(function (planName) {
                 mealPlanning.mealPlans[planName] = oldMealPlans[planName];
             });
-        }
-
-        for (var day = 0; day < 7; day++) {
-            var dayMealPlan = RadiantStorage.nutrition.getLegacyKey('mealPlan_day_' + day);
-            if (dayMealPlan) mealPlanning.mealPlanDays[day] = dayMealPlan;
         }
 
         RadiantStorage.nutrition.removeLegacyKey('mealPlans');

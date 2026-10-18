@@ -8,6 +8,11 @@ let currentElementName = null;
 
 document.addEventListener('DOMContentLoaded', function () {
     MealPlanning.migrateToElements();
+    const preselect = new URLSearchParams(window.location.search).get('element');
+    if (preselect) {
+        const mealPlanning = MealPlanning.ensureDefaults(MealPlanning.load());
+        currentElementName = MealPlanning.findElementByName(mealPlanning, preselect);
+    }
     setupHeader('📚 Meal Library');
     initFoodAutocomplete(
         document.getElementById('mealPlanFood'),
