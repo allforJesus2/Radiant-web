@@ -5,6 +5,10 @@
       "firebase.json",
       "**/.*",
       "**/node_modules/**"
+    ],
+    "predeploy": [
+      "node scripts/fdc-preprocess.js",
+      "node scripts/bump-sw-version.js"
     ]
   }
 }
