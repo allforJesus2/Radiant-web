@@ -7,7 +7,7 @@
 // offline/cache-first; network-first is only used when the user enables
 // "always check for updates" in settings. Updates are always confirmed by
 // the user before any new files are downloaded and take over.
-const CACHE_VERSION = 'vbc02716';
+const CACHE_VERSION = 'v4d1bdaf396a9';
 const CACHE_NAME = `my-cache-${CACHE_VERSION}`;
 
 // On localhost the SW acts as a transparent pass-through — no caching, no
