@@ -1313,6 +1313,14 @@ document.getElementById('addBtn').addEventListener('click', function() {
                 delete foodInputEl.dataset.foodSource;
             }
 
+            if (typeof recordFoodSelection === 'function') {
+                recordFoodSelection({
+                    name: foodName,
+                    fdc_id: fdcId,
+                    source: foodSource,
+                });
+            }
+
             mergeOrAppendFoodLogItem({
                 foodName: foodName,
                 fdcId: fdcId,
@@ -1353,6 +1361,10 @@ function pushScannerFoodItem(payload) {
         foodItem.protein = payload.protein;
         foodItem.carbs = payload.carbs;
         foodItem.fat = payload.fat;
+    }
+
+    if (typeof recordFoodSelection === 'function') {
+        recordFoodSelection({ name: foodName, fdc_id: fdcId });
     }
 
     mergeOrAppendFoodLogItem({
@@ -2426,6 +2438,13 @@ function applyPlannedMealItem(item, slot) {
     }
     if (item.nutrition_source) {
         foodItem.nutrition_source = item.nutrition_source;
+    }
+
+    if (typeof recordFoodSelection === 'function') {
+        recordFoodSelection({
+            name: item.name,
+            fdc_id: item.fdc_id != null && item.fdc_id !== '' ? item.fdc_id : null,
+        });
     }
 
     foodLog[today].push(foodItem);

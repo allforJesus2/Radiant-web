@@ -288,6 +288,39 @@
                 });
             })();
 
+            // Recent food boost memory limit (Settings → Food search)
+            (function () {
+                const inputEl = document.getElementById('recentSelectionsLimit');
+                const saveBtn = document.getElementById('recentSelectionsLimitSave');
+                const statusEl = document.getElementById('recentSelectionsLimitStatus');
+                if (!inputEl || !saveBtn) return;
+                inputEl.value = String(RadiantStorage.nutrition.getRecentSelectionsLimit());
+
+                saveBtn.addEventListener('click', function () {
+                    const raw = parseInt(inputEl.value, 10);
+                    if (Number.isNaN(raw) || raw < 1) {
+                        statusEl.textContent = 'Enter a number between 1 and 250.';
+                        return;
+                    }
+                    const saved = RadiantStorage.nutrition.saveRecentSelectionsLimit(raw);
+                    inputEl.value = String(saved);
+                    statusEl.textContent =
+                        'Saved — food search remembers the last ' + saved + ' recent foods.';
+
+                    // Trim the stored recency list to the new limit and drop the
+                    // in-memory cache so the change applies immediately.
+                    try {
+                        const list = RadiantStorage.nutrition.getRecentFoodSelections();
+                        if (list.length > saved) {
+                            RadiantStorage.nutrition.saveRecentFoodSelections(list.slice(0, saved));
+                        }
+                    } catch (e) { /* storage full — ignore */ }
+                    if (typeof _recentSelections !== 'undefined') {
+                        _recentSelections = null;
+                    }
+                });
+            })();
+
             var reloadAutocompleteBtn = document.getElementById('reloadAutocomplete');
             if (reloadAutocompleteBtn) {
                 reloadAutocompleteBtn.addEventListener('click', async function () {

@@ -110,7 +110,6 @@ function setupAutocomplete(foodList, foodInput, gramsInput, listEl) {
     }
 
     function selectEntry(entry) {
-        recordFoodSelection(entry);
         inputEl.value = entry.name;
         if (entry.fdc_id != null && entry.fdc_id !== '') {
             inputEl.dataset.fdcId = String(entry.fdc_id);

@@ -53,6 +53,18 @@
             <p class="small-text">Sets the default tab for food search and barcode scanning. The 🔍 search popup and 📷 barcode scanner show USDA / Open Food Facts tabs so you can switch databases at any time; the tab you select there applies until the page is reloaded. Open Food Facts requires no API key and has broader international coverage. USDA has higher-quality US data but the free DEMO_KEY allows only 30 lookups per hour.</p>
         </div>
 
+        <h2>Food search</h2>
+
+        <div style="margin: 20px 0;">
+            <label for="recentSelectionsLimit" style="display: block; margin-bottom: 6px; font-weight: bold;">Recent food boost memory</label>
+            <div style="display: flex; gap: 8px; align-items: stretch;">
+                <input type="number" id="recentSelectionsLimit" class="btn" min="1" max="250" step="1" style="flex: 1; min-width: 0; box-sizing: border-box; padding: 8px;">
+                <button type="button" class="btn" id="recentSelectionsLimitSave">Save</button>
+            </div>
+            <p class="small-text">How many recently added foods food search remembers for its priority boost. Foods you add (via the Add button, barcode scan, or planned-meal taps) get a boost so they appear higher next time you type the same search, and the boost fades gradually across this many remembered items. Default 50, maximum 250.</p>
+            <p id="recentSelectionsLimitStatus" style="font-size: 0.85em; margin: 4px 0 0;"></p>
+        </div>
+
         <h2>Performance Settings</h2>
         
         <div style="margin: 20px 0;">

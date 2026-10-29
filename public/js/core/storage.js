@@ -38,6 +38,7 @@ const RadiantStorage = {
         PROFILE_STRENGTH: 'strength-workout-profile',
         PROFILE_STRENGTH_1RM_HISTORY: 'strength-1rm-history',
         RECENT_FOOD_SELECTIONS: 'recentFoodSelections',
+        RECENT_SELECTIONS_LIMIT: 'recentSelectionsLimit',
         MEAL_COLLAPSE_PREFERENCE: 'mealCollapsePreference',
         CUSTOM_RECIPES_BACKUP: 'customRecipesBackup',
         SR_LEGACY_PORTION_VERSION: 'srLegacyPortionVersion',
@@ -379,6 +380,20 @@ const RadiantStorage = {
 
         saveRecentFoodSelections(selections) {
             RadiantStorage.setJSON(RadiantStorage.KEYS.RECENT_FOOD_SELECTIONS, selections);
+        },
+
+        /** How many recent foods the search boost remembers (default 50, max 250). */
+        getRecentSelectionsLimit() {
+            const raw = parseInt(RadiantStorage.getRaw(RadiantStorage.KEYS.RECENT_SELECTIONS_LIMIT), 10);
+            if (Number.isNaN(raw) || raw < 1) return 50;
+            return Math.min(raw, 250);
+        },
+
+        saveRecentSelectionsLimit(limit) {
+            const n = parseInt(limit, 10);
+            const saved = Number.isNaN(n) || n < 1 ? 50 : Math.min(n, 250);
+            RadiantStorage.setRaw(RadiantStorage.KEYS.RECENT_SELECTIONS_LIMIT, String(saved));
+            return saved;
         },
 
         getMealCollapsePreference() {

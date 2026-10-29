@@ -5,8 +5,19 @@ const AUTOCOMPLETE_LIMIT = 30;
 let autocompleteQueryId = 0;
 
 // ---- Recent food selection boost ----
-const RECENT_SELECTIONS_MAX = 50;
+const RECENT_SELECTIONS_DEFAULT = 50;
+const RECENT_SELECTIONS_LIMIT_MAX = 250;
 let _recentSelections = null; // lazy-loaded cache
+
+/** User-configurable recency memory (Settings → Food search). Default 50, max 250. */
+function getRecentSelectionsLimit() {
+  let n = NaN;
+  try {
+    n = Number(RadiantStorage.nutrition.getRecentSelectionsLimit());
+  } catch { /* storage unavailable — use default */ }
+  if (!Number.isFinite(n) || n < 1) n = RECENT_SELECTIONS_DEFAULT;
+  return Math.min(Math.floor(n), RECENT_SELECTIONS_LIMIT_MAX);
+}
 
 function _loadRecentSelections() {
   if (_recentSelections) return _recentSelections;
@@ -24,7 +35,7 @@ function recordFoodSelection(entry) {
   const key = _selectionKey(entry);
   const list = _loadRecentSelections().filter((s) => s !== key);
   list.unshift(key);
-  _recentSelections = list.slice(0, RECENT_SELECTIONS_MAX);
+  _recentSelections = list.slice(0, getRecentSelectionsLimit());
   try {
     RadiantStorage.nutrition.saveRecentFoodSelections(_recentSelections);
   } catch { /* storage full — ignore */ }
@@ -34,8 +45,11 @@ function _recentSelectionBoost(entry) {
   const list = _loadRecentSelections();
   const idx = list.indexOf(_selectionKey(entry));
   if (idx === -1) return 0;
-  // Most recent (idx 0) → +300k, fades to 0 at RECENT_SELECTIONS_MAX
-  return Math.round(300_000 * (1 - idx / RECENT_SELECTIONS_MAX));
+  const limit = getRecentSelectionsLimit();
+  // The stored list can outlive a lowered limit; past it there is no boost.
+  if (idx >= limit) return 0;
+  // Most recent (idx 0) → +300k, fades to 0 at the limit
+  return Math.round(300_000 * (1 - idx / limit));
 }
 function normalizeUpc(raw) {
   if (raw == null) return '';

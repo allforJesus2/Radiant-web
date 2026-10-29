@@ -415,11 +415,11 @@
 				window.location.href = 'nutrition.html';
 			} else {
 				// Profile is incomplete, ask user what they want to do
-				const choice = confirm('Your profile setup is incomplete. Would you like to complete the setup first? Click OK to go to profile setup, or Cancel to skip to nutrition.');
+				const choice = confirm('Your profile setup is incomplete. Click OK to continue to nutrition, or Cancel to go to profile setup.');
 				if (choice) {
-					window.location.href = 'profile.html';
-				} else {
 					window.location.href = 'nutrition.html';
+				} else {
+					window.location.href = 'profile.html';
 				}
 			}
 		}
