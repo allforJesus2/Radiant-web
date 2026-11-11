@@ -263,7 +263,7 @@
    * Online USDA word search (Branded only).
    * @returns {Promise<Array<{name:string, fdc_id:number|null, sourceLabel:string, source:string, defaultGrams:number, per100:object, fdcRecord:object|null}>>}
    */
-  async function searchUsdaFoods(query) {
+  async function searchUsdaFoods(query, signal) {
     const apiKey = getUsdaApiKey();
     const url =
       'https://api.nal.usda.gov/fdc/v1/foods/search?api_key=' + encodeURIComponent(apiKey);
@@ -273,12 +273,19 @@
       pageSize: 25,
       requireAllWords: false,
     };
-    const r = await fetch(url, {
+    const r = await fetchWithTimeout(url, SEARCH_TIMEOUTS.usda, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
+      signal: signal || undefined,
     });
-    if (!r.ok) throw new Error('USDA API request failed (' + r.status + ')');
+    if (!r.ok) {
+      const e = new Error('USDA API request failed (' + r.status + ')');
+      e.source = 'usda';
+      e.status = r.status;
+      if (r.status === 429) e.retryAfter = parseRetryAfter(r.headers && r.headers.get('Retry-After'));
+      throw e;
+    }
     const data = await r.json();
     const foods = Array.isArray(data && data.foods) ? data.foods : [];
     const results = [];
@@ -322,15 +329,22 @@
    * Products lacking energy/calorie data are skipped so every result has macros.
    * @returns {Promise<Array<{name:string, fdc_id:number|null, sourceLabel:string, source:string, defaultGrams:number, per100:object, fdcRecord:object|null}>>}
    */
-  async function searchOffFoods(query, limit = 25) {
+  async function searchOffFoods(query, limit, signal) {
+    const pageSize = limit == null ? 25 : limit;
     const url =
       'https://world.openfoodfacts.org/cgi/search.pl?action=process&json=1&search_terms=' +
       encodeURIComponent(query) +
       '&page_size=' +
-      limit +
+      pageSize +
       '&fields=product_name,product_name_en,brands,code,nutriments,serving_quantity,serving_size,nutrition_data';
-    const r = await fetch(url);
-    if (!r.ok) throw new Error('Open Food Facts request failed (' + r.status + ')');
+    const r = await fetchWithTimeout(url, SEARCH_TIMEOUTS.off, signal ? { signal: signal } : undefined);
+    if (!r.ok) {
+      const e = new Error('Open Food Facts request failed (' + r.status + ')');
+      e.source = 'off';
+      e.status = r.status;
+      if (r.status === 429) e.retryAfter = parseRetryAfter(r.headers && r.headers.get('Retry-After'));
+      throw e;
+    }
     const data = await r.json();
     const products = Array.isArray(data && data.products) ? data.products : [];
     const results = [];
@@ -377,10 +391,10 @@
    * @param {string} source
    * @returns {Promise<Array>}
    */
-  async function searchFoodsOnline(query, source) {
+  async function searchFoodsOnline(query, source, signal) {
     const useOff = source === 'off';
     try {
-      return useOff ? await searchOffFoods(query) : await searchUsdaFoods(query);
+      return useOff ? await searchOffFoods(query, 25, signal) : await searchUsdaFoods(query, signal);
     } catch (e) {
       console.error('[barcode scanner] ' + (useOff ? 'Open Food Facts' : 'USDA') + ' search failed:', e);
       throw e;
@@ -404,6 +418,218 @@
 
   function otherSearchSource(src) {
     return src === 'usda' ? 'off' : 'usda';
+  }
+
+  // Persistent per-(source, query) search state, shared across popup opens.
+  const SEARCH_TIMEOUTS = { usda: 20000, off: 30000 };
+  const MAX_ATTEMPTS = { usda: 3, off: 3 };
+  const RETRY_DELAYS = { usda: 2000, off: 2000 };
+  const MAX_BACKOFF_MS = 15000;
+  const _searchCache = {};
+  const _searchPending = {};
+
+  function keyFor(source, query) {
+    return source + '|' + String(query || '').trim().toLowerCase();
+  }
+
+  function isAbortError(err) {
+    return !!(err && (err.name === 'AbortError' || err.name === 'TimeoutError'));
+  }
+
+  function sourceLabel(src) {
+    return src === 'off' ? 'Open Food Facts' : 'USDA API';
+  }
+
+  function parseRetryAfter(value) {
+    if (value == null) return null;
+    const str = String(value).trim();
+    if (!str) return null;
+    const secs = parseInt(str, 10);
+    if (Number.isFinite(secs) && String(secs) === str) return secs * 1000;
+    const t = Date.parse(str);
+    if (Number.isFinite(t)) return Math.max(0, t - Date.now());
+    return null;
+  }
+
+  function retryDelayMs(source, attemptNumber, err) {
+    const base = ((RETRY_DELAYS && RETRY_DELAYS[source]) || 2000) * Math.pow(2, attemptNumber - 1);
+    const after = err && err.retryAfter ? err.retryAfter : 0;
+    return Math.min(MAX_BACKOFF_MS, Math.max(base, after));
+  }
+
+  function isRetryableError(err) {
+    if (!err) return false;
+    if (err.name === 'AbortError') return false;
+    if (err.timedOut) return true;
+    if (err.name === 'TypeError') return true;
+    if (err.status === 429) return true;
+    if (err.status >= 500 && err.status <= 599) return true;
+    return false;
+  }
+
+  function sleep(ms, controller) {
+    return new Promise(function (resolve) {
+      if (!controller) {
+        setTimeout(resolve, ms);
+        return;
+      }
+      if (controller.signal.aborted) {
+        resolve();
+        return;
+      }
+      let timer = null;
+      function onAbort() {
+        if (timer) clearTimeout(timer);
+        resolve();
+      }
+      timer = setTimeout(function () {
+        controller.signal.removeEventListener('abort', onAbort);
+        resolve();
+      }, ms);
+      controller.signal.addEventListener('abort', onAbort);
+    });
+  }
+
+  /**
+   * fetch() with a timeout. Uses an internal AbortController for the timer and
+   * relays an optional external signal (e.g. close-abort) into it.
+   * A timeout produces Error('Search timed out...'); an external abort passes
+   * through its original error.
+   */
+  function fetchWithTimeout(url, ms, init) {
+    if (typeof AbortController === 'undefined') return fetch(url, init);
+    const controller = new AbortController();
+    const merged = Object.assign({}, init || {}, { signal: controller.signal });
+    const external = init && init.signal ? init.signal : null;
+    let timedOut = false;
+    let onExternalAbort = null;
+    const timer = setTimeout(function () {
+      timedOut = true;
+      controller.abort();
+    }, ms);
+    if (external) {
+      onExternalAbort = function () { controller.abort(); };
+      if (external.aborted) controller.abort();
+      else external.addEventListener('abort', onExternalAbort);
+    }
+    return fetch(url, merged)
+      .finally(function () {
+        clearTimeout(timer);
+        if (external && onExternalAbort) external.removeEventListener('abort', onExternalAbort);
+      })
+      .catch(function (err) {
+        if (timedOut) {
+          const e = new Error('Search timed out.');
+          e.timedOut = true;
+          throw e;
+        }
+        throw err;
+      });
+  }
+
+  /**
+   * Single-flight retry saga for one (source, query) with a session cache.
+   * Attempts immediately, then retries retryable failures with backoff. Only
+   * successes are cached — exhausted failures return an error envelope so a
+   * reopen or tab flip starts a fresh saga instead of showing a stale error.
+   * A `setStatus(fn)` accessor on the returned promise lets callers observe
+   * retry progress. An abort caused by closing the popup cancels any sleep,
+   * drops the cache entry, and rethrows so a later reopen starts clean.
+   */
+  function requestSearch(source, query) {
+    const key = keyFor(source, query);
+    if (_searchCache[key]) {
+      const resolved = Promise.resolve(_searchCache[key]);
+      resolved.setStatus = function () {};
+      return resolved;
+    }
+    if (_searchPending[key]) return _searchPending[key].promise;
+
+    const controller =
+      typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const entry = { promise: null, controller: controller, abortedByClose: false, onStatus: null };
+
+    function setStatus(fn) {
+      entry.onStatus = typeof fn === 'function' ? fn : null;
+    }
+
+    function throwAborted() {
+      if (entry.abortedByClose) delete _searchCache[key];
+      const abortErr = new Error('Aborted');
+      abortErr.name = 'AbortError';
+      throw abortErr;
+    }
+
+    const p = (async function () {
+      const maxAttempts = Math.max(1, (MAX_ATTEMPTS && MAX_ATTEMPTS[source]) || 1);
+      let attempt = 1;
+      try {
+        while (attempt <= maxAttempts) {
+          if (controller && controller.signal.aborted) throwAborted();
+          try {
+            const results = await searchFoodsOnline(query, source, controller ? controller.signal : undefined);
+            const data = { results: results || [] };
+            _searchCache[key] = data;
+            return data;
+          } catch (err) {
+            if (entry.abortedByClose && isAbortError(err)) {
+              delete _searchCache[key];
+              throw err;
+            }
+            if (entry.abortedByClose || !isRetryableError(err) || attempt >= maxAttempts) {
+              return {
+                error: (err && err.message) || 'Search failed.',
+                source: (err && err.source) || source,
+                status: err ? err.status : undefined,
+                retryAfter: err ? err.retryAfter : undefined,
+                timedOut: !!(err && err.timedOut),
+                name: err && err.name ? err.name : 'Error',
+              };
+            }
+            const delay = retryDelayMs(source, attempt, err);
+            if (entry.onStatus) {
+              const label = sourceLabel(source);
+              const secs = Math.max(1, Math.round(delay / 1000));
+              entry.onStatus(
+                err && err.status === 429
+                  ? label + ' is rate-limiting requests. Waiting — retrying automatically in ' + secs + 's…'
+                  : label + ' is not responding — retrying in ' + secs + 's (attempt ' + (attempt + 1) + '/' + maxAttempts + ')…'
+              );
+            }
+            await sleep(delay, controller);
+            if (controller && controller.signal.aborted) throwAborted();
+            attempt++;
+          }
+        }
+      } finally {
+        delete _searchPending[key];
+      }
+      return { error: 'Search failed.', source: source };
+    })();
+
+    entry.promise = p;
+    p.setStatus = setStatus;
+    _searchPending[key] = entry;
+    return p;
+  }
+
+  function abortAllPendingSearches() {
+    Object.keys(_searchPending).forEach(function (key) {
+      const entry = _searchPending[key];
+      if (!entry) return;
+      entry.abortedByClose = true;
+      if (entry.controller) entry.controller.abort();
+    });
+  }
+
+  function friendlySearchError(source, err) {
+    const label = sourceLabel(source);
+    if (!err) return 'Search failed.';
+    if (err.status === 429) return label + ' is rate-limiting requests. Try again in a moment.';
+    if (err.timedOut) return label + ' is taking too long to respond.';
+    if (err.status) return label + ' returned an error (' + err.status + ').';
+    if (err.name === 'TypeError') return 'Unable to reach ' + label + '. Check your connection and retry.';
+    return 'Unable to reach ' + label + '. Check your connection and retry.';
   }
 
   function renderSourceTabs(container, active, onSelect) {
@@ -784,13 +1010,17 @@
     if (confirmEl) confirmEl.style.display = 'none';
 
     const trimmedQuery = String(query || '').trim();
-    let searchId = 0;
-    const resultsCache = {};
+    resultsEl.innerHTML = '';
+    removeRetryButton();
 
-    function renderResults(results) {
+    function renderResults(results, source) {
       resultsEl.innerHTML = '';
+      removeRetryButton();
       if (!results.length) {
-        if (statusEl) statusEl.textContent = 'No results. Try a different search.';
+        if (statusEl) {
+          statusEl.textContent = 'No search results for "' + trimmedQuery + '" in ' + sourceLabel(source) + '.';
+        }
+        addRetryButton();
         return;
       }
       if (statusEl) {
@@ -821,60 +1051,111 @@
       });
     }
 
+    function removeRetryButton() {
+      const b = resultsEl.querySelector('#food-search-retry');
+      if (b) b.remove();
+    }
+
+    function addRetryButton() {
+      if (resultsEl.querySelector('#food-search-retry')) return;
+      const retryBtn = document.createElement('button');
+      retryBtn.type = 'button';
+      retryBtn.className = 'btn';
+      retryBtn.id = 'food-search-retry';
+      retryBtn.textContent = '↻ Retry';
+      retryBtn.style.cssText =
+        'align-self:flex-start;margin-top:6px;cursor:pointer;';
+      retryBtn.addEventListener('click', function () {
+        // Success-with-empty is cached; drop it so a fake-empty (e.g. OFF throttling)
+        // actually re-searches instead of replaying the cached empty page.
+        delete _searchCache[keyFor(activeSearchSource(), trimmedQuery)];
+        removeRetryButton();
+        runSearch();
+      });
+      resultsEl.appendChild(retryBtn);
+    }
+
+    function showSearchError(message) {
+      if (statusEl) statusEl.textContent = message;
+      resultsEl.innerHTML = '';
+      removeRetryButton();
+      addRetryButton();
+    }
+
     function renderTabs() {
       renderSourceTabs(tabsEl, activeSearchSource(), function (src) {
+        // Re-tap of the active tab is a no-op; retries go through the Retry button.
         if (_activeSearchSource === src) return;
         _activeSearchSource = src;
         renderTabs();
         if (!trimmedQuery) return;
-        if (resultsCache[src]) {
-          renderResults(resultsCache[src]);
-        } else {
-          runSearch();
-        }
+        renderForActiveTab();
       });
     }
     renderTabs();
 
+    function renderForActiveTab() {
+      const src = activeSearchSource();
+      if (!trimmedQuery) {
+        panel.style.display = 'flex';
+        if (statusEl) statusEl.textContent = 'Type a food name to search.';
+        return;
+      }
+      const cached = _searchCache[keyFor(src, trimmedQuery)];
+      if (cached) {
+        renderResults(cached.results, src);
+        return;
+      }
+      runSearch();
+    }
+
     function runSearch() {
+      if (!trimmedQuery) return;
       panel.style.display = 'flex';
-      if (statusEl) statusEl.textContent = 'Searching…';
+      if (statusEl) statusEl.textContent = 'Searching ' + sourceLabel(activeSearchSource()) + '…';
       resultsEl.innerHTML = '';
+      removeRetryButton();
 
       const src = activeSearchSource();
-      const myId = ++searchId;
-      searchFoodsOnline(trimmedQuery, src)
-        .then(function (results) {
-          if (myId !== searchId) return;
+      const saga = requestSearch(src, trimmedQuery);
+      saga.setStatus(function (msg) {
+        if (panel.style.display === 'none') return;
+        if (activeSearchSource() !== src) return;
+        if (statusEl) statusEl.textContent = msg;
+      });
+      saga
+        .then(function (entry) {
           if (panel.style.display === 'none') return;
+          if (activeSearchSource() !== src) return;
+          if (entry && entry.error) {
+            console.error('[barcode scanner] Search failed for "' + trimmedQuery + '":', entry.error);
+            showSearchError(friendlySearchError(src, entry));
+            return;
+          }
           console.info(
             '[barcode scanner] Search for "' + trimmedQuery + '" returned ' +
-            (results ? results.length : 0) + ' result(s).'
+            (entry && entry.results ? entry.results.length : 0) + ' result(s).'
           );
-          var cached = results || [];
-          resultsCache[src] = cached;
-          renderResults(cached);
+          renderResults((entry && entry.results) || [], src);
         })
         .catch(function (err) {
-          if (myId !== searchId) return;
           if (panel.style.display === 'none') return;
+          if (activeSearchSource() !== src) return;
           console.error('[barcode scanner] Search failed for "' + trimmedQuery + '":', err);
-          if (statusEl) statusEl.textContent = 'Search failed: ' + (err && err.message);
-          resultsEl.innerHTML = '';
+          showSearchError(friendlySearchError(src, err));
         });
     }
 
     if (!trimmedQuery) {
-      panel.style.display = 'flex';
-      if (statusEl) statusEl.textContent = 'Type a food name to search.';
+      renderForActiveTab();
       return;
     }
 
-    runSearch();
+    renderForActiveTab();
 
     closeBtn.onclick = function () {
       panel.style.display = 'none';
-      searchId++;
+      abortAllPendingSearches();
     };
   };
 
