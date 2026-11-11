@@ -37,9 +37,9 @@
             let currentTimer = null;
             let timerInterval = null;
             let restTimeSettings = {
-                warmup: 75,
-                main: 180,
-                accessory: 90
+                warmup: 60,
+                main: 90,
+                accessory: 60
             };
 
             // Progression chart state
