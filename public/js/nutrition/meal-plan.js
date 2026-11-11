@@ -334,6 +334,41 @@ const MealPlanning = {
         this.save(mealPlanning);
     },
 
+    /**
+     * Detect and apply a calendar-day rollover to the skip state.
+     *
+     * `removedMeals` is flat and current-day-only, so every skip entry must be
+     * wiped the moment the day changes. Two staleness signals are considered:
+     * - persisted: `currentKey !== RadiantStorage.nutrition.getToday()` — the
+     *   canonical stored day is behind the actual date. This is the ONLY signal a
+     *   freshly-loaded page has, because its in-memory `today` starts blank and
+     *   must not be mistaken for "the previous day".
+     * - in-memory: `inMemoryToday` is set and differs from `currentKey` — this JS
+     *   context was alive since before midnight.
+     *
+     * Idempotent and cheap; call on every load, resume, and periodic tick.
+     * Returns true when a rollover was applied (skip state cleared).
+     */
+    rollOverIfDayChanged(currentKey, inMemoryToday, mealPlanning) {
+        var storedToday = RadiantStorage.nutrition.getToday();
+        var inMemoryStale = !!inMemoryToday && inMemoryToday !== currentKey;
+        // `!!inMemoryToday` is load-bearing: undefined/null means "no prior day in
+        // this context" (fresh load), NOT a rollover — same-day reloads must keep
+        // that day's skips.
+        var storedStale = !!currentKey && currentKey !== storedToday;
+        if (!inMemoryStale && !storedStale) return false;
+        this.ensureDefaults(mealPlanning);
+        if (storedStale) {
+            RadiantStorage.nutrition.setToday(currentKey);
+        }
+        try {
+            this.clearRemovedMeals(mealPlanning);
+        } catch (e) {
+            // A broken meal-planning store must not block the date rollover.
+        }
+        return true;
+    },
+
     // ---- elements --------------------------------------------------------
 
     /**

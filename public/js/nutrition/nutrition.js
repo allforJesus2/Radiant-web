@@ -1,11 +1,15 @@
 	var today;
+	// Snapshot of the last fully-displayed macro view (keeps `timeAdded`, so the
+	// periodic bar refresh can re-split recent/settled as foods age).
+	var recentBarsMacroItems = null;
+	var recentBarsSelectedMeal = 'All';
 	var displayFoodItemsGeneration = 0;
 	var pendingExpandMealType = null;
 	var mealPlanNavIndex = { breakfast: -1, lunch: -1, dinner: -1, snack: -1 };
 	var mealPlanNavInit = { breakfast: false, lunch: false, dinner: false, snack: false };
 
 	// Threshold (minutes) used for both deduplication and "recent food" yellow highlight
-	const RECENT_FOOD_MINUTES = 60;
+	const RECENT_FOOD_MINUTES = 120;
 	// When changing a food's log time, other items within this many minutes of its original time may be updated together
 	const EDIT_TIME_SYNC_WINDOW_MINUTES = 5;
 
@@ -32,19 +36,25 @@
 
 	function refreshTodayIfDateChanged() {
 		var key = getTodayKey();
-		if (key === today) return;
-		today = key;
-		RadiantStorage.nutrition.setToday(today);
-		// Yesterday's meal-plan skips never apply today — the skip map is flat
-		// per slot and only ever holds the current day's state.
-		try {
-			MealPlanning.clearRemovedMeals(MealPlanning.load());
-		} catch (e) {
-			// A broken meal-planning store must not block the date rollover.
+		if (!MealPlanning.rollOverIfDayChanged(key, today, MealPlanning.load())) {
+			return false;
 		}
+		today = key;
 		var foodLog = RadiantStorage.nutrition.getFoodLog();
 		displayFoodItems(foodLog[today] || []);
 		if (typeof setupHeader === 'function') setupHeader();
+		return true;
+	}
+
+	function refreshRecentBars() {
+		if (!Array.isArray(recentBarsMacroItems)) return;
+		updateProgressBars(calculateMealTotals(recentBarsMacroItems, recentBarsSelectedMeal));
+	}
+
+	function nutritionMinuteTick() {
+		// A rollover already re-rendered the list (bars repainted fresh), so only
+		// recompute the snapshot's recent/settled split when the day is unchanged.
+		if (!refreshTodayIfDateChanged()) refreshRecentBars();
 	}
 
 	// Function to check if user just completed profile creation flow
@@ -925,11 +935,13 @@ function updateNutritionProfileCharacterPortrait() {
 window.addEventListener('pageshow', function () {
     updateNutritionProfileCharacterPortrait();
     refreshTodayIfDateChanged();
+    refreshRecentBars();
 });
 
 document.addEventListener('visibilitychange', function () {
     if (document.visibilityState === 'visible') {
         refreshTodayIfDateChanged();
+        refreshRecentBars();
     }
 });
 
@@ -1460,6 +1472,8 @@ async function displayFoodItems(foodItems) {
             ? quickDisplayMacrosForLogItem(it)
             : Object.assign({}, it);
     });
+    recentBarsMacroItems = quickList;
+    recentBarsSelectedMeal = selectedMeal;
     function viewForItem(item) {
         var idx = foodItems.indexOf(item);
         return idx >= 0 ? quickList[idx] : item;
@@ -1636,6 +1650,8 @@ async function displayFoodItems(foodItems) {
 
     enrichFoodLogDayItems(foodItems).then(function(enrichedList) {
         if (generation !== displayFoodItemsGeneration) return;
+        recentBarsMacroItems = enrichedList;
+        recentBarsSelectedMeal = selectedMeal;
         patchFoodLogDomAfterEnrich(scrollableWindow, foodItems, enrichedList);
         if (selectedMeal === 'All') {
             updateMealHeaderCaloriesFromEnriched(scrollableWindow, enrichedList);
@@ -2488,13 +2504,16 @@ document.addEventListener('DOMContentLoaded', async function() {
 	document.addEventListener('click', collapseAllFoodItemActions);
 
 	today = getTodayKey();
-	RadiantStorage.nutrition.setToday(today);
+	// A fresh load's in-memory `today` is blank (no prior-day signal), so the
+	// persisted canonical date is the only check that can catch a skipped day.
+	MealPlanning.rollOverIfDayChanged(today, undefined, MealPlanning.load());
 
 	foodInput = document.querySelector('.food');
 	autocompleteList = document.getElementById('autocompleteList');
 	updateScrollableWindowHeight();
 	window.addEventListener('resize', updateScrollableWindowHeight);
 	window.addEventListener('pagehide', persistMealCollapsePreference);
+	setInterval(nutritionMinuteTick, 60000);
 
 	var scanBtn = document.getElementById('scanBarcodeBtn');
 	if (scanBtn) {
